@@ -1,0 +1,119 @@
+# Backend pipeline. Reusable workflow — invoked by ci.yml when backend files
+# (or shared files) change. See docs/12-ci-cd.md#backend-pipeline.
+name: Backend
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+    working-directory: backend
+
+jobs:
+  lint:
+    name: Lint & format
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-backend
+      - name: Ruff lint
+        run: ruff check --output-format=github .
+      - name: Ruff format
+        run: ruff format --check --diff .
+
+  typecheck:
+    name: Type check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-backend
+      - name: Mypy
+        run: mypy app tests
+
+  test:
+    name: Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.12', '3.13']
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-backend
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Pytest with coverage
+        run: >-
+          pytest
+          --cov
+          --cov-report=term
+          --cov-report=xml:reports/coverage.xml
+          --junitxml=reports/junit.xml
+      - name: Coverage summary
+        if: ${{ !cancelled() }}
+        run: |
+          {
+            echo "### Backend coverage (Python ${{ matrix.python-version }})"
+            coverage report --format=markdown || true
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload test reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: backend-test-reports-py${{ matrix.python-version }}
+          path: backend/reports/
+          retention-days: 14
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-backend
+      - name: pip-audit
+        run: pip-audit --skip-editable --progress-spinner off
+
+  docker:
+    name: Docker image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Hadolint
+        uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3.5.0
+        with:
+          dockerfile: backend/Dockerfile
+          config: .hadolint.yaml
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: backend
+          load: true
+          push: false
+          tags: vectorsnap-backend:ci
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,scope=backend,mode=max
+      - name: Smoke test
+        run: scripts/ci/smoke-test.sh vectorsnap-backend:ci 8000 /api/v1/health

@@ -1,0 +1,2 @@
+# Dockerfile linting rules, used by CI (docs/12-ci-cd.md).
+failure-threshold: warning
