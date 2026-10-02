@@ -3,7 +3,7 @@
 BACKEND_DIR := backend
 FRONTEND_DIR := frontend
 
-.PHONY: help up down logs install install-backend install-frontend dev-backend dev-frontend lint lint-backend lint-frontend typecheck typecheck-backend typecheck-frontend test test-backend test-frontend
+.PHONY: help up down logs install install-backend install-frontend dev-backend dev-frontend lint lint-backend lint-frontend typecheck typecheck-backend typecheck-frontend test test-backend test-frontend hooks lint-commits ci
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -37,12 +37,12 @@ lint-backend: ## Lint and check formatting of the backend
 	cd $(BACKEND_DIR) && ruff check . && ruff format --check .
 
 lint-frontend: ## Lint the frontend
-	cd $(FRONTEND_DIR) && npm run lint
+	cd $(FRONTEND_DIR) && npm run lint && npm run format:check
 
 typecheck: typecheck-backend typecheck-frontend ## Type-check everything
 
 typecheck-backend: ## Type-check the backend
-	cd $(BACKEND_DIR) && mypy app
+	cd $(BACKEND_DIR) && mypy app tests
 
 typecheck-frontend: ## Type-check the frontend
 	cd $(FRONTEND_DIR) && npm run typecheck
@@ -50,7 +50,15 @@ typecheck-frontend: ## Type-check the frontend
 test: test-backend test-frontend ## Run all tests
 
 test-backend: ## Run backend tests
-	cd $(BACKEND_DIR) && pytest
+	cd $(BACKEND_DIR) && pytest --cov
 
 test-frontend: ## Run frontend tests
-	cd $(FRONTEND_DIR) && npm test
+	cd $(FRONTEND_DIR) && npm run test:coverage
+
+hooks: ## Enable repository git hooks (commit message validation)
+	git config core.hooksPath .githooks
+
+lint-commits: ## Validate commit messages on the current branch against origin/main
+	scripts/lint-commits.sh --from origin/main --to HEAD --verbose
+
+ci: lint typecheck test ## Run the main CI checks locally
