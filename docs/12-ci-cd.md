@@ -221,4 +221,5 @@ docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12           # wor
 | PR title check fails | Edit the title, e.g. `feat(editor): add lasso split` — the check re-runs automatically |
 | Coverage threshold failure | Add tests; thresholds are intentional (NFR-10) and should not be lowered without discussion |
 | `pip-audit` / `npm audit` failure without code changes | A new advisory was published — upgrade the dependency (or wait for the Dependabot PR) |
+| `Detect changes` fails with `git fetch ... origin <sha>` exit code 128 | The base commit isn't in the clone and git can't fetch it (no persisted credentials on a private repo, or the commit was removed by a force push). The `changes` job checks out full history (`fetch-depth: 0`) to avoid this; after a force push to `main`, re-run via *Run workflow* (`workflow_dispatch`) |
 | Frontend container fails smoke test with `host not found in upstream "backend"` | nginx needs the `backend` host to resolve; the standalone test passes `--add-host backend:127.0.0.1` |

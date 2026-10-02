@@ -30,8 +30,12 @@ jobs:
       frontend: ${{ steps.scope.outputs.frontend }}
       tooling: ${{ steps.scope.outputs.tooling }}
     steps:
+      # Full history: on push events paths-filter diffs against `github.event.before`
+      # locally. With a shallow clone it would `git fetch` that SHA, which fails on
+      # private repos because credentials are intentionally not persisted.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
       - name: Match changed paths
         id: filter
