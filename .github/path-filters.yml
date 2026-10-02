@@ -1,0 +1,30 @@
+# Path rules that decide which CI pipelines run (dorny/paths-filter syntax).
+# Documented in docs/12-ci-cd.md#path-based-triggering — keep both in sync.
+
+backend:
+  - 'backend/**'
+  - '.github/workflows/backend.yml'
+  - '.github/actions/setup-backend/**'
+
+frontend:
+  - 'frontend/**'
+  - '.github/workflows/frontend.yml'
+  - '.github/actions/setup-frontend/**'
+
+# Files that affect every service: any change here runs ALL pipelines.
+shared:
+  - '.gitignore'
+  - '.editorconfig'
+  - '.env.example'
+  - '.hadolint.yaml'
+  - 'docker-compose*.yml'
+  - 'Makefile'
+  - 'scripts/ci/**'
+  - '.github/path-filters.yml'
+  - '.github/workflows/ci.yml'
+
+# Repository tooling: workflows, composite actions, scripts and git hooks.
+tooling:
+  - '.github/**'
+  - 'scripts/**'
+  - '.githooks/**'
