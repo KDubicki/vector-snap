@@ -19,7 +19,7 @@ frontend runs only the frontend pipeline, and a change to a shared file (e.g.
 | [`.github/dependabot.yml`](../.github/dependabot.yml) | Weekly dependency updates with Conventional Commit messages |
 | [`commitlint.config.mjs`](../commitlint.config.mjs) | Commit message rules |
 | [`scripts/lint-commits.sh`](../scripts/lint-commits.sh) | Commitlint wrapper used by CI, the git hook and `make` |
-| [`scripts/ci/smoke-test.sh`](../scripts/ci/smoke-test.sh) | Starts a container and waits for an HTTP endpoint |
+| [`scripts/ci/smoke-test.sh`](../scripts/ci/smoke-test.sh) | Starts a container and waits for its Docker `HEALTHCHECK` to report healthy |
 | [`scripts/ci/coverage-summary.mjs`](../scripts/ci/coverage-summary.mjs) | Renders frontend coverage into the job summary |
 | [`.hadolint.yaml`](../.hadolint.yaml) | Dockerfile lint rules |
 
@@ -87,7 +87,7 @@ Defined in `backend.yml`; all jobs run in parallel on `ubuntu-24.04`.
 | **Type check** | `mypy app tests` (strict mode for `app/services`) | Any type error |
 | **Test (Python 3.12, 3.13)** | `pytest` with branch coverage, matrix over supported Python versions; JUnit + Cobertura reports uploaded as artifacts; coverage table in the job summary | Test failure or coverage < **80%** (`[tool.coverage.report] fail_under`) |
 | **Dependency audit** | `pip-audit` against the PyPI advisory DB / OSV | A dependency has a known vulnerability |
-| **Docker image** | `hadolint` on the Dockerfile → BuildKit build with GitHub Actions layer cache → container smoke test on `/api/v1/health` | Dockerfile lint warning, build failure, or the container doesn't become healthy in 60 s |
+| **Docker image** | `hadolint` on the Dockerfile → BuildKit build with GitHub Actions layer cache → smoke test: container must report `healthy` via its own `HEALTHCHECK` (which calls `/api/v1/health`) | Dockerfile lint warning, build failure, or the container exits / is unhealthy / not healthy within 60 s |
 
 ## Frontend pipeline
 
@@ -100,7 +100,7 @@ Defined in `frontend.yml`; all jobs run in parallel on `ubuntu-24.04`.
 | **Test** | Vitest with V8 coverage; JUnit + Cobertura uploaded; coverage table in job summary | Test failure or coverage below thresholds (lines/functions/statements 80%, branches 70%) |
 | **Build** | Production `vite build`; `dist/` uploaded as artifact (7 days) | Build error |
 | **Dependency audit** | `npm audit --omit=dev --audit-level=high` | High/critical vulnerability in production dependencies |
-| **Docker image** | `hadolint` → BuildKit build with cache → nginx smoke test on `/` | Same as backend |
+| **Docker image** | `hadolint` → BuildKit build with cache → smoke test via `HEALTHCHECK` (nginx serving `/`) | Same as backend |
 
 > Coverage scope: UI components (`src/components/**`, `App.tsx`) are excluded from unit
 > coverage; they will be covered by Playwright E2E tests (see [Roadmap](11-roadmap.md)).
@@ -182,6 +182,9 @@ Configure branch protection / a ruleset for `main`:
   report results.
 - **Caching:** pip and npm caches keyed on `pyproject.toml` / `package-lock.json`;
   Docker layers cached in the GitHub Actions cache per service (`scope=backend|frontend`).
+  Cache export errors are ignored (`ignore-error=true`) — a cache outage must not fail CI.
+- **Pinned linters:** hadolint, actionlint and shellcheck run from versioned Docker images,
+  so CI and local runs use identical versions.
 
 ## Dependency updates
 
@@ -198,19 +201,47 @@ backend pipeline.
 | Python | `backend/.python-version` (default) and the test matrix in `backend.yml` |
 | Node.js | `frontend/.nvmrc` (CI, local) and `frontend/Dockerfile` |
 | commitlint | `COMMITLINT_VERSION` in `scripts/lint-commits.sh` |
-| actionlint | Docker image tag in `ci.yml` (`tooling` job) |
+| actionlint, shellcheck | Docker image tags in `ci.yml` (`tooling` job) |
+| hadolint | Bundled by `hadolint/hadolint-action` (currently v2.15.1); keep `HADOLINT_IMAGE` in the `Makefile` in sync when Dependabot bumps the action |
 | GitHub Actions | SHA pins — updated by Dependabot |
 | ruff, mypy, pytest, pip-audit | `backend/pyproject.toml` (`[project.optional-dependencies].dev`) |
 | ESLint, Prettier, Vitest | `frontend/package.json` |
 
 ## Reproducing CI locally
 
+Run CI locally **before pushing**. There are two levels:
+
+### 1. Native tools (fast, ~30 s)
+
 ```bash
-make ci                 # backend + frontend: lint, typecheck, tests with coverage
-make lint-commits       # commit messages
-docker compose up --build --wait && curl -f localhost:8080/api/v1/health   # stack smoke test
-docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12           # workflows
+make ci                 # lint (incl. hadolint), typecheck, tests with coverage — backend + frontend
+make lint-commits       # commit messages on your branch
 ```
+
+### 2. The real workflows in containers with `act` (thorough, ~5–10 min)
+
+[`act`](https://github.com/nektos/act) executes the GitHub Actions workflows in Docker
+containers that mimic the GitHub runner — the same jobs, actions and pinned versions:
+
+```bash
+brew install act        # once
+make ci-act             # runs ci.yml as workflow_dispatch → every pipeline and the CI result gate
+```
+
+Single jobs can be run directly, e.g.:
+
+```bash
+act workflow_call -W .github/workflows/backend.yml -j docker -P ubuntu-24.04=catthehacker/ubuntu:act-24.04
+```
+
+Differences from GitHub under `act`:
+
+| Aspect | Under `act` | Why |
+|--------|-------------|-----|
+| Artifact uploads | Skipped (`if: !env.ACT`) | act's artifact server doesn't support the `upload-artifact` v7 protocol |
+| Job concurrency | Sequential (`--concurrent-jobs 1`) | act shares one tool cache between parallel jobs, so concurrent `pip install` / `npm ci` collide |
+| Path detection | Not exercised (manual run forces all pipelines) | `workflow_dispatch` always runs everything |
+| Working tree | Copied into the job container | Never use `--bind`: jobs would share and overwrite your local `node_modules` |
 
 ## Troubleshooting
 
@@ -223,3 +254,5 @@ docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12           # wor
 | `pip-audit` / `npm audit` failure without code changes | A new advisory was published — upgrade the dependency (or wait for the Dependabot PR) |
 | `Detect changes` fails with `git fetch ... origin <sha>` exit code 128 | The base commit isn't in the clone and git can't fetch it (no persisted credentials on a private repo, or the commit was removed by a force push). The `changes` job checks out full history (`fetch-depth: 0`) to avoid this; after a force push to `main`, re-run via *Run workflow* (`workflow_dispatch`) |
 | Frontend container fails smoke test with `host not found in upstream "backend"` | nginx needs the `backend` host to resolve; the standalone test passes `--add-host backend:127.0.0.1` |
+| `Docker image` job fails in `Hadolint` but `make lint-docker` passed earlier | The action's bundled hadolint version changed (new rules). Align `HADOLINT_IMAGE` in the `Makefile` with the action's version and fix the findings |
+| Smoke test fails with `defines no HEALTHCHECK` | Every service image must declare a `HEALTHCHECK` (exec form, e.g. `CMD ["wget", "-q", "--spider", "http://127.0.0.1/"]`) |

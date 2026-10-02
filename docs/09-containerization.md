@@ -21,7 +21,7 @@ Multi-stage build:
 1. **builder** — installs dependencies into a virtualenv (`/opt/venv`) using
    `pyproject.toml`. Build tools are only present in this stage.
 2. **runtime** — copies the virtualenv and the `app/` package, creates an unprivileged
-   `app` user, sets `PYTHONDONTWRITEBYTECODE=1`, `PYTHONUNBUFFERED=1`, and starts
+   `app` user (referenced by numeric UID `1000` so Kubernetes `runAsNonRoot` can verify it), sets `PYTHONDONTWRITEBYTECODE=1`, `PYTHONUNBUFFERED=1`, and starts
    `uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers ${UVICORN_WORKERS}`.
 
 The backend image is self-contained and can be deployed without the frontend — this is

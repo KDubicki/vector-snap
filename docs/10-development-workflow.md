@@ -72,7 +72,9 @@ BREAKING CHANGE: clients must send `palette_size` instead of `colors`.
 | Frontend lint/format | ESLint, Prettier | `make lint-frontend` |
 | Frontend types | `tsc --noEmit` | `make typecheck-frontend` |
 | Frontend tests | Vitest + V8 coverage | `make test-frontend` |
+| Dockerfiles | hadolint (same version as CI) | `make lint-docker` |
 | Everything above | | `make ci` |
+| Full GitHub Actions workflow in containers | act | `make ci-act` |
 
 ## Testing strategy
 
