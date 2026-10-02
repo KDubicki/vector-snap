@@ -12,7 +12,7 @@ flowchart LR
 | Service | Image base | Port (container → host) | Healthcheck |
 |---------|------------|-------------------------|-------------|
 | `backend` | `python:3.12-slim` | `8000 → 8000` | `GET /api/v1/health` |
-| `frontend` | `node:20-alpine` (build) → `nginx:1.27-alpine` (runtime) | `80 → 8080` | `GET /` |
+| `frontend` | `node:24-alpine` (build) → `nginx:1.27-alpine` (runtime) | `80 → 8080` | `GET /` |
 
 ## Backend image (`backend/Dockerfile`)
 
