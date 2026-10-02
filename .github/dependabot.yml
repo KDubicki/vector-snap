@@ -1,0 +1,54 @@
+# Automated dependency updates. Commit messages follow Conventional Commits:
+#   ci(deps): ...       GitHub Actions
+#   build(deps): ...    runtime dependencies / base images
+#   build(deps-dev): ...development dependencies
+# See docs/12-ci-cd.md#dependency-updates.
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: ci
+      include: scope
+    groups:
+      github-actions:
+        patterns: ['*']
+
+  - package-ecosystem: pip
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: build
+      prefix-development: build
+      include: scope
+    groups:
+      backend-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: build
+      prefix-development: build
+      include: scope
+    groups:
+      frontend-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: docker
+    directories: [/backend, /frontend]
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: build
+      include: scope
