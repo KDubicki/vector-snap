@@ -2,8 +2,10 @@
 
 BACKEND_DIR := backend
 FRONTEND_DIR := frontend
+# Keep in sync with the image bundled by hadolint/hadolint-action in the workflows.
+HADOLINT_IMAGE := ghcr.io/hadolint/hadolint:v2.15.1-debian
 
-.PHONY: help up down logs install install-backend install-frontend dev-backend dev-frontend lint lint-backend lint-frontend typecheck typecheck-backend typecheck-frontend test test-backend test-frontend hooks lint-commits ci
+.PHONY: help up down logs install install-backend install-frontend dev-backend dev-frontend lint lint-backend lint-frontend typecheck typecheck-backend typecheck-frontend test test-backend test-frontend hooks lint-commits ci ci-act lint-docker
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -61,4 +63,11 @@ hooks: ## Enable repository git hooks (commit message validation)
 lint-commits: ## Validate commit messages on the current branch against origin/main
 	scripts/lint-commits.sh --from origin/main --to HEAD --verbose
 
-ci: lint typecheck test ## Run the main CI checks locally
+ci: lint lint-docker typecheck test ## Run the main CI checks locally (native tools)
+
+lint-docker: ## Lint Dockerfiles with the same hadolint version as CI
+	docker run --rm -v "$(CURDIR):/repo" -w /repo $(HADOLINT_IMAGE) hadolint -c .hadolint.yaml backend/Dockerfile frontend/Dockerfile
+
+ci-act: ## Run the full GitHub Actions CI workflow locally in containers (requires act)
+	act workflow_dispatch -W .github/workflows/ci.yml --concurrent-jobs 1 \
+		-P ubuntu-24.04=catthehacker/ubuntu:act-24.04
