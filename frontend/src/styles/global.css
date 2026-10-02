@@ -4,7 +4,12 @@
   --color-text: #1d2b53;
   --color-accent: #ff004d;
   --radius: 8px;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
   color: var(--color-text);
   background: var(--color-bg);
 }
