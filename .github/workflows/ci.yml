@@ -39,6 +39,8 @@ jobs:
           persist-credentials: false
       - name: Match changed paths
         id: filter
+        # Manual runs execute every pipeline, so there is nothing to detect.
+        if: github.event_name != 'workflow_dispatch'
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         with:
           filters: .github/path-filters.yml
@@ -112,7 +114,7 @@ jobs:
       - name: Actionlint (workflows, includes shellcheck of run blocks)
         run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color
       - name: Shellcheck (scripts and git hooks)
-        run: shellcheck scripts/*.sh scripts/ci/*.sh .githooks/*
+        run: docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:v0.10.0 scripts/*.sh scripts/ci/*.sh .githooks/*
 
   backend:
     name: Backend
