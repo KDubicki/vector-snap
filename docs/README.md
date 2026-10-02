@@ -16,6 +16,7 @@ numbered in the recommended reading order.
 | 09 | [Containerization](09-containerization.md) | Docker images, Compose, deployment notes |
 | 10 | [Development workflow](10-development-workflow.md) | Branching, commits, code style, testing |
 | 11 | [Roadmap](11-roadmap.md) | Milestones and future ideas |
+| 12 | [Continuous integration](12-ci-cd.md) | GitHub Actions pipelines, path filters, commit checks, branch protection |
 | —  | [ADR](adr/) | Architecture Decision Records |
 
 ## Conventions

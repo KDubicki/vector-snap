@@ -78,6 +78,8 @@ vector-snap/
 │       ├── types/      # Shared TypeScript types
 │       └── styles/
 ├── docs/               # Detailed project documentation
+├── scripts/            # CI and developer scripts (commitlint, smoke tests)
+├── .github/            # GitHub Actions workflows, composite actions, Dependabot
 ├── docker-compose.yml
 └── Makefile
 ```
@@ -97,9 +99,27 @@ Detailed documentation lives in [`docs/`](docs/README.md):
 9. [Containerization](docs/09-containerization.md)
 10. [Development workflow](docs/10-development-workflow.md)
 11. [Roadmap](docs/11-roadmap.md)
-12. [Architecture Decision Records](docs/adr/)
+12. [Continuous integration](docs/12-ci-cd.md)
+13. [Architecture Decision Records](docs/adr/)
+
+## Continuous integration
+
+GitHub Actions runs path-filtered pipelines: backend changes run the backend pipeline,
+frontend changes run the frontend pipeline, shared files (e.g. `.gitignore`,
+`docker-compose.yml`) run everything. Each pipeline covers linting, formatting, type
+checking, tests with coverage thresholds, dependency audits and Docker image build +
+smoke test. Commit messages and PR titles are validated with commitlint. A single
+`CI result` check gates merges. Details: [docs/12-ci-cd.md](docs/12-ci-cd.md).
+
+Run the same checks locally:
+
+```bash
+make ci             # lint, typecheck, tests (backend + frontend)
+make lint-commits   # commit messages on your branch
+```
 
 ## Contributing
 
-Commits follow [Conventional Commits](https://www.conventionalcommits.org/).
+Commits follow [Conventional Commits](https://www.conventionalcommits.org/) and are
+validated in CI. Enable the local commit-msg hook with `make hooks`.
 See [Development workflow](docs/10-development-workflow.md) for details.

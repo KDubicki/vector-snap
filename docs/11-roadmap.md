@@ -2,7 +2,8 @@
 
 ## Milestone 0 — Project foundation ✅
 
-- Repository structure, documentation, Docker skeleton, CI-ready tooling.
+- Repository structure, documentation, Docker skeleton.
+- GitHub Actions CI: path-filtered backend/frontend pipelines, commitlint, Dependabot.
 
 ## Milestone 1 — Backend MVP
 
@@ -34,7 +35,8 @@
 - [ ] Lasso split, merge, delete (FR-32, FR-35, FR-36)
 - [ ] Palette merge, algorithm choice, locked colors (FR-14…FR-16)
 - [ ] Advanced tracing options UI (FR-24)
-- [ ] CI pipeline, docker-compose.dev.yml, E2E tests
+- [ ] docker-compose.dev.yml, Playwright E2E tests in CI
+- [ ] Release workflow: changelog, version tags, image publishing to a registry
 
 ## Future ideas
 

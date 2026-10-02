@@ -32,11 +32,16 @@ Format:
 | `ci` | CI configuration |
 | `chore` | Maintenance tasks that don't touch src or tests |
 
-Scopes: `backend`, `frontend`, `api`, `editor`, `docker`, `docs`.
+Scopes: `backend`, `frontend`, `api`, `editor`, `docker`, `docs`, `adr`, `ci`, `deps`,
+`deps-dev`, `release` (enforced by [`commitlint.config.mjs`](../commitlint.config.mjs)).
+
+Commit messages are validated in CI and, optionally, locally by a `commit-msg` hook
+(`make hooks`). See [CI — commit message checks](12-ci-cd.md#commit-message-checks).
 
 Rules:
 
-- Description in imperative mood, lower case, no trailing period, ≤ 72 characters.
+- Description in imperative mood, lower case, no trailing period, ≤ 72 characters
+  (CI hard limit for the whole header: 100).
 - Breaking changes: `!` after the type/scope and a `BREAKING CHANGE:` footer.
 - All commit messages, code, comments and documentation are written in **English**.
 
@@ -64,9 +69,10 @@ BREAKING CHANGE: clients must send `palette_size` instead of `colors`.
 | Backend lint/format | ruff | `make lint-backend` |
 | Backend types | mypy (strict on `app/services`) | `make typecheck-backend` |
 | Backend tests | pytest, pytest-cov | `make test-backend` |
-| Frontend lint | ESLint | `make lint-frontend` |
+| Frontend lint/format | ESLint, Prettier | `make lint-frontend` |
 | Frontend types | `tsc --noEmit` | `make typecheck-frontend` |
-| Frontend tests | Vitest | `make test-frontend` |
+| Frontend tests | Vitest + V8 coverage | `make test-frontend` |
+| Everything above | | `make ci` |
 
 ## Testing strategy
 
@@ -82,10 +88,12 @@ BREAKING CHANGE: clients must send `palette_size` instead of `colors`.
   (within tolerance).
 - **E2E (later)** — Playwright: upload → quantize → vectorize → split → download.
 
-## Continuous integration (planned)
+## Continuous integration
 
-GitHub Actions workflow per PR:
+GitHub Actions runs path-filtered pipelines on every PR and push to `main`: backend
+changes trigger only the backend pipeline, frontend changes only the frontend pipeline,
+shared files trigger everything. Merges require the `CI result` and
+`Conventional PR title` checks. PRs are squash-merged with the PR title as the commit
+message.
 
-1. Backend: ruff, mypy, pytest.
-2. Frontend: eslint, tsc, vitest, build.
-3. Docker: build both images.
+Full description: [12-ci-cd.md](12-ci-cd.md).
