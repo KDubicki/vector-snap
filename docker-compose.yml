@@ -1,0 +1,36 @@
+name: vectorsnap
+
+services:
+  backend:
+    build:
+      context: ./backend
+    image: vectorsnap-backend:dev
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-1}
+    ports:
+      - "8000:8000"
+    networks:
+      - vectorsnap
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+    image: vectorsnap-frontend:dev
+    ports:
+      - "8080:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - vectorsnap
+    restart: unless-stopped
+
+networks:
+  vectorsnap:
+    driver: bridge
