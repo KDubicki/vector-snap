@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
-# Start a container from <image> and wait until <path> on <container-port> returns 2xx.
-# Prints container logs and fails if the endpoint does not come up in time.
+# Start a container from <image> and wait until its Docker HEALTHCHECK reports "healthy".
+# Uses the healthcheck defined in the Dockerfile, so it works the same on GitHub runners,
+# inside `act` and locally, and verifies the healthcheck itself. Prints container logs and
+# fails if the container exits, becomes unhealthy, or doesn't become healthy in time.
 #
-# Usage: scripts/ci/smoke-test.sh <image> <container-port> <path> [extra docker run args...]
+# Usage: scripts/ci/smoke-test.sh <image> [extra docker run args...]
 set -euo pipefail
 
-if [[ $# -lt 3 ]]; then
-  echo "usage: $0 <image> <container-port> <path> [docker run args...]" >&2
+if [[ $# -lt 1 ]]; then
+  echo "usage: $0 <image> [docker run args...]" >&2
   exit 2
 fi
 
 image=$1
-container_port=$2
-path=$3
-shift 3
+shift
 
 timeout_seconds=${SMOKE_TIMEOUT:-60}
 name="smoke-$(date +%s)-$$"
@@ -25,23 +25,41 @@ cleanup() {
     echo "::group::Container logs ($name)"
     docker logs "$name" 2>&1 || true
     echo "::endgroup::"
+    echo "::group::Healthcheck log ($name)"
+    docker inspect --format '{{json .State.Health}}' "$name" 2>&1 || true
+    echo "::endgroup::"
   fi
   docker rm -f "$name" >/dev/null 2>&1 || true
   exit "$status"
 }
 trap cleanup EXIT
 
-docker run --detach --name "$name" --publish "127.0.0.1::${container_port}" "$@" "$image" >/dev/null
-host_port=$(docker port "$name" "${container_port}/tcp" | head -n1 | awk -F: '{print $NF}')
-url="http://127.0.0.1:${host_port}${path}"
+# Probe every 2s instead of the image's production interval to keep CI fast.
+docker run --detach --name "$name" --health-interval 2s --health-start-period 0s "$@" "$image" >/dev/null
 
 for _ in $(seq 1 "$timeout_seconds"); do
-  if curl --fail --silent --show-error --max-time 2 "$url" >/dev/null 2>&1; then
-    echo "Smoke test passed: $image responded on $path"
-    exit 0
-  fi
+  state=$(docker inspect --format '{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$name")
+  case "$state" in
+    "running healthy")
+      echo "Smoke test passed: $image is healthy"
+      exit 0
+      ;;
+    *" none")
+      echo "::error::$image defines no HEALTHCHECK"
+      exit 1
+      ;;
+    "running unhealthy")
+      echo "::error::$image reported unhealthy"
+      exit 1
+      ;;
+    running*) ;;
+    *)
+      echo "::error::$image container stopped (state: $state)"
+      exit 1
+      ;;
+  esac
   sleep 1
 done
 
-echo "::error::Smoke test failed: $url did not respond within ${timeout_seconds}s"
+echo "::error::$image did not become healthy within ${timeout_seconds}s"
 exit 1

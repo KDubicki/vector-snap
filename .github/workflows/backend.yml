@@ -70,7 +70,7 @@ jobs:
             coverage report --format=markdown || true
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload test reports
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && !env.ACT }} # act's artifact server lacks upload-artifact v7 support
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: backend-test-reports-py${{ matrix.python-version }}
@@ -114,6 +114,6 @@ jobs:
           push: false
           tags: vectorsnap-backend:ci
           cache-from: type=gha,scope=backend
-          cache-to: type=gha,scope=backend,mode=max
+          cache-to: type=gha,scope=backend,mode=max,ignore-error=true
       - name: Smoke test
-        run: scripts/ci/smoke-test.sh vectorsnap-backend:ci 8000 /api/v1/health
+        run: scripts/ci/smoke-test.sh vectorsnap-backend:ci

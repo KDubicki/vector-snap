@@ -55,7 +55,7 @@ jobs:
         if: ${{ !cancelled() && hashFiles('frontend/coverage/coverage-summary.json') != '' }}
         run: node ../scripts/ci/coverage-summary.mjs coverage/coverage-summary.json "Frontend coverage" >> "$GITHUB_STEP_SUMMARY"
       - name: Upload test reports
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && !env.ACT }} # act's artifact server lacks upload-artifact v7 support
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: frontend-test-reports
@@ -76,6 +76,7 @@ jobs:
       - name: Vite build
         run: npm run build
       - name: Upload bundle
+        if: ${{ !env.ACT }} # act's artifact server lacks upload-artifact v7 support
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: frontend-dist
@@ -121,7 +122,7 @@ jobs:
           push: false
           tags: vectorsnap-frontend:ci
           cache-from: type=gha,scope=frontend
-          cache-to: type=gha,scope=frontend,mode=max
+          cache-to: type=gha,scope=frontend,mode=max,ignore-error=true
       # nginx resolves the `backend` upstream at startup; point it at localhost for the standalone check.
       - name: Smoke test
-        run: scripts/ci/smoke-test.sh vectorsnap-frontend:ci 80 / --add-host backend:127.0.0.1
+        run: scripts/ci/smoke-test.sh vectorsnap-frontend:ci --add-host backend:127.0.0.1
