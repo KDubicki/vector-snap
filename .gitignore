@@ -33,3 +33,12 @@ npm-debug.log*
 # Runtime data
 storage/
 tmp/
+
+# Test reports
+coverage/
+reports/
+junit*.xml
+coverage.xml
+
+# TypeScript incremental build info
+*.tsbuildinfo
