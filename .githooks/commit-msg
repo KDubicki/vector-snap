@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+# Validates the commit message before the commit is created.
+# Enable with: make hooks
+exec "$(git rev-parse --show-toplevel)/scripts/lint-commits.sh" --edit "$1"
