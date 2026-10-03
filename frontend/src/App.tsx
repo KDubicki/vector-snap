@@ -1,31 +1,55 @@
-import { useState } from 'react';
-import { ColorCountSelector } from './components/ColorCountSelector';
+import { useEffect } from 'react';
 import { ImageUpload } from './components/ImageUpload';
+import { PaletteStep } from './components/PaletteStep';
+import { ResultStep } from './components/ResultStep';
+import { useAppStore, type Step } from './state/store';
 
-const DEFAULT_COLORS = 8;
+const STEPS: { id: Step; label: string }[] = [
+  { id: 'upload', label: 'Upload' },
+  { id: 'palette', label: 'Colors' },
+  { id: 'result', label: 'SVG' },
+];
 
 export function App() {
-  const [file, setFile] = useState<File | null>(null);
-  const [colors, setColors] = useState(DEFAULT_COLORS);
+  const step = useAppStore((s) => s.step);
+  const error = useAppStore((s) => s.error);
+  const { loadLimits, selectFile } = useAppStore.getState();
 
-  // TODO: wizard steps (upload → palette → editor) and Zustand store (docs/07-frontend.md)
+  useEffect(() => {
+    void loadLimits();
+  }, [loadLimits]);
+
   return (
     <main className="app">
-      <header>
-        <h1>VectorSnap</h1>
-        <p>Convert JPEG / PNG images to SVG with full control over colors.</p>
+      <header className="app__header">
+        <div>
+          <h1>VectorSnap</h1>
+          <p>Convert JPEG / PNG images to SVG with full control over colors.</p>
+        </div>
+        <ol className="steps">
+          {STEPS.map((item, index) => (
+            <li key={item.id} aria-current={item.id === step ? 'step' : undefined}>
+              <span>{index + 1}</span>
+              {item.label}
+            </li>
+          ))}
+        </ol>
       </header>
 
-      <ImageUpload onSelect={setFile} />
-
-      {file && (
-        <section>
-          <p>
-            Selected: <strong>{file.name}</strong> ({Math.round(file.size / 1024)} KB)
-          </p>
-          <ColorCountSelector value={colors} min={2} max={64} onChange={setColors} />
-        </section>
+      {error && (
+        <div className="error" role="alert">
+          {error}
+        </div>
       )}
+
+      {step === 'upload' && (
+        <ImageUpload
+          onSelect={selectFile}
+          onReject={(message) => useAppStore.setState({ error: message })}
+        />
+      )}
+      {step === 'palette' && <PaletteStep />}
+      {step === 'result' && <ResultStep />}
     </main>
   );
 }

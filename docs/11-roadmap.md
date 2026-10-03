@@ -18,10 +18,10 @@
 
 ## Milestone 2 — Frontend MVP
 
-- [ ] Upload step with client-side validation
-- [ ] Palette step: color count, preview, palette editing with live canvas preview (FR-13)
-- [ ] Vectorize call and SVG preview
-- [ ] Download
+- [x] Upload step with drag & drop, paste and client-side validation (FR-01, FR-02)
+- [x] Palette step: color count, method, preview, palette editing with live canvas preview (FR-10, FR-13, FR-15)
+- [x] Tracing options, vectorize call and SVG preview (FR-24)
+- [x] Download (FR-39)
 
 ## Milestone 3 — SVG editor
 

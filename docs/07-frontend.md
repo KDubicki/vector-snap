@@ -14,95 +14,101 @@
 
 ## Screen flow
 
-The application is a single page with a three-step wizard. Steps stay accessible after
-completion so the user can go back (e.g. change the color count) without losing edits
-made in later steps — going back invalidates later steps only after confirmation.
+The application is a single page with a three-step wizard. Going back to the colors step
+keeps the palette edits; changing the color count or method re-quantizes and resets them
+(palette indices change).
 
 ```mermaid
 stateDiagram-v2
     [*] --> Upload
     Upload --> Palette: image accepted
-    Palette --> Palette: change color count → re-quantize
-    Palette --> Palette: edit palette color (client-side preview)
-    Palette --> Editor: "Vectorize"
-    Editor --> Palette: back (confirm discarding edits)
-    Editor --> [*]: download SVG
+    Palette --> Palette: change color count / method → re-quantize (debounced)
+    Palette --> Palette: edit palette color (instant client-side preview)
+    Palette --> Result: "Convert to SVG"
+    Result --> Palette: back (edits kept)
+    Result --> [*]: download SVG
+    Palette --> Upload: new image
+    Result --> Upload: new image
 ```
 
-### Step 1 — Upload
+Status legend: ✅ implemented · 🔜 planned (see [Roadmap](11-roadmap.md)).
 
-- Drop zone + "Choose file" button + paste from clipboard.
-- Client-side checks against `GET /api/v1/limits` (type, size); the backend remains
-  authoritative.
-- Shows original image thumbnail, dimensions and file size.
+### Step 1 — Upload ✅
 
-### Step 2 — Colors & palette
+- Drop zone, file picker and paste from clipboard; only JPEG/PNG are accepted.
+- File size is checked against `GET /api/v1/limits` (loaded on startup, defaults used if
+  unavailable); the backend remains authoritative — its error message is shown inline.
 
-Layout: left = preview, right = controls.
+### Step 2 — Colors & palette ✅
+
+Layout: left = original and quantized previews side by side, right = controls.
 
 - **Color count**: slider + numeric input (`min_colors`…`max_colors`, default 8).
-  Changing it triggers `POST /quantize` (debounced 400 ms, previous request aborted via
-  `AbortController`).
-- **Algorithm**: k-means / median cut toggle.
-- **Preview**: side-by-side or swipe comparison original vs. quantized.
-- **Palette list**: one row per color — swatch, hex, coverage bar.
-  - Click swatch → color picker; edits are previewed **instantly client-side** by
-    re-rendering the indexed PNG on a `<canvas>` with the new palette (no server call).
-  - Hover a row → highlight pixels of that color in the preview.
-  - Merge: drag one swatch onto another (sets both indices to the same color).
-  - Reset single color / reset all.
-- **Tracing options** (collapsible "Advanced"): mode, speckle filter, corner threshold,
-  path precision, stacking.
-- **Vectorize** button → `POST /vectorize` with the indexed PNG and edited palette.
+  Changing it triggers `POST /quantize`, debounced 400 ms; a newer request aborts the
+  previous one (`AbortController`). Unchanged parameters never re-quantize, so returning
+  from the result step keeps edits.
+- **Method**: perceptual (k-means) / fast (median cut).
+- **Palette list**: one row per color — color picker, hex value, coverage bar, per-color
+  reset and "Reset all".
+  - Edits are previewed **instantly client-side**: the indexed PNG is decoded onto a
+    `<canvas>` and every pixel is mapped from its original palette color to the edited
+    color (`src/lib/recolor.ts`) — no server call.
+  - Merge: give two colors the same value; they become one region in the SVG.
+  - 🔜 Hover highlighting, drag-to-merge.
+- **Tracing options** (collapsible): curves (spline/polygon), shapes (cutout/stacked),
+  speck filter, corner threshold.
+- **Convert to SVG** → `POST /vectorize` with the indexed PNG and the final palette.
 
-### Step 3 — SVG editor
+### Step 3 — Result ✅ / SVG editor 🔜
 
-Described in detail in [08-svg-editor.md](08-svg-editor.md). Includes the **Download SVG**
-action and a file-size / path-count indicator.
+- ✅ SVG preview on a transparency checkerboard, shape count, file size, processing time,
+  colors used, **Download SVG** (`<original-name>.svg`), back to colors, new image.
+- 🔜 Interactive editing (select, split, recolor shapes) as described in
+  [08-svg-editor.md](08-svg-editor.md) replaces the static preview.
 
 ## Component tree
 
 ```
-App
-├── StepNav
-├── UploadStep
-│   └── ImageUpload
-├── PaletteStep
+App                         header with step indicator, error banner
+├── ImageUpload             (step: upload)
+├── PaletteStep             (step: palette)
 │   ├── ColorCountSelector
-│   ├── QuantizedPreview
+│   ├── QuantizedPreview    canvas, client-side recoloring
 │   ├── PaletteEditor
-│   │   └── PaletteSwatch (× N) → ColorPicker
-│   └── TracingOptions
-└── EditorStep
-    ├── EditorToolbar        (select, knife, lasso, recolor, merge, delete, undo/redo, zoom)
-    ├── SvgCanvas            (Paper.js canvas)
-    ├── EditorPalettePanel   (palette groups, recolor whole group)
-    └── ShapeInspector       (selected shape: color, area, id)
+│   └── TracingOptionsPanel
+└── ResultStep              (step: result) — SVG preview, stats, download
+    └── 🔜 SvgEditor        Paper.js canvas, toolbar, inspector (docs/08)
 ```
 
 ## State
 
+A single Zustand store (`src/state/store.ts`) holds UI state, server results and the
+async actions:
+
 ```ts
 interface AppState {
-  step: 'upload' | 'palette' | 'editor';
-  source: { file: File; width: number; height: number } | null;
-  quantize: {
-    params: { colors: number; algorithm: 'kmeans' | 'median_cut' };
-    result: QuantizeResponse | null;   // indexed PNG + original palette
-    paletteOverrides: Record<number, string>; // index → hex
-    status: 'idle' | 'loading' | 'error';
-  };
-  vectorize: {
-    options: TracingOptions;
-    result: VectorizeResponse | null;
-    status: 'idle' | 'loading' | 'error';
-  };
-  editor: EditorState; // see 08-svg-editor.md
+  step: 'upload' | 'palette' | 'result';
+  limits: { min_colors: number; max_colors: number; max_upload_mb: number };
+  file: File | null;
+  colors: number;
+  algorithm: 'kmeans' | 'median_cut';
+  quantized: QuantizeResponse | null;        // indexed PNG + original palette
+  quantizedFor: { file; colors; algorithm } | null; // params that produced `quantized`
+  overrides: Record<number, string>;         // palette index → edited hex
+  tracing: TracingOptions;                   // defaults: spline, cutout, speckle 4
+  vectorized: VectorizeResponse | null;
+  status: 'idle' | 'quantizing' | 'vectorizing';
+  error: string | null;
+  // actions: loadLimits, selectFile, setColors, setAlgorithm, setOverride, resetOverride,
+  // resetOverrides, setTracing, runQuantize, runVectorize, goTo, reset
 }
 ```
 
-- Server data and UI state live in a single Zustand store split into slices.
-- The editor document itself lives in Paper.js; the store holds the undo history and
+- Only one request is in flight at a time; starting a new one aborts the previous one,
+  and aborted requests never surface as errors.
+- Pure logic lives in `src/lib/` (color conversion, recoloring, base64) and `src/state/`,
+  and is unit-tested with Vitest; components are covered by E2E tests (planned).
+- 🔜 The editor document will live in Paper.js; the store will hold the undo history and
   selection, not a duplicated copy of the geometry.
 
 ## API client (`src/api/client.ts`)
