@@ -7,10 +7,22 @@ from dataclasses import dataclass
 
 import numpy as np
 from numpy.typing import NDArray
+from PIL import Image
+from sklearn.cluster import MiniBatchKMeans
 
 from app.services.image_io import DecodedImage
 
 TRANSPARENT_LABEL = 255
+
+# D65 reference white and sRGB -> XYZ matrix.
+_WHITE_D65 = np.array([0.95047, 1.0, 1.08883])
+_SRGB_TO_XYZ = np.array(
+    [
+        [0.4124564, 0.3575761, 0.1804375],
+        [0.2126729, 0.7151522, 0.0721750],
+        [0.0193339, 0.1191920, 0.9503041],
+    ]
+)
 
 
 @dataclass(frozen=True)
@@ -18,6 +30,69 @@ class QuantizationResult:
     labels: NDArray[np.uint8]  # H x W palette indices, TRANSPARENT_LABEL for transparent pixels
     palette: NDArray[np.uint8]  # N x 3, sorted by coverage descending
     coverage: NDArray[np.float64]  # N, fraction of opaque pixels
+
+    @property
+    def has_transparency(self) -> bool:
+        return bool((self.labels == TRANSPARENT_LABEL).any())
+
+
+def srgb_to_lab(rgb: NDArray[np.uint8]) -> NDArray[np.float64]:
+    """Convert N x 3 sRGB colors to CIE Lab (D65)."""
+    c = rgb.astype(np.float64) / 255.0
+    linear = np.where(c <= 0.04045, c / 12.92, ((c + 0.055) / 1.055) ** 2.4)
+    xyz = (linear @ _SRGB_TO_XYZ.T) / _WHITE_D65
+    delta = 6.0 / 29.0
+    f = np.where(xyz > delta**3, np.cbrt(xyz), xyz / (3 * delta**2) + 4.0 / 29.0)
+    lab: NDArray[np.float64] = np.empty(f.shape, dtype=np.float64)
+    lab[:, 0] = 116.0 * f[:, 1] - 16.0
+    lab[:, 1] = 500.0 * (f[:, 0] - f[:, 1])
+    lab[:, 2] = 200.0 * (f[:, 1] - f[:, 2])
+    return lab
+
+
+def _pack(rgb: NDArray[np.uint8]) -> NDArray[np.uint32]:
+    c = rgb.astype(np.uint32)
+    packed: NDArray[np.uint32] = np.asarray(
+        (c[:, 0] << 16) | (c[:, 1] << 8) | c[:, 2], dtype=np.uint32
+    )
+    return packed
+
+
+def _unpack(packed: NDArray[np.uint32]) -> NDArray[np.uint8]:
+    return np.stack([(packed >> 16) & 0xFF, (packed >> 8) & 0xFF, packed & 0xFF], axis=1).astype(
+        np.uint8
+    )
+
+
+def _nearest(
+    points: NDArray[np.float64], centers: NDArray[np.float64], chunk: int = 65536
+) -> NDArray[np.intp]:
+    """Index of the nearest center for every point, computed in chunks to bound memory."""
+    nearest = np.empty(len(points), dtype=np.intp)
+    for start in range(0, len(points), chunk):
+        block = points[start : start + chunk]
+        distances = ((block[:, None, :] - centers[None, :, :]) ** 2).sum(axis=2)
+        nearest[start : start + chunk] = distances.argmin(axis=1)
+    return nearest
+
+
+def _finalize(
+    image: DecodedImage, opaque_labels: NDArray[np.intp], palette: NDArray[np.uint8]
+) -> QuantizationResult:
+    """Drop empty clusters, sort the palette by coverage and build the full label map."""
+    counts = np.bincount(opaque_labels, minlength=len(palette))
+    order = [int(i) for i in np.argsort(-counts, kind="stable") if counts[i] > 0]
+    remap = np.zeros(len(palette), dtype=np.uint8)
+    remap[order] = np.arange(len(order), dtype=np.uint8)
+
+    labels = np.full((image.height, image.width), TRANSPARENT_LABEL, dtype=np.uint8)
+    labels[image.alpha_mask] = remap[opaque_labels]
+    sorted_counts = counts[order].astype(np.float64)
+    return QuantizationResult(
+        labels=labels,
+        palette=palette[order],
+        coverage=sorted_counts / sorted_counts.sum(),
+    )
 
 
 def quantize_kmeans(
@@ -28,10 +103,78 @@ def quantize_kmeans(
     max_working_size: int = 1024,
     seed: int = 0,
 ) -> QuantizationResult:
-    """Cluster pixels in CIE Lab space with MiniBatchKMeans."""
-    raise NotImplementedError
+    """Cluster pixels in CIE Lab space with MiniBatchKMeans.
+
+    Clustering runs on the unique colors of a downscaled copy (weighted by pixel count);
+    every unique color of the full-resolution image is then assigned to its nearest
+    centroid. Palette entries are the mean color of their members, except locked colors,
+    which are kept exactly.
+    """
+    locked = locked_colors or []
+    opaque = image.rgb[image.alpha_mask]
+    unique, inverse, counts = np.unique(_pack(opaque), return_inverse=True, return_counts=True)
+
+    if len(unique) <= colors and not locked:
+        # Already flat enough (logos, icons): keep the exact colors.
+        return _finalize(image, inverse.astype(np.intp), _unpack(unique))
+
+    working = _working_sample(image, max_working_size)
+    w_unique, w_counts = np.unique(_pack(working), return_counts=True)
+    n_clusters = min(colors, len(w_unique))
+    kmeans = MiniBatchKMeans(
+        n_clusters=n_clusters, random_state=seed, n_init=3, batch_size=4096
+    ).fit(srgb_to_lab(_unpack(w_unique)), sample_weight=w_counts)
+    centers: NDArray[np.float64] = kmeans.cluster_centers_
+
+    # Pin each locked color to its nearest still-free centroid.
+    pinned: dict[int, tuple[int, int, int]] = {}
+    for color in locked[:n_clusters]:
+        color_lab = srgb_to_lab(np.array([color], dtype=np.uint8))
+        distances = ((centers - color_lab) ** 2).sum(axis=1)
+        distances[list(pinned)] = np.inf
+        index = int(distances.argmin())
+        centers[index] = color_lab[0]
+        pinned[index] = color
+
+    unique_labels = _nearest(srgb_to_lab(_unpack(unique)), centers)
+    palette = np.zeros((len(centers), 3), dtype=np.uint8)
+    unique_rgb = _unpack(unique).astype(np.float64)
+    for k in range(len(centers)):
+        if k in pinned:
+            palette[k] = pinned[k]
+            continue
+        members = unique_labels == k
+        if members.any():
+            weights = counts[members][:, None]
+            palette[k] = np.rint((unique_rgb[members] * weights).sum(axis=0) / weights.sum())
+
+    return _finalize(image, unique_labels[inverse], palette)
+
+
+def _working_sample(image: DecodedImage, max_working_size: int) -> NDArray[np.uint8]:
+    if max(image.width, image.height) <= max_working_size:
+        return image.rgb[image.alpha_mask]
+    scale = max_working_size / max(image.width, image.height)
+    size = (max(1, round(image.width * scale)), max(1, round(image.height * scale)))
+    rgb = np.asarray(Image.fromarray(image.rgb).resize(size, Image.Resampling.LANCZOS))
+    mask = np.asarray(
+        Image.fromarray(image.alpha_mask.astype(np.uint8) * 255).resize(
+            size, Image.Resampling.NEAREST
+        )
+    )
+    sample: NDArray[np.uint8] = rgb[mask > 0]
+    return sample if len(sample) else image.rgb[image.alpha_mask]
 
 
 def quantize_median_cut(image: DecodedImage, colors: int) -> QuantizationResult:
     """Quantize using Pillow's median cut without dithering."""
-    raise NotImplementedError
+    rgb = image.rgb.copy()
+    # Transparent pixels must not influence the palette: paint them with an opaque color.
+    rgb[~image.alpha_mask] = image.rgb[image.alpha_mask][0]
+    quantized = Image.fromarray(rgb).quantize(
+        colors=colors, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE
+    )
+    labels = np.asarray(quantized, dtype=np.intp)
+    raw_palette = quantized.getpalette() or []
+    palette = np.asarray(raw_palette, dtype=np.uint8).reshape(-1, 3)[: int(labels.max()) + 1]
+    return _finalize(image, labels[image.alpha_mask], palette)

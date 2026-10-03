@@ -7,9 +7,9 @@
 
 ## Milestone 1 — Backend MVP
 
-- [ ] Image decoding, validation, normalization (FR-01…FR-06)
-- [ ] k-means quantization with Lab color space (FR-10…FR-12, FR-17)
-- [ ] `/quantize` endpoint returning indexed PNG + palette
+- [x] Image decoding, validation, normalization (FR-01, FR-03…FR-06)
+- [x] k-means quantization with Lab color space, median cut, locked colors (FR-10…FR-12, FR-15…FR-17)
+- [x] `/quantize` endpoint returning indexed PNG + palette
 - [ ] vtracer integration, `/vectorize` in indexed and one-shot mode (FR-20…FR-25)
 - [ ] SVG post-processing & sanitization
 - [ ] Error envelope, request ids, structured logging

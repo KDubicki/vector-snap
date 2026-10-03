@@ -1,6 +1,12 @@
+import json
+import re
+
 from pydantic import BaseModel, Field
 
+from app.core.errors import InvalidParameters
+
 HEX_COLOR_PATTERN = r"^#[0-9a-fA-F]{6}$"
+_HEX_COLOR_RE = re.compile(HEX_COLOR_PATTERN)
 
 
 class PaletteColor(BaseModel):
@@ -8,3 +14,26 @@ class PaletteColor(BaseModel):
     hex: str = Field(pattern=HEX_COLOR_PATTERN)
     rgb: tuple[int, int, int] | None = None
     coverage: float | None = Field(default=None, ge=0, le=1)
+
+
+def rgb_to_hex(rgb: tuple[int, int, int]) -> str:
+    return "#{:02x}{:02x}{:02x}".format(*rgb)
+
+
+def hex_to_rgb(value: str) -> tuple[int, int, int]:
+    return int(value[1:3], 16), int(value[3:5], 16), int(value[5:7], 16)
+
+
+def parse_hex_colors(raw: str, field: str) -> list[tuple[int, int, int]]:
+    """Parse a JSON array of `#rrggbb` strings sent as a multipart form field."""
+    try:
+        values = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise InvalidParameters(f"`{field}` must be a JSON array.", {"field": field}) from exc
+    if not isinstance(values, list) or not all(
+        isinstance(v, str) and _HEX_COLOR_RE.match(v) for v in values
+    ):
+        raise InvalidParameters(
+            f'`{field}` must be a JSON array of hex colors like "#ff0000".', {"field": field}
+        )
+    return [hex_to_rgb(v) for v in values]

@@ -38,6 +38,7 @@ backend/
 │   │   ├── system.py           # HealthResponse, LimitsResponse
 │   │   └── vectorize.py        # TracingMode, Stacking, VectorizeResponse
 │   └── services/
+│       ├── pipeline.py         # orchestration reused by routes (decode → quantize → encode)
 │       ├── image_io.py         # decode, validate, normalize, encode indexed PNG
 │       ├── quantization.py     # kmeans / median-cut → (label_map, palette)
 │       ├── vectorization.py    # label_map + palette → raw SVG (vtracer)
@@ -89,7 +90,7 @@ exception handler into a uniform JSON body:
 | `InvalidParameters` | 422 | `INVALID_PARAMETERS` |
 | `ProcessingError` | 500 | `PROCESSING_ERROR` |
 | `NotImplementedYet` | 501 | `NOT_IMPLEMENTED` (scaffolding only) |
-| FastAPI `RequestValidationError` | 422 | `VALIDATION_ERROR` |
+| FastAPI `RequestValidationError` | 422 | `VALIDATION_ERROR` (`details.errors`: `loc`, `msg`, `type`; submitted input is never echoed) |
 
 ## Security considerations
 

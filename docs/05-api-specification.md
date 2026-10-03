@@ -86,11 +86,15 @@ Reduces the image to `colors` representative colors.
 - `image` is an **indexed (mode `P`) PNG**. If the source had transparency, the
   transparent index is excluded from `palette` and marked via the PNG `tRNS` chunk.
 - `coverage` is the fraction (0–1) of opaque pixels assigned to that color.
+- The palette can be **smaller than `colors`** when the image has fewer distinct colors
+  (e.g. a 3-color logo quantized to 8 colors returns exactly its 3 colors).
 
 ### Errors
 
 `413 FILE_TOO_LARGE`, `415 UNSUPPORTED_MEDIA_TYPE`, `422 IMAGE_TOO_LARGE`,
-`422 INVALID_IMAGE`, `422 VALIDATION_ERROR` (e.g. `colors` out of range).
+`422 INVALID_IMAGE` (corrupt file, no opaque pixels), `422 INVALID_PARAMETERS` (`colors`
+outside `min_colors…max_colors`, malformed `locked_colors`), `422 VALIDATION_ERROR`
+(missing/mistyped fields; `details.errors` lists `loc`, `msg`, `type` per field).
 
 ---
 

@@ -35,15 +35,20 @@ Output: `labels: H×W uint8` (palette index per pixel, 255 = transparent) and
 
 ### k-means (default)
 
-1. Downscale to `max_working_size` on the longer side (Lanczos) to bound cost.
-2. Convert opaque pixels to **CIE Lab** color space — Euclidean distance in Lab
-   approximates perceived color difference far better than in RGB.
-3. Sample up to 100 000 pixels; fit `MiniBatchKMeans(n_clusters=N, random_state=seed,
-   n_init="auto")`.
-4. If `locked_colors` are provided, initialize those centroids with the locked values
-   and re-pin them after every iteration (custom loop) so they stay exact.
-5. Assign every **full-resolution** pixel to the nearest centroid (chunked to limit memory).
-6. Convert centroids back to sRGB, round to `uint8`.
+1. Collect the **unique colors** of all opaque pixels (packed as 24-bit integers) with
+   their pixel counts. If there are no more than `colors` of them (logos, icons) and no
+   colors are locked, they are used as the palette **exactly** — no clustering.
+2. Downscale to `max_working_size` on the longer side (Lanczos) to bound cost and take the
+   unique colors of the downscaled copy, weighted by pixel count.
+3. Convert them to **CIE Lab** (D65) — Euclidean distance in Lab approximates perceived
+   color difference far better than in RGB.
+4. Fit `MiniBatchKMeans(n_clusters=N, random_state=seed, n_init=3)` with the counts as
+   `sample_weight`.
+5. `locked_colors`: each locked color replaces its nearest still-free centroid (greedy).
+6. Assign every unique color of the **full-resolution** image to the nearest centroid
+   (chunked to bound memory), then map pixels through the unique-color index.
+7. Palette entry = pixel-weighted **mean sRGB** of its members (avoids Lab → sRGB gamut
+   issues); locked entries keep their exact value.
 
 ### Median cut (alternative)
 

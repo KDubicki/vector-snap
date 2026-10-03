@@ -1,21 +1,11 @@
-import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import Settings, get_settings
 from app.main import create_app
 
 
-@pytest.mark.parametrize(
-    ("path", "form"),
-    [
-        ("/api/v1/quantize", {"colors": "4"}),
-        ("/api/v1/vectorize", {}),
-    ],
-)
-def test_processing_endpoints_return_error_envelope(
-    client: TestClient, path: str, form: dict[str, str]
-) -> None:
-    response = client.post(path, files={"image": ("a.png", b"data", "image/png")}, data=form)
+def test_vectorize_returns_error_envelope(client: TestClient) -> None:
+    response = client.post("/api/v1/vectorize", files={"image": ("a.png", b"data", "image/png")})
 
     assert response.status_code == 501
     body = response.json()
