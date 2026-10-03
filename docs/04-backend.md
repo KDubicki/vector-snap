@@ -89,7 +89,6 @@ exception handler into a uniform JSON body:
 | `InvalidImage` | 422 | `INVALID_IMAGE` |
 | `InvalidParameters` | 422 | `INVALID_PARAMETERS` |
 | `ProcessingError` | 500 | `PROCESSING_ERROR` |
-| `NotImplementedYet` | 501 | `NOT_IMPLEMENTED` (scaffolding only) |
 | FastAPI `RequestValidationError` | 422 | `VALIDATION_ERROR` (`details.errors`: `loc`, `msg`, `type`; submitted input is never echoed) |
 
 ## Security considerations
@@ -99,9 +98,10 @@ exception handler into a uniform JSON body:
 - File type is detected from content (`Image.open(...).format`), not from the filename
   or `Content-Type` header.
 - Uploads are read into memory with a hard byte limit; nothing is written to disk.
-- Output SVG is post-processed with an allow-list of elements/attributes
-  (`svg`, `g`, `path`, `title`, `desc`; geometry, `fill`, `id`, `data-*`). No scripts,
-  event handlers, `<foreignObject>`, or external `href`s can appear.
+- Output SVG is rebuilt from scratch rather than filtered: only path geometry is taken
+  from the tracer output (`svg`, `g`, `path`; attributes `d`, `fill`, `id`, `data-*`,
+  `viewBox`, `width`, `height`). No scripts, event handlers, `<foreignObject>`, entities
+  or external `href`s can appear.
 - The container runs as a non-root user.
 
 ## Observability

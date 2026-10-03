@@ -3,7 +3,12 @@ import pytest
 from PIL import Image
 
 from app.core.errors import ImageTooLarge, InvalidImage, UnsupportedMediaType
-from app.services.image_io import decode_image, decode_indexed_png, encode_indexed_png
+from app.services.image_io import (
+    TRANSPARENT_LABEL,
+    decode_image,
+    decode_indexed_png,
+    encode_indexed_png,
+)
 from tests.images import RED, encode, stripes, with_transparent_corner
 
 
@@ -86,9 +91,8 @@ def test_indexed_png_round_trip_with_transparency() -> None:
     decoded = decode_indexed_png(data, max_dimension=64)
     image = decode_image(data, max_dimension=64)
 
-    assert np.array_equal(decoded.labels, labels)
+    assert decoded.labels.tolist() == [[0, 1], [TRANSPARENT_LABEL, TRANSPARENT_LABEL]]
     assert np.array_equal(decoded.palette, palette)
-    assert decoded.transparent_index == 2
     assert image.is_indexed
     assert not image.alpha_mask[1].any()
 
@@ -100,9 +104,29 @@ def test_indexed_png_round_trip_without_transparency() -> None:
     decoded = decode_indexed_png(encode_indexed_png(labels, palette, None), max_dimension=64)
 
     assert np.array_equal(decoded.palette, palette)
-    assert decoded.transparent_index is None
+    assert TRANSPARENT_LABEL not in decoded.labels
 
 
 def test_decode_indexed_rejects_rgb_png() -> None:
     with pytest.raises(InvalidImage, match="indexed"):
         decode_indexed_png(encode(stripes()), max_dimension=64)
+
+
+def test_decode_indexed_relabels_transparent_entry_in_the_middle() -> None:
+    image = Image.fromarray(np.array([[0, 1, 2]], dtype=np.uint8), mode="P")
+    image.putpalette([255, 0, 0, 0, 0, 0, 0, 0, 255])
+
+    decoded = decode_indexed_png(encode(image, transparency=1), max_dimension=64)
+
+    assert decoded.labels.tolist() == [[0, TRANSPARENT_LABEL, 1]]
+    assert decoded.palette.tolist() == [[255, 0, 0], [0, 0, 255]]
+
+
+def test_decode_indexed_supports_per_entry_alpha() -> None:
+    image = Image.fromarray(np.array([[0, 1]], dtype=np.uint8), mode="P")
+    image.putpalette([255, 0, 0, 0, 255, 0])
+
+    decoded = decode_indexed_png(encode(image, transparency=bytes([0, 255])), max_dimension=64)
+
+    assert decoded.labels.tolist() == [[TRANSPARENT_LABEL, 0]]
+    assert decoded.palette.tolist() == [[0, 255, 0]]

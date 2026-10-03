@@ -42,14 +42,13 @@ class InvalidParameters(VectorSnapError):
     code = "INVALID_PARAMETERS"
 
 
+class NotIndexedImage(InvalidImage):
+    """Raised when an indexed (palette-mode) PNG was expected."""
+
+
 class ProcessingError(VectorSnapError):
     status_code = 500
     code = "PROCESSING_ERROR"
-
-
-class NotImplementedYet(VectorSnapError):
-    status_code = 501
-    code = "NOT_IMPLEMENTED"
 
 
 def error_body(

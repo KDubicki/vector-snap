@@ -10,9 +10,9 @@ from numpy.typing import NDArray
 from PIL import Image
 from sklearn.cluster import MiniBatchKMeans
 
-from app.services.image_io import DecodedImage
+from app.services.image_io import TRANSPARENT_LABEL, DecodedImage
 
-TRANSPARENT_LABEL = 255
+__all__ = ["TRANSPARENT_LABEL", "QuantizationResult", "quantize_kmeans", "quantize_median_cut"]
 
 # D65 reference white and sRGB -> XYZ matrix.
 _WHITE_D65 = np.array([0.95047, 1.0, 1.08883])

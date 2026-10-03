@@ -121,10 +121,10 @@ If `image` is not indexed and `colors` is omitted, the request fails with
 | `mode` | enum | | `spline` | `spline` (smooth curves) \| `polygon` (straight segments) |
 | `filter_speckle` | int | | `4` | Discard regions smaller than this many px (side length) |
 | `corner_threshold` | int | | `60` | Minimum angle (deg) considered a corner |
-| `length_threshold` | float | | `4.0` | Minimum segment length (spline mode) |
+| `length_threshold` | float | | `4.0` | Minimum segment length (spline mode), `3.5…10` |
 | `splice_threshold` | int | | `45` | Minimum angle displacement to splice a spline |
 | `path_precision` | int | | `2` | Decimal places in path coordinates |
-| `stacking` | enum | | `stacked` | `stacked` (shapes may overlap, smaller output) \| `cutout` (no overlaps; required for clean splitting) |
+| `stacking` | enum | | `cutout` | `cutout` (no overlaps; required for clean splitting and recoloring) \| `stacked` (each color layer extends under the layers above it — no seams between colors, but shapes overlap) |
 
 ### Content negotiation
 
@@ -140,8 +140,8 @@ If `image` is not indexed and `colors` is omitted, the request fails with
   "width": 800,
   "height": 600,
   "palette": [
-    {"index": 0, "hex": "#1d2b53"},
-    {"index": 1, "hex": "#ff004d"}
+    {"index": 0, "hex": "#1d2b53", "rgb": [29, 43, 83], "coverage": 0.412},
+    {"index": 1, "hex": "#ff004d", "rgb": [255, 0, 77], "coverage": 0.133}
   ],
   "stats": {"paths": 214, "bytes": 48213, "duration_ms": 812},
   "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 800 600\" ...>...</svg>"
@@ -163,8 +163,12 @@ If `image` is not indexed and `colors` is omitted, the request fails with
 </svg>
 ```
 
-- One `<g>` per palette color, ordered back-to-front by coverage (largest first).
+- One `<g>` per palette color that has pixels, ordered back-to-front by coverage
+  (largest first). Palette entries with identical colors (merged via `palette`) form a
+  single group carrying the lowest index.
+- Only palette colors appear in the output — exactly as sent in `palette`.
 - `fill` is set on the group; individual paths MAY override it after editing.
+- Shapes with holes are single paths with multiple subpaths (even-odd compatible).
 - Path ids follow `p-{paletteIndex}-{sequence}` and are unique within the document.
 - No transforms on paths — coordinates are absolute in the `viewBox` space.
 

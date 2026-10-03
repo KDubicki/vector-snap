@@ -11,12 +11,15 @@ import numpy as np
 from numpy.typing import NDArray
 from PIL import Image, ImageOps, UnidentifiedImageError
 
-from app.core.errors import ImageTooLarge, InvalidImage, UnsupportedMediaType
+from app.core.errors import ImageTooLarge, InvalidImage, NotIndexedImage, UnsupportedMediaType
 
 SUPPORTED_FORMATS = {"JPEG": "image/jpeg", "PNG": "image/png"}
 
 # Pixels with alpha below this threshold are treated as fully transparent.
 ALPHA_THRESHOLD = 128
+
+# Label used for transparent pixels in label maps (palettes are limited to 255 entries).
+TRANSPARENT_LABEL = 255
 
 
 @dataclass(frozen=True)
@@ -34,11 +37,10 @@ class DecodedImage:
 
 @dataclass(frozen=True)
 class IndexedImage:
-    """Label map read back from a palette-mode PNG produced by `encode_indexed_png`."""
+    """Label map read back from a palette-mode PNG (e.g. one produced by `/quantize`)."""
 
-    labels: NDArray[np.uint8]  # H x W palette indices, `transparent_index` for transparent pixels
-    palette: NDArray[np.uint8]  # N x 3, excluding the transparent entry
-    transparent_index: int | None
+    labels: NDArray[np.uint8]  # H x W palette indices, TRANSPARENT_LABEL for transparent pixels
+    palette: NDArray[np.uint8]  # N x 3 opaque palette entries
 
 
 def _open(data: bytes, max_dimension: int) -> Image.Image:
@@ -99,23 +101,39 @@ def decode_image(data: bytes, max_dimension: int) -> DecodedImage:
 
 
 def decode_indexed_png(data: bytes, max_dimension: int) -> IndexedImage:
-    """Read the label map and palette from a palette-mode PNG."""
+    """Read the label map and opaque palette from a palette-mode PNG.
+
+    Transparent palette entries (single `tRNS` index or per-entry alpha) are removed from
+    the palette and their pixels relabelled as TRANSPARENT_LABEL.
+    """
     image = _open(data, max_dimension)
     if image.mode != "P":
-        raise InvalidImage("Image is not an indexed (palette-mode) PNG.")
+        raise NotIndexedImage("Image is not an indexed (palette-mode) PNG.")
 
-    labels = np.asarray(image, dtype=np.uint8)
-    raw_palette = image.getpalette() or []
-    palette = np.asarray(raw_palette, dtype=np.uint8).reshape(-1, 3)
+    raw_labels = np.asarray(image, dtype=np.uint8)
+    used = int(raw_labels.max()) + 1
+    palette = np.asarray(image.getpalette() or [], dtype=np.uint8).reshape(-1, 3)
+    if len(palette) < used:
+        raise InvalidImage("Indexed PNG references colors missing from its palette.")
+    palette = palette[:used]
 
     transparency = image.info.get("transparency")
-    transparent_index = transparency if isinstance(transparency, int) else None
+    alphas = np.full(used, 255, dtype=np.uint8)
+    if isinstance(transparency, int) and transparency < used:
+        alphas[transparency] = 0
+    elif isinstance(transparency, bytes):
+        values = np.frombuffer(transparency, dtype=np.uint8)[:used]
+        alphas[: len(values)] = values
 
-    used = int(labels.max()) + 1
-    palette = palette[:used]
-    if transparent_index is not None and transparent_index < len(palette):
-        palette = np.delete(palette, transparent_index, axis=0)
-    return IndexedImage(labels=labels, palette=palette, transparent_index=transparent_index)
+    opaque = np.flatnonzero(alphas >= ALPHA_THRESHOLD)
+    if len(opaque) == 0:
+        raise InvalidImage("Image has no opaque pixels.")
+    if len(opaque) >= TRANSPARENT_LABEL:
+        raise InvalidImage(f"Indexed PNG has more than {TRANSPARENT_LABEL - 1} colors.")
+
+    lookup = np.full(256, TRANSPARENT_LABEL, dtype=np.uint8)
+    lookup[opaque] = np.arange(len(opaque), dtype=np.uint8)
+    return IndexedImage(labels=lookup[raw_labels], palette=palette[opaque])
 
 
 def encode_indexed_png(

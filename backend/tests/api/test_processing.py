@@ -4,15 +4,6 @@ from app.core.config import Settings, get_settings
 from app.main import create_app
 
 
-def test_vectorize_returns_error_envelope(client: TestClient) -> None:
-    response = client.post("/api/v1/vectorize", files={"image": ("a.png", b"data", "image/png")})
-
-    assert response.status_code == 501
-    body = response.json()
-    assert body["error"]["code"] == "NOT_IMPLEMENTED"
-    assert body["request_id"] == response.headers["X-Request-ID"]
-
-
 def test_upload_over_limit_is_rejected() -> None:
     app = create_app()
     app.dependency_overrides[get_settings] = lambda: Settings(max_upload_mb=0)

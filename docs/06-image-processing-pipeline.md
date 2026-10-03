@@ -77,33 +77,43 @@ layer before tracing, which removes the seam between them.
 
 ## 5. Vectorization (`services/vectorization.py`)
 
-The label map is rendered back to an RGBA image using the final palette and passed to
-**vtracer** (`convert_raw_image_to_svg` / `convert_pixels_to_svg`) with:
+Each **color layer** (palette indices with identical final color, in coverage order) is
+traced separately: its mask is rendered black-on-white and passed to **vtracer** in
+**binary mode** (`convert_raw_image_to_svg(colormode="binary", ...)`). See
+[ADR 0006](adr/0006-per-color-binary-tracing.md) for why vtracer's color mode is not used.
+
+| Stacking | Layer mask | Result |
+|----------|-----------|--------|
+| `cutout` (default) | pixels of this color only | Non-overlapping shapes; holes are real holes |
+| `stacked` | pixels of this color **and every layer above it** | Lower layers extend under upper ones → no seams between colors; shapes overlap |
+
+Colors without any pixels of their own are skipped. Transparent pixels are never part of
+any mask.
 
 | vtracer option | Source |
 |----------------|--------|
-| `colormode="color"` | fixed |
-| `hierarchical` | `stacked` → `"stacked"`, `cutout` → `"cutout"` |
+| `colormode="binary"` | fixed |
 | `mode` | `spline` / `polygon` |
 | `filter_speckle`, `corner_threshold`, `length_threshold`, `splice_threshold`, `path_precision` | request params |
-| `color_precision=8`, `layer_difference=0` | fixed — input already has exact flat colors, so vtracer must not re-cluster |
 
-**Why `cutout` matters for editing:** in `stacked` mode a shape may lie on top of a
-larger background shape, so splitting the top shape would reveal the color beneath.
-`cutout` produces non-overlapping regions (holes are real holes), which makes
-splitting and recoloring behave intuitively. The frontend therefore requests `cutout`
-by default; `stacked` remains available for smaller file size.
+**Why `cutout` matters for editing:** in `stacked` mode a shape lies on top of the layers
+below it, so splitting or deleting it would reveal the color beneath. `cutout` makes
+splitting and recoloring behave intuitively, which is why it is the default.
+In `cutout` + `spline` mode, adjacent colors are smoothed independently, so hairline
+seams may be visible at some zoom levels; `polygon` mode or `stacked` avoid them.
 
 ## 6. SVG post-processing (`services/svg_postprocess.py`)
 
-1. Parse with `lxml` (`resolve_entities=False`, `no_network=True`).
-2. Map each path's `fill` back to a palette index (exact hex match).
-3. Group paths into `<g data-palette-index="n" fill="#...">` ordered by coverage.
-4. Assign ids `p-{index}-{seq}`, strip per-path `fill` and `transform` (vtracer emits
-   `transform="translate(x,y)"` — it is baked into the path coordinates).
-5. Allow-list sanitization (elements & attributes, see [backend](04-backend.md#security-considerations)).
-6. Set `viewBox`, `width`, `height`, `data-generator`.
-7. Serialize without XML declaration, minified whitespace.
+1. Parse each layer's vtracer output with `lxml` (`resolve_entities=False`,
+   `no_network=True`, comments removed).
+2. Read only the `d` attribute of each `<path>`; vtracer emits
+   `transform="translate(x,y)"`, which is **baked into the coordinates** (vtracer only
+   emits absolute `M`/`L`/`C`/`Z` commands, so numbers alternate between x and y).
+3. **Rebuild the document from scratch**: `<svg viewBox width height data-generator>`,
+   one `<g id="color-n" data-palette-index="n" fill="#...">` per layer, paths with
+   `id="p-{index}-{seq}"` and `data-palette-index`. Colors come from the palette, never
+   from tracer output, so nothing outside this allow-list can reach the client.
+4. Serialize without XML declaration or whitespace.
 
 ## Quality & performance targets
 

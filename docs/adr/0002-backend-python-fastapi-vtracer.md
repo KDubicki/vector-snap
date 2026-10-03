@@ -1,6 +1,6 @@
 # ADR 0002: Python + FastAPI + vtracer for the backend
 
-- **Status:** Accepted
+- **Status:** Accepted (tracing approach amended by [ADR 0006](0006-per-color-binary-tracing.md))
 - **Date:** 2026-10-02
 
 ## Context
