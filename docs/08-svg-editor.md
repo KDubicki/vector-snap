@@ -55,7 +55,7 @@ Status: ✅ implemented · 🔜 planned.
 | Lasso | `L` / toolbar | Draw a freehand region; the part of the target shape inside it becomes a separate shape and gets selected (see [Lasso](#lasso-region-cut-)). | ✅ |
 | Recolor | inspector / color groups panel | Recolor the selection or a whole palette group (see [Recoloring](#recoloring)). | ✅ |
 | Eyedropper | `I` | Pick a color from a shape as the current color. | 🔜 |
-| Merge | `M` | Unite selected shapes of the same color into one shape. | 🔜 |
+| Merge | `M` / toolbar | Unite the selected shapes into one (see [Merging and moving](#merging-and-moving-shapes-)). | ✅ |
 | Delete | `Del` / `Backspace` / toolbar | Remove selected shapes; groups left empty disappear. | ✅ |
 | Undo / Redo | `Ctrl/Cmd+Z` / `Ctrl/Cmd+Shift+Z`, `Ctrl+Y` / toolbar | History navigation (see [Undo / redo](#undo--redo-)). | ✅ |
 
@@ -122,6 +122,18 @@ Because the backend emits shapes in `cutout` mode by default (see
 [pipeline](06-image-processing-pipeline.md#5-vectorization-servicesvectorizationpy)),
 shapes do not overlap and splitting never reveals hidden geometry underneath.
 
+## Merging and moving shapes ✅
+
+- **Merge** (`mergeSelection()`, FR-35) — the selected shapes (≥ 2, any colors) are united
+  with Paper.js `unite` (`uniteShapes()` in `geometry.ts`): adjacent pieces fuse into one
+  contour, disjoint ones become subpaths of a single shape. The result keeps the **id,
+  group, own color and z-position of the largest** selected shape — merging slivers into
+  a main shape keeps the main shape's identity. Typical use: undo over-splitting or
+  clean up fragments after cutting.
+- **Move to color group** (`moveSelectionToGroup()`) — inspector swatches move the
+  selection on top of another group and drop own colors, so the shapes take that group's
+  color (and later group recolors apply to them). Groups left empty disappear.
+
 ## Recoloring
 
 Implemented in `src/editor/operations.ts` (pure functions, unit-tested).
@@ -134,7 +146,8 @@ Implemented in `src/editor/operations.ts` (pure functions, unit-tested).
   `group.fill`; shapes without their own color follow, shapes with their own color keep
   it. Overrides that become equal to the new group color are dropped. **Select** selects
   all shapes of a group.
-- 🔜 Moving a shape to another palette group and creating new groups for new colors.
+- ✅ Moving shapes to another palette group (see [Merging and moving](#merging-and-moving-shapes-)).
+- 🔜 Creating new groups for new colors.
 
 ## Undo / redo ✅
 

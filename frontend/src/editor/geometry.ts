@@ -132,6 +132,18 @@ export function cutRegion(d: string, region: Point[]): RegionCut | null {
   return inside.length && outside.length ? { inside, outside } : null;
 }
 
+/** Union of several shapes as one path (disjoint parts become subpaths). */
+export function uniteShapes(paths: string[]): string {
+  const s = geometryScope();
+  const [first, ...rest] = paths.map((d) => toPathItem(s, d));
+  if (!first) return '';
+  const united = rest.reduce<paper.PathItem>(
+    (result, item) => result.unite(item, { insert: false }),
+    first,
+  );
+  return pathData(united);
+}
+
 function pathData(item: paper.PathItem): string {
   const svg = item.exportSVG({ asString: true, precision: PATH_PRECISION }) as string;
   return /\sd="([^"]+)"/.exec(svg)?.[1] ?? '';

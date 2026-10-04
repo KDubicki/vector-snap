@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { EditorDoc } from './model';
 import {
   deleteShapes,
+  mergeShapes,
+  moveShapesToGroup,
   recolorGroup,
   recolorShapes,
   replaceShape,
@@ -120,5 +122,45 @@ describe('deleteShapes', () => {
 
     expect(next.groups).toEqual([doc.groups[0]]);
     expect(next.groups[0]).toBe(doc.groups[0]);
+  });
+});
+
+describe('mergeShapes', () => {
+  it('replaces the shapes by one that keeps the id, color and position of keepId', () => {
+    const next = mergeShapes(doc, ['a', 'b', 'c'], 'b', 'M9,9 Z');
+
+    expect(next.groups).toHaveLength(1);
+    expect(next.groups[0].shapes).toEqual([{ id: 'b', d: 'M9,9 Z', fill: '#00ff00' }]);
+  });
+
+  it('keeps untouched groups by reference', () => {
+    const next = mergeShapes(doc, ['a', 'b'], 'a', 'M9,9 Z');
+
+    expect(next.groups[0].shapes).toEqual([{ id: 'a', d: 'M9,9 Z' }]);
+    expect(next.groups[1]).toBe(doc.groups[1]);
+  });
+});
+
+describe('moveShapesToGroup', () => {
+  it('moves shapes on top of the target group and drops their own color', () => {
+    const next = moveShapesToGroup(doc, ['b'], 1);
+
+    expect(next.groups[0].shapes.map((s) => s.id)).toEqual(['a']);
+    expect(next.groups[1].shapes).toEqual([
+      { id: 'c', d: 'M2,2 Z' },
+      { id: 'b', d: 'M1,1 Z' },
+    ]);
+  });
+
+  it('removes groups that become empty', () => {
+    const next = moveShapesToGroup(doc, ['c'], 0);
+
+    expect(next.groups).toHaveLength(1);
+    expect(next.groups[0].shapes.map((s) => s.id)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('ignores unknown groups and shapes', () => {
+    expect(moveShapesToGroup(doc, ['a'], 7)).toBe(doc);
+    expect(moveShapesToGroup(doc, ['missing'], 1)).toBe(doc);
   });
 });

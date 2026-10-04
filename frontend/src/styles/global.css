@@ -604,3 +604,29 @@ select {
 .editor__canvas--lasso {
   cursor: crosshair;
 }
+
+.move-to-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.move-to-group__swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.swatch-button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.swatch-button[aria-pressed='true'] {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}

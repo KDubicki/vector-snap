@@ -294,6 +294,56 @@ describe('app store', () => {
     expect(store().selection).toEqual(['p-0-0.a']);
   });
 
+  it('merges the selection into the largest shape', async () => {
+    const svg =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 10">' +
+      '<g data-palette-index="0" fill="#ff0000"><path id="small" d="M0,0 L5,0 L5,10 L0,10 Z"/></g>' +
+      '<g data-palette-index="1" fill="#0000ff"><path id="big" d="M5,0 L20,0 L20,10 L5,10 Z" fill="#00ff00"/>' +
+      '<path id="other" d="M25,0 L30,0 L30,10 L25,10 Z"/></g></svg>';
+    useAppStore.setState({ quantized });
+    vi.stubGlobal('fetch', respond({ ...vectorized, svg }));
+    await store().runVectorize();
+
+    store().select('small');
+    store().mergeSelection();
+    expect(store().notice).toMatch('at least two');
+
+    store().selectMany(['small', 'big']);
+    store().mergeSelection();
+
+    const doc = store().editor!;
+    expect(doc.groups.map((g) => g.paletteIndex)).toEqual([1]);
+    expect(doc.groups[0].shapes.map((s) => [s.id, s.fill])).toEqual([
+      ['big', '#00ff00'],
+      ['other', undefined],
+    ]);
+    expect(store().selection).toEqual(['big']);
+  });
+
+  it('moves the selection into another color group', async () => {
+    useAppStore.setState({ quantized });
+    const svg = vectorized.svg.replace(
+      '</svg>',
+      '<g data-palette-index="1" fill="#0000ff"><path id="p-1-0" d="M0,0 L1,1 Z"/></g></svg>',
+    );
+    vi.stubGlobal('fetch', respond({ ...vectorized, svg }));
+    await store().runVectorize();
+
+    store().moveSelectionToGroup(1); // nothing selected
+    expect(store().history.past).toHaveLength(0);
+
+    store().select('p-0-0');
+    store().recolorSelection('#00ff00');
+    store().moveSelectionToGroup(1);
+
+    const doc = store().editor!;
+    expect(doc.groups[1].shapes.map((s) => [s.id, s.fill])).toEqual([
+      ['p-1-0', undefined],
+      ['p-0-0', undefined],
+    ]);
+    expect(store().selection).toEqual(['p-0-0']);
+  });
+
   it('deletes the selection and supports undo/redo of every edit', async () => {
     useAppStore.setState({ quantized });
     vi.stubGlobal('fetch', respond(vectorized));
@@ -362,6 +412,8 @@ describe('app store', () => {
     store().redo();
     store().selectMany(['x']);
     store().cutWithLasso([], 'x');
+    store().mergeSelection();
+    store().moveSelectionToGroup(0);
     store().selectAll();
 
     expect(store().editor).toBeNull();

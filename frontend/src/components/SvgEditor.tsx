@@ -185,6 +185,10 @@ export function SvgEditor() {
           spaceRef.current = true;
           event.preventDefault();
           return;
+        case 'm':
+        case 'M':
+          store.mergeSelection();
+          return;
         case 'Delete':
         case 'Backspace':
           event.preventDefault();
@@ -366,6 +370,14 @@ export function SvgEditor() {
           title="Delete selected shapes (Delete)"
         >
           Delete
+        </button>
+        <button
+          type="button"
+          onClick={() => useAppStore.getState().mergeSelection()}
+          disabled={selection.length < 2}
+          title="Merge selected shapes into one (M)"
+        >
+          Merge
         </button>
         <span className="editor__separator" />
         <button type="button" onClick={() => zoomBy(1 / WHEEL_ZOOM_STEP)} aria-label="Zoom out">

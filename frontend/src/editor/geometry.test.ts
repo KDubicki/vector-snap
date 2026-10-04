@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { cutRegion, pathArea, splitShape } from './geometry';
+import { cutRegion, pathArea, splitShape, uniteShapes } from './geometry';
 
 const SQUARE = 'M0,0 L10,0 L10,10 L0,10 Z';
 // 20x20 square with a 10x10 hole in the middle
@@ -89,5 +89,26 @@ describe('cutRegion', () => {
     expect(cutRegion(SQUARE, box(-1, -1, 11, 11))).toBeNull(); // covers it fully
     expect(cutRegion(SQUARE, line([1, 1], [2, 2]))).toBeNull(); // not a region
     expect(cutRegion(SQUARE, line([1, 1], [5, 1], [9, 1]))).toBeNull(); // no area
+  });
+});
+
+describe('uniteShapes', () => {
+  it('fuses adjacent shapes into one contour', () => {
+    const united = uniteShapes(['M0,0 L5,0 L5,10 L0,10 Z', 'M5,0 L10,0 L10,10 L5,10 Z']);
+
+    expect(pathArea(united)).toBeCloseTo(100);
+    expect(united.match(/M/g)).toHaveLength(1);
+  });
+
+  it('keeps disjoint shapes as subpaths of one shape', () => {
+    const united = uniteShapes([SQUARE, 'M20,0 L30,0 L30,10 L20,10 Z']);
+
+    expect(pathArea(united)).toBeCloseTo(200);
+    expect(united.match(/M/g)).toHaveLength(2);
+  });
+
+  it('handles a single shape and no input', () => {
+    expect(pathArea(uniteShapes([SQUARE]))).toBeCloseTo(100);
+    expect(uniteShapes([])).toBe('');
   });
 });

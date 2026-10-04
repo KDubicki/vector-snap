@@ -1,9 +1,16 @@
 import { create } from 'zustand';
 import { ApiError, getLimits, quantize, vectorize } from '../api/client';
 import { findShape, parseSvg, type EditorDoc } from '../editor/model';
-import type { Point } from '../editor/geometry';
+import { pathArea, uniteShapes, type Point } from '../editor/geometry';
 import { emptyHistory, record, redo, undo, type History } from '../editor/history';
-import { deleteShapes, recolorGroup, recolorShapes, resetShapeColors } from '../editor/operations';
+import {
+  deleteShapes,
+  mergeShapes,
+  moveShapesToGroup,
+  recolorGroup,
+  recolorShapes,
+  resetShapeColors,
+} from '../editor/operations';
 import { cutWithRegion, splitAlongLine } from '../editor/split';
 import { base64ToBlob } from '../lib/base64';
 import { finalPalette } from '../lib/color';
@@ -77,6 +84,10 @@ export interface AppState {
    */
   cutWithLasso: (region: Point[], startId: string | null) => void;
   deleteSelection: () => void;
+  /** Merge the selected shapes into one taking the color/group of the largest (FR-35). */
+  mergeSelection: () => void;
+  /** Move the selected shapes into another color group. */
+  moveSelectionToGroup: (paletteIndex: number) => void;
   undo: () => void;
   redo: () => void;
   goTo: (step: Step) => void;
@@ -326,6 +337,33 @@ export const useAppStore = create<AppState>()((set, get) => ({
     set((state) =>
       state.editor && state.selection.length
         ? { ...commit(state, deleteShapes(state.editor, state.selection)), selection: [] }
+        : {},
+    ),
+
+  mergeSelection: () =>
+    set((state) => {
+      if (!state.editor) return {};
+      const doc = state.editor;
+      const shapes = doc.groups
+        .flatMap((group) => group.shapes)
+        .filter((shape) => state.selection.includes(shape.id));
+      if (shapes.length < 2) return { notice: 'Select at least two shapes to merge.' };
+      const largest = shapes.reduce((best, shape) =>
+        pathArea(shape.d) > pathArea(best.d) ? shape : best,
+      );
+      const merged = mergeShapes(
+        doc,
+        shapes.map((shape) => shape.id),
+        largest.id,
+        uniteShapes(shapes.map((shape) => shape.d)),
+      );
+      return { ...commit(state, merged), selection: [largest.id] };
+    }),
+
+  moveSelectionToGroup: (paletteIndex) =>
+    set((state) =>
+      state.editor && state.selection.length
+        ? commit(state, moveShapesToGroup(state.editor, state.selection, paletteIndex))
         : {},
     ),
 

@@ -118,3 +118,50 @@ export function deleteShapes(doc: EditorDoc, ids: string[]): EditorDoc {
       .filter((group) => group.shapes.length > 0),
   };
 }
+
+/**
+ * Replace several shapes by one merged shape (FR-35). The merged shape keeps the id,
+ * group, own color and z-position of `keepId` (the caller passes the largest shape).
+ */
+export function mergeShapes(doc: EditorDoc, ids: string[], keepId: string, d: string): EditorDoc {
+  const others = new Set(ids.filter((id) => id !== keepId));
+  return {
+    ...doc,
+    groups: doc.groups
+      .map((group) => {
+        const touched = group.shapes.some((shape) => others.has(shape.id) || shape.id === keepId);
+        if (!touched) return group;
+        return {
+          ...group,
+          shapes: group.shapes
+            .filter((shape) => !others.has(shape.id))
+            .map((shape) => (shape.id === keepId ? { ...shape, d } : shape)),
+        };
+      })
+      .filter((group) => group.shapes.length > 0),
+  };
+}
+
+/**
+ * Move shapes into another color group (on top of it) and drop their own color, so they
+ * take the group's color. Unknown target groups leave the document unchanged.
+ */
+export function moveShapesToGroup(doc: EditorDoc, ids: string[], paletteIndex: number): EditorDoc {
+  if (!doc.groups.some((group) => group.paletteIndex === paletteIndex)) return doc;
+  const moving = new Set(ids);
+  const moved = doc.groups
+    .flatMap((group) => group.shapes)
+    .filter((shape) => moving.has(shape.id))
+    .map(withoutFill);
+  if (!moved.length) return doc;
+  return {
+    ...doc,
+    groups: doc.groups
+      .map((group) => {
+        const kept = group.shapes.filter((shape) => !moving.has(shape.id));
+        if (group.paletteIndex === paletteIndex) return { ...group, shapes: [...kept, ...moved] };
+        return kept.length === group.shapes.length ? group : { ...group, shapes: kept };
+      })
+      .filter((group) => group.shapes.length > 0),
+  };
+}
