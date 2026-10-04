@@ -1,4 +1,6 @@
 import { useMemo } from 'react';
+import { serializeSvg } from '../editor/export';
+import { shapeCount } from '../editor/model';
 import { useObjectUrl } from '../lib/useObjectUrl';
 import { useAppStore } from '../state/store';
 import { EditorPalettePanel } from './EditorPalettePanel';
@@ -12,17 +14,17 @@ function svgFileName(file: File | null): string {
 
 export function ResultStep() {
   const vectorized = useAppStore((s) => s.vectorized);
+  const editor = useAppStore((s) => s.editor);
+  const edited = useAppStore((s) => s.history.past.length > 0);
   const file = useAppStore((s) => s.file);
   const { goTo, reset } = useAppStore.getState();
 
-  const blob = useMemo(
-    () => (vectorized ? new Blob([vectorized.svg], { type: 'image/svg+xml' }) : null),
-    [vectorized],
-  );
+  // The download always reflects the edited document (FR-39).
+  const svg = useMemo(() => (editor ? serializeSvg(editor) : null), [editor]);
+  const blob = useMemo(() => (svg ? new Blob([svg], { type: 'image/svg+xml' }) : null), [svg]);
   const url = useObjectUrl(blob);
 
-  if (!vectorized) return null;
-  const { stats } = vectorized;
+  if (!vectorized || !editor || !blob) return null;
 
   return (
     <section className="workspace">
@@ -30,11 +32,11 @@ export function ResultStep() {
       <aside className="panel">
         <dl className="stats">
           <dt>Shapes</dt>
-          <dd>{stats.paths}</dd>
+          <dd>{shapeCount(editor)}</dd>
           <dt>File size</dt>
-          <dd>{(stats.bytes / 1024).toFixed(1)} KB</dd>
-          <dt>Processing</dt>
-          <dd>{stats.duration_ms} ms</dd>
+          <dd>{(blob.size / 1024).toFixed(1)} KB</dd>
+          <dt>Tracing</dt>
+          <dd>{vectorized.stats.duration_ms} ms</dd>
         </dl>
         <ShapeInspector />
         <EditorPalettePanel />
@@ -44,7 +46,7 @@ export function ResultStep() {
           </button>
           {url && (
             <a className="button primary" href={url} download={svgFileName(file)}>
-              Download SVG
+              {edited ? 'Download edited SVG' : 'Download SVG'}
             </a>
           )}
         </div>

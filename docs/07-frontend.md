@@ -67,9 +67,9 @@ Layout: left = original and quantized previews side by side, right = controls.
 - ✅ Recolor the selection (own color / back to group color) and whole color groups.
 - ✅ Knife tool: split shapes along a freehand or straight line.
 - ✅ Delete shapes, undo/redo every edit (toolbar and keyboard).
-- ✅ Shape count, file size, processing time, colors used, **Download SVG**
-  (`<original-name>.svg`), back to colors, new image.
-- 🔜 Export of the edited document.
+- ✅ Shape count, file size, tracing time, back to colors, new image.
+- ✅ Download exports the **edited** document in the SVG contract; shape count and file
+  size reflect the edits.
 
 ## Component tree
 

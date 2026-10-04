@@ -29,7 +29,7 @@
 - [x] Recolor shape / group (FR-33, FR-34)
 - [x] Knife split (FR-31)
 - [x] Undo/redo (FR-37), delete shapes (FR-36)
-- [ ] Export normalization (FR-39)
+- [x] Export of the edited document in the SVG contract (FR-39)
 
 ## Milestone 4 — Polish
 

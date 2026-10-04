@@ -133,14 +133,23 @@ operation is undoable without writing an inverse.
 - Shortcuts are ignored only while typing in text fields; the canvas takes focus on
   click, so `Ctrl/Cmd+Z` works right after using a color picker.
 
-## Export
+## Export ✅
 
-1. `project.exportSVG({ asString: true, bounds: 'content', precision: 2 })`.
-2. Normalize to the [SVG output contract](05-api-specification.md#svg-output-contract):
-   restore `viewBox` from the original document, one `<g>` per palette color, `id` and
-   `data-palette-index` on every path, per-path `fill` only for `customFill` shapes,
-   remove Paper.js-specific attributes.
-3. Offer download as `<original-name>.svg` via a `Blob` URL.
+`serializeSvg()` (`src/editor/export.ts`) writes the edited `EditorDoc` directly in the
+[SVG output contract](05-api-specification.md#svg-output-contract) — the same structure
+the backend produces — without going through Paper.js export (which would add clip
+groups and drop `data-*` attributes):
+
+- `<svg xmlns viewBox="0 0 W H" width height data-generator="vectorsnap-editor">`
+- one `<g id="color-N" data-palette-index="N" fill>` per non-empty group, bottom to top
+- `<path id data-palette-index d>` per shape, with `fill` only for shapes that have their
+  own color
+- attribute values are XML-escaped; `parseSvg(serializeSvg(doc))` round-trips exactly
+  (unit-tested), so an exported file can be loaded back into the editor.
+
+The result step always downloads the **edited** document as `<original-name>.svg`
+("Download edited SVG" once anything was changed); shape count and file size are
+computed from it.
 
 ## Performance
 

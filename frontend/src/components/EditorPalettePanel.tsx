@@ -27,6 +27,7 @@ export function EditorPalettePanel() {
             <button
               type="button"
               className="link"
+              aria-label={`Select all shapes of group ${group.paletteIndex + 1}`}
               onClick={() => {
                 select(null);
                 group.shapes.forEach((shape) => select(shape.id, true));

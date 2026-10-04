@@ -20,9 +20,10 @@ Both services are containerized and orchestrated with Docker Compose.
 - Reduce the image to a selected number of colors (color quantization)
 - Preview and edit the generated palette before vectorization
 - Convert the (quantized) image to SVG
-- Split a single vector path into smaller shapes for fine-grained corrections
-- Recolor individual shapes or whole palette groups
-- Download the final SVG
+- Edit the SVG in the browser: select shapes, zoom and pan
+- Split shapes with a knife line for fine-grained corrections
+- Recolor individual shapes or whole palette groups, delete shapes, undo/redo
+- Download the edited SVG
 
 ## Quick start
 
