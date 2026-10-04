@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useObjectUrl } from '../lib/useObjectUrl';
 import { useAppStore } from '../state/store';
+import { EditorPalettePanel } from './EditorPalettePanel';
 import { ShapeInspector } from './ShapeInspector';
 import { SvgEditor } from './SvgEditor';
 
@@ -21,7 +22,7 @@ export function ResultStep() {
   const url = useObjectUrl(blob);
 
   if (!vectorized) return null;
-  const { stats, palette } = vectorized;
+  const { stats } = vectorized;
 
   return (
     <section className="workspace">
@@ -36,11 +37,7 @@ export function ResultStep() {
           <dd>{stats.duration_ms} ms</dd>
         </dl>
         <ShapeInspector />
-        <ul className="swatches" aria-label="Colors used">
-          {palette.map((color) => (
-            <li key={color.index} style={{ background: color.hex }} title={color.hex} />
-          ))}
-        </ul>
+        <EditorPalettePanel />
         <div className="actions">
           <button type="button" className="secondary" onClick={() => goTo('palette')}>
             Back to colors

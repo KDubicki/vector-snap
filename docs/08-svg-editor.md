@@ -52,7 +52,7 @@ Status: ✅ implemented · 🔜 planned.
 | Clear selection | `Esc` | | ✅ |
 | Knife (line split) | `K` | Draw a freehand or straight (`Shift`) line across the selected shape → shape is split along the line. | 🔜 |
 | Lasso split | `L` | Draw a closed polygon/freehand region → the part of the selected shape inside the region becomes a new shape. | 🔜 |
-| Recolor | `C` | Click a shape to apply the current color. | 🔜 |
+| Recolor | inspector / color groups panel | Recolor the selection or a whole palette group (see [Recoloring](#recoloring)). | ✅ |
 | Eyedropper | `I` | Pick a color from a shape as the current color. | 🔜 |
 | Merge | `M` | Unite selected shapes of the same color into one shape. | 🔜 |
 | Delete | `Del` / `Backspace` | Remove selected shapes. | 🔜 |
@@ -96,13 +96,17 @@ shapes do not overlap and splitting never reveals hidden geometry underneath.
 
 ## Recoloring
 
-- **Single shape:** sets `item.fillColor` and `data.customFill`. The shape stays in its
-  palette group (so group recolor does not override it unless "Apply to overridden shapes"
-  is checked).
-- **Palette group:** changes the group's `fillColor`; children without `customFill` follow.
-- **Move to palette color:** assigning a shape to an existing palette color moves it into
-  that group (keeps the document structure clean for export).
-- A new color not present in the palette creates a new palette group.
+Implemented in `src/editor/operations.ts` (pure functions, unit-tested).
+
+- ✅ **Selected shapes** (FR-33) — inspector color picker → `recolorShapes()` sets
+  `shape.fill`. The shape stays in its palette group. Picking the group's own color removes
+  the override; **Use group color** (`resetShapeColors()`) does the same explicitly.
+  Mixed selections show "Mixed colors" and get one common color.
+- ✅ **Palette group** (FR-34) — "Color groups" panel → `recolorGroup()` changes
+  `group.fill`; shapes without their own color follow, shapes with their own color keep
+  it. Overrides that become equal to the new group color are dropped. **Select** selects
+  all shapes of a group.
+- 🔜 Moving a shape to another palette group and creating new groups for new colors.
 
 ## Undo / redo
 

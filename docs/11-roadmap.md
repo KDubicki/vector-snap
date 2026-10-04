@@ -26,7 +26,7 @@
 ## Milestone 3 — SVG editor
 
 - [x] Paper.js integration, select, zoom/pan (FR-30, FR-38)
-- [ ] Recolor shape / group (FR-33, FR-34)
+- [x] Recolor shape / group (FR-33, FR-34)
 - [ ] Knife split (FR-31)
 - [ ] Undo/redo (FR-37)
 - [ ] Export normalization (FR-39)

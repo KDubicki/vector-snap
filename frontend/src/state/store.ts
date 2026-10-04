@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { ApiError, getLimits, quantize, vectorize } from '../api/client';
 import { findShape, parseSvg, type EditorDoc } from '../editor/model';
+import { recolorGroup, recolorShapes, resetShapeColors } from '../editor/operations';
 import { base64ToBlob } from '../lib/base64';
 import { finalPalette } from '../lib/color';
 import type {
@@ -55,6 +56,9 @@ export interface AppState {
   runQuantize: () => Promise<void>;
   runVectorize: () => Promise<void>;
   select: (id: string | null, additive?: boolean) => void;
+  recolorSelection: (fill: string) => void;
+  resetSelectionColor: () => void;
+  recolorGroup: (paletteIndex: number, fill: string) => void;
   goTo: (step: Step) => void;
   reset: () => void;
 }
@@ -204,6 +208,25 @@ export const useAppStore = create<AppState>()((set, get) => ({
           : [...state.selection, id],
       };
     }),
+
+  recolorSelection: (fill) =>
+    set((state) =>
+      state.editor && state.selection.length
+        ? { editor: recolorShapes(state.editor, state.selection, fill) }
+        : {},
+    ),
+
+  resetSelectionColor: () =>
+    set((state) =>
+      state.editor && state.selection.length
+        ? { editor: resetShapeColors(state.editor, state.selection) }
+        : {},
+    ),
+
+  recolorGroup: (paletteIndex, fill) =>
+    set((state) =>
+      state.editor ? { editor: recolorGroup(state.editor, paletteIndex, fill) } : {},
+    ),
 
   goTo: (step) => set({ step, error: null }),
 

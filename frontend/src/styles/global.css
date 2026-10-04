@@ -528,3 +528,23 @@ select {
   border: 1px solid var(--color-border);
   border-radius: 4px;
 }
+
+.selection-color {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.selection-color input[type='color'] {
+  width: 36px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+}
+
+.selection-color .link {
+  margin-left: auto;
+}

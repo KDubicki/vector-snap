@@ -64,9 +64,10 @@ Layout: left = original and quantized previews side by side, right = controls.
 - ✅ Interactive canvas ([08-svg-editor.md](08-svg-editor.md)): select shapes
   (click, `Shift`+click), pan (drag), zoom (wheel, toolbar, `+`/`-`/`0`), inspector with
   the selected shapes' ids and colors.
+- ✅ Recolor the selection (own color / back to group color) and whole color groups.
 - ✅ Shape count, file size, processing time, colors used, **Download SVG**
   (`<original-name>.svg`), back to colors, new image.
-- 🔜 Recoloring, splitting, deleting, undo/redo and export of the edited document.
+- 🔜 Splitting, deleting, undo/redo and export of the edited document.
 
 ## Component tree
 
@@ -80,7 +81,8 @@ App                         header with step indicator, error banner
 │   └── TracingOptionsPanel
 └── ResultStep              (step: result) — stats, download
     ├── SvgEditor           Paper.js canvas + view toolbar (docs/08)
-    └── ShapeInspector      selected shapes
+    ├── ShapeInspector      selected shapes, selection color
+    └── EditorPalettePanel  color groups: recolor, select group
 ```
 
 ## State

@@ -188,6 +188,33 @@ describe('app store', () => {
     expect(store().selection).toEqual([]);
   });
 
+  it('recolors the selection and whole groups', async () => {
+    useAppStore.setState({ quantized });
+    vi.stubGlobal('fetch', respond(vectorized));
+    await store().runVectorize();
+
+    store().recolorSelection('#00ff00');
+    expect(store().editor?.groups[0].shapes[0].fill).toBeUndefined();
+
+    store().select('p-0-1');
+    store().recolorSelection('#00ff00');
+    expect(store().editor?.groups[0].shapes[1].fill).toBe('#00ff00');
+
+    store().resetSelectionColor();
+    expect(store().editor?.groups[0].shapes[1].fill).toBeUndefined();
+
+    store().recolorGroup(0, '#123456');
+    expect(store().editor?.groups[0].fill).toBe('#123456');
+  });
+
+  it('ignores editor actions without a document', () => {
+    store().recolorSelection('#000000');
+    store().resetSelectionColor();
+    store().recolorGroup(0, '#000000');
+
+    expect(store().editor).toBeNull();
+  });
+
   it('navigates and resets', () => {
     store().selectFile(file);
     store().setColors(12);
