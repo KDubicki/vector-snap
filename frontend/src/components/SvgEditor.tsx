@@ -4,23 +4,38 @@ import { useAppStore } from '../state/store';
 
 const DRAG_THRESHOLD_PX = 3;
 const WHEEL_ZOOM_STEP = 1.15;
+/** Minimum distance between recorded knife points, in view pixels. */
+const KNIFE_SAMPLE_PX = 4;
+
+type Tool = 'select' | 'knife';
+
+interface Gesture {
+  mode: 'pending' | 'pan' | 'knife';
+  start: ViewPoint;
+  last: ViewPoint;
+  /** Knife line in document coordinates. */
+  line: ViewPoint[];
+}
 
 function viewPoint(event: { clientX: number; clientY: number }, canvas: HTMLElement): ViewPoint {
   const rect = canvas.getBoundingClientRect();
   return { x: event.clientX - rect.left, y: event.clientY - rect.top };
 }
 
-/** Interactive SVG editor canvas (selection, zoom, pan). See docs/08-svg-editor.md. */
+/** Interactive SVG editor canvas (selection, knife, zoom, pan). See docs/08-svg-editor.md. */
 export function SvgEditor() {
   const editor = useAppStore((s) => s.editor);
   const vectorized = useAppStore((s) => s.vectorized);
   const selection = useAppStore((s) => s.selection);
   const select = useAppStore((s) => s.select);
+  const notice = useAppStore((s) => s.notice);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef<EditorScene | null>(null);
-  const dragRef = useRef<{ start: ViewPoint; last: ViewPoint; panning: boolean } | null>(null);
+  const gestureRef = useRef<Gesture | null>(null);
+  const spaceRef = useRef(false);
   const [zoom, setZoom] = useState(1);
+  const [tool, setTool] = useState<Tool>('select');
 
   // Create the Paper.js scene once and keep it sized to the canvas element.
   useEffect(() => {
@@ -72,48 +87,124 @@ export function SvgEditor() {
     sceneRef.current?.highlight(selection);
   }, [selection, editor]);
 
-  // Keyboard shortcuts: Esc clears the selection, 0 fits, +/- zoom.
+  const cancelGesture = () => {
+    gestureRef.current = null;
+    sceneRef.current?.drawGuide(null);
+  };
+
+  // Keyboard shortcuts: V/K tools, Esc cancels/clears, Space pans, 0 fits, +/- zoom.
   useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
+    const onKeyDown = (event: KeyboardEvent) => {
       const scene = sceneRef.current;
       const canvas = canvasRef.current;
       const doc = useAppStore.getState().editor;
       if (!scene || !canvas || !doc || event.target instanceof HTMLInputElement) return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
       const center = { x: canvas.clientWidth / 2, y: canvas.clientHeight / 2 };
-      if (event.key === 'Escape') select(null);
-      else if (event.key === '0') scene.fit(doc);
-      else if (event.key === '+' || event.key === '=') scene.zoomAt(WHEEL_ZOOM_STEP, center);
-      else if (event.key === '-') scene.zoomAt(1 / WHEEL_ZOOM_STEP, center);
-      else return;
+      switch (event.key) {
+        case ' ':
+          spaceRef.current = true;
+          event.preventDefault();
+          return;
+        case 'v':
+        case 'V':
+          setTool('select');
+          return;
+        case 'k':
+        case 'K':
+          setTool('knife');
+          return;
+        case 'Escape':
+          if (gestureRef.current) {
+            gestureRef.current = null;
+            scene.drawGuide(null);
+          } else {
+            select(null);
+          }
+          return;
+        case '0':
+          scene.fit(doc);
+          break;
+        case '+':
+        case '=':
+          scene.zoomAt(WHEEL_ZOOM_STEP, center);
+          break;
+        case '-':
+          scene.zoomAt(1 / WHEEL_ZOOM_STEP, center);
+          break;
+        default:
+          return;
+      }
       setZoom(scene.relativeZoom);
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (event.key === ' ') spaceRef.current = false;
+    };
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+    };
   }, [select]);
 
   const onPointerDown = (event: PointerEvent<HTMLCanvasElement>) => {
+    const scene = sceneRef.current;
+    if (!scene) return;
     const point = viewPoint(event, event.currentTarget);
     event.currentTarget.setPointerCapture(event.pointerId);
-    dragRef.current = { start: point, last: point, panning: event.button === 1 };
+    const panning = event.button === 1 || spaceRef.current;
+    gestureRef.current = {
+      mode: panning ? 'pan' : tool === 'knife' ? 'knife' : 'pending',
+      start: point,
+      last: point,
+      line: [scene.toDocument(point)],
+    };
   };
 
   const onPointerMove = (event: PointerEvent<HTMLCanvasElement>) => {
-    const drag = dragRef.current;
+    const gesture = gestureRef.current;
     const scene = sceneRef.current;
-    if (!drag || !scene) return;
+    if (!gesture || !scene) return;
     const point = viewPoint(event, event.currentTarget);
-    const moved = Math.hypot(point.x - drag.start.x, point.y - drag.start.y);
-    if (!drag.panning && moved < DRAG_THRESHOLD_PX) return;
-    drag.panning = true;
-    scene.panBy(point.x - drag.last.x, point.y - drag.last.y);
-    drag.last = point;
+
+    if (gesture.mode === 'knife') {
+      if (event.shiftKey) {
+        // Straight line from the start point.
+        gesture.line = [gesture.line[0], scene.toDocument(point)];
+      } else if (
+        Math.hypot(point.x - gesture.last.x, point.y - gesture.last.y) >= KNIFE_SAMPLE_PX
+      ) {
+        gesture.line.push(scene.toDocument(point));
+      } else {
+        return;
+      }
+      gesture.last = point;
+      scene.drawGuide(gesture.line);
+      return;
+    }
+
+    const moved = Math.hypot(point.x - gesture.start.x, point.y - gesture.start.y);
+    if (gesture.mode === 'pending' && moved < DRAG_THRESHOLD_PX) return;
+    gesture.mode = 'pan';
+    scene.panBy(point.x - gesture.last.x, point.y - gesture.last.y);
+    gesture.last = point;
   };
 
   const onPointerUp = (event: PointerEvent<HTMLCanvasElement>) => {
-    const drag = dragRef.current;
-    dragRef.current = null;
-    if (!drag || drag.panning || !sceneRef.current) return;
-    select(sceneRef.current.hitTest(viewPoint(event, event.currentTarget)), event.shiftKey);
+    const gesture = gestureRef.current;
+    const scene = sceneRef.current;
+    cancelGesture();
+    if (!gesture || !scene) return;
+    const point = viewPoint(event, event.currentTarget);
+
+    if (gesture.mode === 'knife') {
+      const end = scene.toDocument(point);
+      const line = event.shiftKey ? [gesture.line[0], end] : [...gesture.line, end];
+      useAppStore.getState().splitWithLine(line);
+    } else if (gesture.mode === 'pending') {
+      select(scene.hitTest(point), event.shiftKey);
+    }
   };
 
   const zoomBy = (factor: number) => {
@@ -133,7 +224,24 @@ export function SvgEditor() {
 
   return (
     <div className="editor">
-      <div className="editor__toolbar" role="toolbar" aria-label="View">
+      <div className="editor__toolbar" role="toolbar" aria-label="Editor tools">
+        <button
+          type="button"
+          aria-pressed={tool === 'select'}
+          onClick={() => setTool('select')}
+          title="Select (V)"
+        >
+          Select
+        </button>
+        <button
+          type="button"
+          aria-pressed={tool === 'knife'}
+          onClick={() => setTool('knife')}
+          title="Knife: draw a line across shapes to split them (K)"
+        >
+          Knife
+        </button>
+        <span className="editor__separator" />
         <button type="button" onClick={() => zoomBy(1 / WHEEL_ZOOM_STEP)} aria-label="Zoom out">
           −
         </button>
@@ -145,17 +253,24 @@ export function SvgEditor() {
           Fit
         </button>
         <span className="hint">
-          Click to select · Shift+click to add · drag to pan · scroll to zoom
+          {tool === 'knife'
+            ? 'Draw across shapes to split them · Shift: straight line · Space+drag: pan'
+            : 'Click to select · Shift+click to add · drag to pan · scroll to zoom'}
         </span>
       </div>
+      {notice && (
+        <p className="editor__notice" role="status">
+          {notice}
+        </p>
+      )}
       <canvas
         ref={canvasRef}
-        className="editor__canvas checkerboard"
+        className={`editor__canvas checkerboard editor__canvas--${tool}`}
         aria-label="SVG editor canvas"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        onPointerCancel={() => (dragRef.current = null)}
+        onPointerCancel={cancelGesture}
       />
     </div>
   );

@@ -1,7 +1,9 @@
 import { create } from 'zustand';
 import { ApiError, getLimits, quantize, vectorize } from '../api/client';
 import { findShape, parseSvg, type EditorDoc } from '../editor/model';
+import type { Point } from '../editor/geometry';
 import { recolorGroup, recolorShapes, resetShapeColors } from '../editor/operations';
+import { splitAlongLine } from '../editor/split';
 import { base64ToBlob } from '../lib/base64';
 import { finalPalette } from '../lib/color';
 import type {
@@ -42,6 +44,8 @@ export interface AppState {
   editor: EditorDoc | null;
   /** Ids of selected shapes. */
   selection: string[];
+  /** Neutral, non-error hint for the user (e.g. why an edit did nothing). */
+  notice: string | null;
   status: Status;
   error: string | null;
 
@@ -59,6 +63,8 @@ export interface AppState {
   recolorSelection: (fill: string) => void;
   resetSelectionColor: () => void;
   recolorGroup: (paletteIndex: number, fill: string) => void;
+  /** Split fully crossed shapes (the selection, if any) along a line in document coordinates. */
+  splitWithLine: (line: Point[]) => void;
   goTo: (step: Step) => void;
   reset: () => void;
 }
@@ -76,6 +82,7 @@ const initialState = {
   vectorized: null,
   editor: null as EditorDoc | null,
   selection: [] as string[],
+  notice: null as string | null,
   status: 'idle' as Status,
   error: null,
 };
@@ -199,10 +206,11 @@ export const useAppStore = create<AppState>()((set, get) => ({
   select: (id, additive = false) =>
     set((state) => {
       if (id === null || !state.editor || !findShape(state.editor, id)) {
-        return { selection: additive ? state.selection : [] };
+        return { selection: additive ? state.selection : [], notice: null };
       }
-      if (!additive) return { selection: [id] };
+      if (!additive) return { selection: [id], notice: null };
       return {
+        notice: null,
         selection: state.selection.includes(id)
           ? state.selection.filter((selected) => selected !== id)
           : [...state.selection, id],
@@ -227,6 +235,16 @@ export const useAppStore = create<AppState>()((set, get) => ({
     set((state) =>
       state.editor ? { editor: recolorGroup(state.editor, paletteIndex, fill) } : {},
     ),
+
+  splitWithLine: (line) =>
+    set((state) => {
+      if (!state.editor) return {};
+      const result = splitAlongLine(state.editor, line, state.selection);
+      if (result.split === 0) {
+        return { notice: 'Draw a line that fully crosses a shape to split it.' };
+      }
+      return { editor: result.doc, selection: result.created, notice: null };
+    }),
 
   goTo: (step) => set({ step, error: null }),
 

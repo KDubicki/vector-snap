@@ -46,11 +46,11 @@ Status: ✅ implemented · 🔜 planned.
 
 | Tool | Shortcut | Behavior | Status |
 |------|----------|----------|--------|
-| Select | click | Click selects the topmost shape under the cursor (hit-test on fill; holes are not hits). `Shift`+click toggles a shape in the selection. Click on empty canvas clears it. | ✅ |
+| Select | `V` / click | Click selects the topmost shape under the cursor (hit-test on fill; holes are not hits). `Shift`+click toggles a shape in the selection. Click on empty canvas clears it. | ✅ |
 | Pan | drag / middle button | Dragging more than 3 px pans instead of selecting. | ✅ |
 | Zoom | wheel / `+` / `-` / `0` (fit) / toolbar | Zoom around the cursor, 10 %–6400 % of "fit". | ✅ |
 | Clear selection | `Esc` | | ✅ |
-| Knife (line split) | `K` | Draw a freehand or straight (`Shift`) line across the selected shape → shape is split along the line. | 🔜 |
+| Knife (line split) | `K` / toolbar | Draw a freehand or straight (`Shift`) line; fully crossed shapes are split (see [Knife](#knife-line-cut-)). `Space`+drag pans, `Esc` cancels the line. | ✅ |
 | Lasso split | `L` | Draw a closed polygon/freehand region → the part of the selected shape inside the region becomes a new shape. | 🔜 |
 | Recolor | inspector / color groups panel | Recolor the selection or a whole palette group (see [Recoloring](#recoloring)). | ✅ |
 | Eyedropper | `I` | Pick a color from a shape as the current color. | 🔜 |
@@ -67,24 +67,32 @@ interactive component is verified end-to-end in a browser.
 
 ## Splitting algorithms
 
-### Knife (line cut)
+### Knife (line cut) ✅
 
-Input: selected shape `S`, user polyline `L` (points in project coordinates).
+**Which shapes are cut** (`src/editor/split.ts`): a shape is cut only when the line
+**fully crosses** it — both end points lie outside the shape and the cut yields at least
+two pieces. The shape the line starts and ends on (typically the background) therefore
+stays intact. If the line fully crosses any selected shape, only selected shapes are cut;
+otherwise every fully crossed shape is. After a cut the new parts are selected. When
+nothing is cut, a neutral hint explains why.
 
-1. Simplify `L` (`path.simplify(tolerance)`) and require that it intersects `S` at
-   least twice (`S.getIntersections(L).length >= 2`); otherwise show a hint and abort.
-2. Extend both ends of `L` beyond `S.bounds` along their end tangents.
-3. Build a **half-plane polygon** `H`: the extended line closed around one side of
-   `S.bounds` (expanded by a margin).
+**Geometry** (`src/editor/geometry.ts`, headless Paper.js scope) for shape `S` and the
+user polyline `L` (document coordinates, sampled every 4 view px; `Shift` = straight line):
+
+1. Reject if an end point of `L` lies inside `S` or `L` intersects `S` fewer than twice.
+2. Extend both ends of `L` along their end directions far beyond `S ∪ L` bounds.
+3. Build a **half-plane polygon** `H`: the extended line closed by two far points offset
+   along the line's left normal.
 4. `A = S.intersect(H)`, `B = S.subtract(H)`.
-5. Each of `A`, `B` may be a `CompoundPath` with disjoint pieces — split them into
-   independent shapes (`compound.children` grouped by containment so holes stay with
-   their outer contour).
-6. Drop parts with area below a threshold (e.g. 0.5 px²) — numeric slivers.
-7. Replace `S` by the new shapes in the same group and z-order; ids derived from the
-   parent id (`p-3-12.a`, `p-3-12.b`, …); `paletteIndex` and `customFill` inherited.
+5. Each of `A`, `B` may contain disjoint pieces — they are separated into independent
+   shapes; holes stay with their outer contour (nesting depth is determined from contour
+   vertices, which is reliable because result contours never cross).
+6. Pieces below 0.5 px² are dropped (numeric slivers).
+7. `replaceShape()` puts the parts at the original z-position; ids derive from the
+   parent (`p-3-12.a`, `p-3-12.b`, …, existing ids are skipped) and an own color is
+   inherited.
 
-### Lasso (region cut)
+### Lasso (region cut) 🔜
 
 1. Close the user path into polygon `R`.
 2. `inside = S.intersect(R)`, `outside = S.subtract(R)`.

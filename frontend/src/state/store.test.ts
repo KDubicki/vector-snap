@@ -19,7 +19,7 @@ const vectorized: VectorizeResponse = {
   height: 1,
   palette: quantized.palette,
   stats: { paths: 2, bytes: 100, duration_ms: 5 },
-  svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2 1"><g data-palette-index="0" fill="#ff0000"><path id="p-0-0" d="M0,0 L1,0 L1,1 Z"/><path id="p-0-1" d="M1,0 L2,0 L2,1 Z"/></g></svg>',
+  svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10"><g data-palette-index="0" fill="#ff0000"><path id="p-0-0" d="M0,0 L10,0 L10,10 Z"/><path id="p-0-1" d="M10,0 L20,0 L20,10 Z"/></g></svg>',
 };
 
 function respond(body: unknown, status = 200) {
@@ -207,10 +207,48 @@ describe('app store', () => {
     expect(store().editor?.groups[0].fill).toBe('#123456');
   });
 
+  it('splits shapes along a line and selects the parts', async () => {
+    useAppStore.setState({ quantized });
+    vi.stubGlobal('fetch', respond(vectorized));
+    await store().runVectorize();
+    // p-0-0 is the triangle (0,0) (10,0) (10,10); a vertical cut at x = 7.5 crosses it
+    const line = [
+      { x: 7.5, y: -1 },
+      { x: 7.5, y: 11 },
+    ];
+
+    store().select('p-0-0');
+    store().splitWithLine(line);
+
+    expect(store().selection).toEqual(['p-0-0.a', 'p-0-0.b']);
+    expect(store().editor?.groups[0].shapes.map((s) => s.id)).toEqual([
+      'p-0-0.a',
+      'p-0-0.b',
+      'p-0-1',
+    ]);
+    expect(store().notice).toBeNull();
+  });
+
+  it('explains when a line splits nothing and clears the hint on selection', async () => {
+    useAppStore.setState({ quantized });
+    vi.stubGlobal('fetch', respond(vectorized));
+    await store().runVectorize();
+
+    store().splitWithLine([
+      { x: 50, y: -1 },
+      { x: 50, y: 11 },
+    ]);
+    expect(store().notice).toMatch('fully crosses');
+
+    store().select(null);
+    expect(store().notice).toBeNull();
+  });
+
   it('ignores editor actions without a document', () => {
     store().recolorSelection('#000000');
     store().resetSelectionColor();
     store().recolorGroup(0, '#000000');
+    store().splitWithLine([]);
 
     expect(store().editor).toBeNull();
   });

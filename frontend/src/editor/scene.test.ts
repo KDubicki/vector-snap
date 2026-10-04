@@ -78,6 +78,23 @@ describe('EditorScene', () => {
     expect(overlay.children).toHaveLength(0);
   });
 
+  it('draws and clears the knife guide', () => {
+    const instance = scene();
+    const guide = instance.scope.project.layers[2];
+
+    instance.drawGuide([
+      { x: 0, y: 0 },
+      { x: 10, y: 10 },
+    ]);
+    expect(guide.children).toHaveLength(2);
+
+    instance.drawGuide([{ x: 0, y: 0 }]);
+    expect(guide.children).toHaveLength(0);
+
+    instance.drawGuide(null);
+    expect(guide.children).toHaveLength(0);
+  });
+
   it('zooms around a point and clamps the zoom range', () => {
     const instance = scene();
     const before = instance.toDocument({ x: 40, y: 20 });

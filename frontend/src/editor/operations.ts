@@ -65,3 +65,41 @@ export function recolorGroup(doc: EditorDoc, paletteIndex: number, fill: string)
     ),
   };
 }
+
+const PART_SUFFIXES = 'abcdefghijklmnopqrstuvwxyz';
+
+function partIds(doc: EditorDoc, id: string, count: number): string[] {
+  const taken = new Set(doc.groups.flatMap((group) => group.shapes.map((shape) => shape.id)));
+  const ids: string[] = [];
+  for (let n = 0; ids.length < count; n += 1) {
+    const letters = n < PART_SUFFIXES.length ? PART_SUFFIXES[n] : `p${n}`;
+    const candidate = `${id}.${letters}`;
+    if (!taken.has(candidate)) ids.push(candidate);
+  }
+  return ids;
+}
+
+/**
+ * Replace a shape by several parts at the same z-position (used by splitting).
+ * Parts inherit the shape's own color and get derived ids: "p-3-12.a", "p-3-12.b", ...
+ */
+export function replaceShape(
+  doc: EditorDoc,
+  id: string,
+  parts: string[],
+): { doc: EditorDoc; ids: string[] } {
+  const ids = partIds(doc, id, parts.length);
+  let replaced = false;
+  const groups = doc.groups.map((group) => {
+    const index = group.shapes.findIndex((shape) => shape.id === id);
+    if (index < 0) return group;
+    replaced = true;
+    const original = group.shapes[index];
+    const created = parts.map((d, i) => ({ ...original, id: ids[i], d }));
+    return {
+      ...group,
+      shapes: [...group.shapes.slice(0, index), ...created, ...group.shapes.slice(index + 1)],
+    };
+  });
+  return replaced ? { doc: { ...doc, groups }, ids } : { doc, ids: [] };
+}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { EditorDoc } from './model';
-import { recolorGroup, recolorShapes, resetShapeColors } from './operations';
+import { recolorGroup, recolorShapes, replaceShape, resetShapeColors } from './operations';
 
 const doc: EditorDoc = {
   width: 10,
@@ -62,5 +62,41 @@ describe('recolorGroup', () => {
     const next = recolorGroup(doc, 0, '#00FF00');
 
     expect(next.groups[0].shapes[1].fill).toBeUndefined();
+  });
+});
+
+describe('replaceShape', () => {
+  it('replaces a shape by parts at the same position with derived ids', () => {
+    const { doc: next, ids } = replaceShape(doc, 'b', ['M1,1 Z', 'M2,2 Z']);
+
+    expect(ids).toEqual(['b.a', 'b.b']);
+    expect(next.groups[0].shapes).toEqual([
+      { id: 'a', d: 'M0,0 Z' },
+      { id: 'b.a', d: 'M1,1 Z', fill: '#00ff00' },
+      { id: 'b.b', d: 'M2,2 Z', fill: '#00ff00' },
+    ]);
+    expect(next.groups[1]).toBe(doc.groups[1]);
+  });
+
+  it('skips ids that already exist', () => {
+    const taken: EditorDoc = {
+      ...doc,
+      groups: [{ ...doc.groups[0], shapes: [...doc.groups[0].shapes, { id: 'a.a', d: '' }] }],
+    };
+
+    expect(replaceShape(taken, 'a', ['M0,0 Z', 'M1,1 Z']).ids).toEqual(['a.b', 'a.c']);
+  });
+
+  it('uses numbered suffixes after z', () => {
+    const parts = Array.from({ length: 28 }, () => 'M0,0 Z');
+
+    expect(replaceShape(doc, 'a', parts).ids.slice(-2)).toEqual(['a.p26', 'a.p27']);
+  });
+
+  it('returns the document unchanged for unknown ids', () => {
+    const result = replaceShape(doc, 'missing', ['M0,0 Z']);
+
+    expect(result.doc).toBe(doc);
+    expect(result.ids).toEqual([]);
   });
 });

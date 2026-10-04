@@ -22,6 +22,7 @@ export class EditorScene {
   readonly scope: paper.PaperScope;
   private readonly content: paper.Layer;
   private readonly overlay: paper.Layer;
+  private readonly guide: paper.Layer;
   private fitZoom = 1;
 
   constructor(target: HTMLCanvasElement | { width: number; height: number }) {
@@ -33,6 +34,7 @@ export class EditorScene {
     );
     this.content = new this.scope.Layer();
     this.overlay = new this.scope.Layer();
+    this.guide = new this.scope.Layer();
   }
 
   /** Rebuild the scene from the document (bottom group first). */
@@ -75,6 +77,23 @@ export class EditorScene {
         outline.strokeScaling = false;
         this.overlay.addChild(outline);
       }
+    }
+  }
+
+  /** Draw (or clear with `null`) the knife line preview, in document coordinates. */
+  drawGuide(points: { x: number; y: number }[] | null): void {
+    this.guide.removeChildren();
+    if (!points || points.length < 2) return;
+    for (const style of OUTLINE_STYLES) {
+      this.guide.addChild(
+        new this.scope.Path({
+          segments: points.map((p) => new this.scope.Point(p.x, p.y)),
+          strokeColor: new this.scope.Color(style.color),
+          strokeWidth: style.width,
+          dashArray: style.dash,
+          strokeScaling: false,
+        }),
+      );
     }
   }
 

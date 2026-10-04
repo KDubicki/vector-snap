@@ -65,9 +65,10 @@ Layout: left = original and quantized previews side by side, right = controls.
   (click, `Shift`+click), pan (drag), zoom (wheel, toolbar, `+`/`-`/`0`), inspector with
   the selected shapes' ids and colors.
 - ✅ Recolor the selection (own color / back to group color) and whole color groups.
+- ✅ Knife tool: split shapes along a freehand or straight line.
 - ✅ Shape count, file size, processing time, colors used, **Download SVG**
   (`<original-name>.svg`), back to colors, new image.
-- 🔜 Splitting, deleting, undo/redo and export of the edited document.
+- 🔜 Deleting, undo/redo and export of the edited document.
 
 ## Component tree
 
