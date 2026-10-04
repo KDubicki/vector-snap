@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import { useObjectUrl } from '../lib/useObjectUrl';
 import { useAppStore } from '../state/store';
+import { ShapeInspector } from './ShapeInspector';
+import { SvgEditor } from './SvgEditor';
 
 function svgFileName(file: File | null): string {
   const base = file?.name.replace(/\.[^.]+$/, '') || 'vectorsnap';
@@ -23,10 +25,7 @@ export function ResultStep() {
 
   return (
     <section className="workspace">
-      <figure className="preview preview--large">
-        <figcaption>SVG result</figcaption>
-        {url && <img className="preview__image checkerboard" src={url} alt="Vectorized SVG" />}
-      </figure>
+      <SvgEditor />
       <aside className="panel">
         <dl className="stats">
           <dt>Shapes</dt>
@@ -36,6 +35,7 @@ export function ResultStep() {
           <dt>Processing</dt>
           <dd>{stats.duration_ms} ms</dd>
         </dl>
+        <ShapeInspector />
         <ul className="swatches" aria-label="Colors used">
           {palette.map((color) => (
             <li key={color.index} style={{ background: color.hex }} title={color.hex} />

@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { QuantizeResponse, VectorizeResponse } from '../types/api';
 import { DEFAULT_COLORS, useAppStore } from './store';
@@ -18,7 +19,7 @@ const vectorized: VectorizeResponse = {
   height: 1,
   palette: quantized.palette,
   stats: { paths: 2, bytes: 100, duration_ms: 5 },
-  svg: '<svg/>',
+  svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2 1"><g data-palette-index="0" fill="#ff0000"><path id="p-0-0" d="M0,0 L1,0 L1,1 Z"/><path id="p-0-1" d="M1,0 L2,0 L2,1 Z"/></g></svg>',
 };
 
 function respond(body: unknown, status = 200) {
@@ -141,6 +142,7 @@ describe('app store', () => {
     expect(form.get('mode')).toBe('polygon');
     expect(form.get('stacking')).toBe('cutout');
     expect(store().vectorized).toEqual(vectorized);
+    expect(store().editor?.groups[0].shapes.map((s) => s.id)).toEqual(['p-0-0', 'p-0-1']);
     expect(store().step).toBe('result');
   });
 
@@ -162,6 +164,28 @@ describe('app store', () => {
     await store().runVectorize();
 
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('selects shapes, toggles with additive selection and ignores unknown ids', async () => {
+    useAppStore.setState({ quantized });
+    vi.stubGlobal('fetch', respond(vectorized));
+    await store().runVectorize();
+
+    store().select('p-0-0');
+    store().select('p-0-1', true);
+    expect(store().selection).toEqual(['p-0-0', 'p-0-1']);
+
+    store().select('p-0-0', true);
+    expect(store().selection).toEqual(['p-0-1']);
+
+    store().select('missing', true);
+    expect(store().selection).toEqual(['p-0-1']);
+
+    store().select('p-0-0');
+    expect(store().selection).toEqual(['p-0-0']);
+
+    store().select(null);
+    expect(store().selection).toEqual([]);
   });
 
   it('navigates and resets', () => {

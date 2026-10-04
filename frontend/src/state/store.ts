@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { ApiError, getLimits, quantize, vectorize } from '../api/client';
+import { findShape, parseSvg, type EditorDoc } from '../editor/model';
 import { base64ToBlob } from '../lib/base64';
 import { finalPalette } from '../lib/color';
 import type {
@@ -36,6 +37,10 @@ export interface AppState {
   overrides: Record<number, string>;
   tracing: TracingOptions;
   vectorized: VectorizeResponse | null;
+  /** Editable document built from `vectorized.svg`. */
+  editor: EditorDoc | null;
+  /** Ids of selected shapes. */
+  selection: string[];
   status: Status;
   error: string | null;
 
@@ -49,6 +54,7 @@ export interface AppState {
   setTracing: (options: Partial<TracingOptions>) => void;
   runQuantize: () => Promise<void>;
   runVectorize: () => Promise<void>;
+  select: (id: string | null, additive?: boolean) => void;
   goTo: (step: Step) => void;
   reset: () => void;
 }
@@ -64,6 +70,8 @@ const initialState = {
   overrides: {},
   tracing: DEFAULT_TRACING,
   vectorized: null,
+  editor: null as EditorDoc | null,
+  selection: [] as string[],
   status: 'idle' as Status,
   error: null,
 };
@@ -171,12 +179,31 @@ export const useAppStore = create<AppState>()((set, get) => ({
       const image = base64ToBlob(quantized.image.data, quantized.image.media_type);
       const palette = finalPalette(quantized.palette, overrides);
       const vectorized = await vectorize(image, palette, tracing, signal);
-      set({ vectorized, step: 'result', status: 'idle' });
+      set({
+        vectorized,
+        editor: parseSvg(vectorized.svg),
+        selection: [],
+        step: 'result',
+        status: 'idle',
+      });
     } catch (error) {
       if (isAbort(error)) return;
       set({ status: 'idle', error: errorMessage(error) });
     }
   },
+
+  select: (id, additive = false) =>
+    set((state) => {
+      if (id === null || !state.editor || !findShape(state.editor, id)) {
+        return { selection: additive ? state.selection : [] };
+      }
+      if (!additive) return { selection: [id] };
+      return {
+        selection: state.selection.includes(id)
+          ? state.selection.filter((selected) => selected !== id)
+          : [...state.selection, id],
+      };
+    }),
 
   goTo: (step) => set({ step, error: null }),
 

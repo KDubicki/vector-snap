@@ -59,12 +59,14 @@ Layout: left = original and quantized previews side by side, right = controls.
   speck filter, corner threshold.
 - **Convert to SVG** → `POST /vectorize` with the indexed PNG and the final palette.
 
-### Step 3 — Result ✅ / SVG editor 🔜
+### Step 3 — SVG editor
 
-- ✅ SVG preview on a transparency checkerboard, shape count, file size, processing time,
-  colors used, **Download SVG** (`<original-name>.svg`), back to colors, new image.
-- 🔜 Interactive editing (select, split, recolor shapes) as described in
-  [08-svg-editor.md](08-svg-editor.md) replaces the static preview.
+- ✅ Interactive canvas ([08-svg-editor.md](08-svg-editor.md)): select shapes
+  (click, `Shift`+click), pan (drag), zoom (wheel, toolbar, `+`/`-`/`0`), inspector with
+  the selected shapes' ids and colors.
+- ✅ Shape count, file size, processing time, colors used, **Download SVG**
+  (`<original-name>.svg`), back to colors, new image.
+- 🔜 Recoloring, splitting, deleting, undo/redo and export of the edited document.
 
 ## Component tree
 
@@ -76,8 +78,9 @@ App                         header with step indicator, error banner
 │   ├── QuantizedPreview    canvas, client-side recoloring
 │   ├── PaletteEditor
 │   └── TracingOptionsPanel
-└── ResultStep              (step: result) — SVG preview, stats, download
-    └── 🔜 SvgEditor        Paper.js canvas, toolbar, inspector (docs/08)
+└── ResultStep              (step: result) — stats, download
+    ├── SvgEditor           Paper.js canvas + view toolbar (docs/08)
+    └── ShapeInspector      selected shapes
 ```
 
 ## State
@@ -97,6 +100,8 @@ interface AppState {
   overrides: Record<number, string>;         // palette index → edited hex
   tracing: TracingOptions;                   // defaults: spline, cutout, speckle 4
   vectorized: VectorizeResponse | null;
+  editor: EditorDoc | null;                  // editable document (docs/08)
+  selection: string[];                       // selected shape ids
   status: 'idle' | 'quantizing' | 'vectorizing';
   error: string | null;
   // actions: loadLimits, selectFile, setColors, setAlgorithm, setOverride, resetOverride,
@@ -108,8 +113,7 @@ interface AppState {
   and aborted requests never surface as errors.
 - Pure logic lives in `src/lib/` (color conversion, recoloring, base64) and `src/state/`,
   and is unit-tested with Vitest; components are covered by E2E tests (planned).
-- 🔜 The editor document will live in Paper.js; the store will hold the undo history and
-  selection, not a duplicated copy of the geometry.
+- The editor document is an immutable `EditorDoc` in the store; Paper.js only renders it.
 
 ## API client (`src/api/client.ts`)
 
