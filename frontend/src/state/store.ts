@@ -63,6 +63,9 @@ export interface AppState {
   runQuantize: () => Promise<void>;
   runVectorize: () => Promise<void>;
   select: (id: string | null, additive?: boolean) => void;
+  /** Select several shapes at once (box selection); `additive` adds to the selection. */
+  selectMany: (ids: string[], additive?: boolean) => void;
+  selectAll: () => void;
   recolorSelection: (fill: string) => void;
   resetSelectionColor: () => void;
   recolorGroup: (paletteIndex: number, fill: string) => void;
@@ -244,6 +247,22 @@ export const useAppStore = create<AppState>()((set, get) => ({
           : [...state.selection, id],
       };
     }),
+
+  selectMany: (ids, additive = false) =>
+    set((state) => {
+      if (!state.editor) return {};
+      const known = ids.filter((id) => findShape(state.editor!, id) !== null);
+      const base = additive ? state.selection : [];
+      return { selection: [...new Set([...base, ...known])], notice: null };
+    }),
+
+  selectAll: () =>
+    set((state) => ({
+      selection: state.editor
+        ? state.editor.groups.flatMap((group) => group.shapes.map((shape) => shape.id))
+        : [],
+      notice: null,
+    })),
 
   recolorSelection: (fill) =>
     set((state) =>

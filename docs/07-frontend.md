@@ -61,9 +61,9 @@ Layout: left = original and quantized previews side by side, right = controls.
 
 ### Step 3 — SVG editor
 
-- ✅ Interactive canvas ([08-svg-editor.md](08-svg-editor.md)): select shapes
-  (click, `Shift`+click), pan (drag), zoom (wheel, toolbar, `+`/`-`/`0`), inspector with
-  the selected shapes' ids and colors.
+- ✅ Interactive canvas ([08-svg-editor.md](08-svg-editor.md)): select shapes by click
+  (with hover preview), box selection, `Ctrl/Cmd+A`; pan (Hand tool, `Space`+drag, middle
+  button), zoom (wheel, toolbar, `+`/`-`/`0`); inspector with the selected shapes.
 - ✅ Recolor the selection (own color / back to group color) and whole color groups.
 - ✅ Knife tool: split shapes along a freehand or straight line.
 - ✅ Delete shapes, undo/redo every edit (toolbar and keyboard).

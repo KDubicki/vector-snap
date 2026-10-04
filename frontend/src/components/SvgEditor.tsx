@@ -7,10 +7,34 @@ const WHEEL_ZOOM_STEP = 1.15;
 /** Minimum distance between recorded knife points, in view pixels. */
 const KNIFE_SAMPLE_PX = 4;
 
-type Tool = 'select' | 'knife';
+type Tool = 'select' | 'hand' | 'knife';
+
+const TOOLS: { id: Tool; label: string; key: string; title: string; hint: string }[] = [
+  {
+    id: 'select',
+    label: 'Select',
+    key: 'v',
+    title: 'Select (V): click a shape or drag a box around shapes',
+    hint: 'Click to select · drag a box to select shapes inside · Shift adds · Space+drag pans',
+  },
+  {
+    id: 'hand',
+    label: 'Hand',
+    key: 'h',
+    title: 'Hand (H): drag to pan',
+    hint: 'Drag to pan · scroll to zoom',
+  },
+  {
+    id: 'knife',
+    label: 'Knife',
+    key: 'k',
+    title: 'Knife (K): draw a line across shapes to split them',
+    hint: 'Draw across shapes to split them · Shift: straight line · Space+drag pans',
+  },
+];
 
 interface Gesture {
-  mode: 'pending' | 'pan' | 'knife';
+  mode: 'pending' | 'pan' | 'knife' | 'marquee';
   start: ViewPoint;
   last: ViewPoint;
   /** Knife line in document coordinates. */
@@ -116,6 +140,7 @@ export function SvgEditor() {
   const cancelGesture = () => {
     gestureRef.current = null;
     sceneRef.current?.drawGuide(null);
+    sceneRef.current?.drawMarquee(null);
   };
 
   // Keyboard shortcuts: Ctrl/Cmd+Z undo, Ctrl/Cmd+Shift+Z or Ctrl+Y redo, Delete removes,
@@ -134,20 +159,22 @@ export function SvgEditor() {
         else store.undo();
         return;
       }
+      if ((event.metaKey || event.ctrlKey) && key === 'a') {
+        event.preventDefault();
+        store.selectAll();
+        return;
+      }
       if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const shortcut = TOOLS.find((item) => item.key === key);
+      if (shortcut) {
+        setTool(shortcut.id);
+        return;
+      }
       const center = { x: canvas.clientWidth / 2, y: canvas.clientHeight / 2 };
       switch (event.key) {
         case ' ':
           spaceRef.current = true;
           event.preventDefault();
-          return;
-        case 'v':
-        case 'V':
-          setTool('select');
-          return;
-        case 'k':
-        case 'K':
-          setTool('knife');
           return;
         case 'Delete':
         case 'Backspace':
@@ -158,6 +185,7 @@ export function SvgEditor() {
           if (gestureRef.current) {
             gestureRef.current = null;
             scene.drawGuide(null);
+            scene.drawMarquee(null);
           } else {
             select(null);
           }
@@ -194,7 +222,8 @@ export function SvgEditor() {
     const point = viewPoint(event, event.currentTarget);
     event.currentTarget.focus();
     event.currentTarget.setPointerCapture(event.pointerId);
-    const panning = event.button === 1 || spaceRef.current;
+    const panning = event.button === 1 || spaceRef.current || tool === 'hand';
+    scene.hover(null);
     gestureRef.current = {
       mode: panning ? 'pan' : tool === 'knife' ? 'knife' : 'pending',
       start: point,
@@ -206,8 +235,13 @@ export function SvgEditor() {
   const onPointerMove = (event: PointerEvent<HTMLCanvasElement>) => {
     const gesture = gestureRef.current;
     const scene = sceneRef.current;
-    if (!gesture || !scene) return;
+    if (!scene) return;
     const point = viewPoint(event, event.currentTarget);
+    if (!gesture) {
+      // Preview what a click would select.
+      scene.hover(tool === 'select' && !spaceRef.current ? scene.hitTest(point) : null);
+      return;
+    }
 
     if (gesture.mode === 'knife') {
       if (event.shiftKey) {
@@ -226,8 +260,14 @@ export function SvgEditor() {
     }
 
     const moved = Math.hypot(point.x - gesture.start.x, point.y - gesture.start.y);
-    if (gesture.mode === 'pending' && moved < DRAG_THRESHOLD_PX) return;
-    gesture.mode = 'pan';
+    if (gesture.mode === 'pending') {
+      if (moved < DRAG_THRESHOLD_PX) return;
+      gesture.mode = 'marquee';
+    }
+    if (gesture.mode === 'marquee') {
+      scene.drawMarquee(gesture.line[0], scene.toDocument(point));
+      return;
+    }
     scene.panBy(point.x - gesture.last.x, point.y - gesture.last.y);
     gesture.last = point;
   };
@@ -243,6 +283,9 @@ export function SvgEditor() {
       const end = scene.toDocument(point);
       const line = event.shiftKey ? [gesture.line[0], end] : [...gesture.line, end];
       useAppStore.getState().splitWithLine(line);
+    } else if (gesture.mode === 'marquee') {
+      const ids = scene.shapesInside(gesture.line[0], scene.toDocument(point));
+      useAppStore.getState().selectMany(ids, event.shiftKey);
     } else if (gesture.mode === 'pending') {
       select(scene.hitTest(point), event.shiftKey);
     }
@@ -266,22 +309,17 @@ export function SvgEditor() {
   return (
     <div className="editor">
       <div className="editor__toolbar" role="toolbar" aria-label="Editor tools">
-        <button
-          type="button"
-          aria-pressed={tool === 'select'}
-          onClick={() => setTool('select')}
-          title="Select (V)"
-        >
-          Select
-        </button>
-        <button
-          type="button"
-          aria-pressed={tool === 'knife'}
-          onClick={() => setTool('knife')}
-          title="Knife: draw a line across shapes to split them (K)"
-        >
-          Knife
-        </button>
+        {TOOLS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            aria-pressed={tool === item.id}
+            onClick={() => setTool(item.id)}
+            title={item.title}
+          >
+            {item.label}
+          </button>
+        ))}
         <span className="editor__separator" />
         <button
           type="button"
@@ -318,11 +356,7 @@ export function SvgEditor() {
         <button type="button" onClick={fit}>
           Fit
         </button>
-        <span className="hint">
-          {tool === 'knife'
-            ? 'Draw across shapes to split them · Shift: straight line · Space+drag: pan'
-            : 'Click to select · Shift+click to add · drag to pan · scroll to zoom'}
-        </span>
+        <span className="hint">{TOOLS.find((item) => item.id === tool)?.hint}</span>
       </div>
       {notice && (
         <p className="editor__notice" role="status">
@@ -339,6 +373,7 @@ export function SvgEditor() {
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerCancel={cancelGesture}
+          onPointerLeave={() => sceneRef.current?.hover(null)}
         />
       </div>
     </div>

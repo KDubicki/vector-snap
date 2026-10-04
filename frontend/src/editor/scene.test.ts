@@ -69,7 +69,7 @@ describe('EditorScene', () => {
 
     instance.highlight(['p-0-0', 'missing']);
 
-    const overlay = instance.scope.project.layers[1];
+    const overlay = instance.scope.project.layers[2];
     expect(overlay.children).toHaveLength(2);
     expect(overlay.children.map((c) => c.fillColor)).toEqual([null, null]);
     expect(overlay.children.map((c) => c.strokeColor?.toCSS(true))).toEqual(['#111111', '#ffffff']);
@@ -78,9 +78,44 @@ describe('EditorScene', () => {
     expect(overlay.children).toHaveLength(0);
   });
 
+  it('outlines the hovered shape and clears it', () => {
+    const instance = scene();
+    const hoverLayer = instance.scope.project.layers[1];
+
+    instance.hover('p-0-0');
+    instance.hover('p-0-0'); // no-op when unchanged
+    expect(hoverLayer.children).toHaveLength(1);
+    expect(hoverLayer.children[0].strokeColor?.toCSS(true)).toBe('#2f80ff');
+
+    instance.hover('missing');
+    expect(hoverLayer.children).toHaveLength(0);
+
+    instance.hover('p-1-0');
+    instance.render(doc); // re-render drops a stale hover outline
+    expect(hoverLayer.children).toHaveLength(0);
+  });
+
+  it('finds shapes fully inside a rectangle and draws the marquee', () => {
+    const instance = scene();
+
+    expect(instance.shapesInside({ x: 60, y: 10 }, { x: 90, y: 40 })).toEqual(['p-1-1']);
+    expect(instance.shapesInside({ x: 101, y: 51 }, { x: -1, y: -1 }).sort()).toEqual([
+      'p-0-0',
+      'p-1-0',
+      'p-1-1',
+    ]);
+    expect(instance.shapesInside({ x: 10, y: 10 }, { x: 20, y: 20 })).toEqual([]);
+
+    const guide = instance.scope.project.layers[3];
+    instance.drawMarquee({ x: 0, y: 0 }, { x: 10, y: 10 });
+    expect(guide.children).toHaveLength(2);
+    instance.drawMarquee(null);
+    expect(guide.children).toHaveLength(0);
+  });
+
   it('draws and clears the knife guide', () => {
     const instance = scene();
-    const guide = instance.scope.project.layers[2];
+    const guide = instance.scope.project.layers[3];
 
     instance.drawGuide([
       { x: 0, y: 0 },

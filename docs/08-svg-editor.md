@@ -46,8 +46,9 @@ Status: ✅ implemented · 🔜 planned.
 
 | Tool | Shortcut | Behavior | Status |
 |------|----------|----------|--------|
-| Select | `V` / click | Click selects the topmost shape under the cursor (hit-test on fill; holes are not hits). `Shift`+click toggles a shape in the selection. Click on empty canvas clears it. | ✅ |
-| Pan | drag / middle button | Dragging more than 3 px pans instead of selecting. | ✅ |
+| Select | `V` | Click selects the topmost shape under the cursor (hit-test on fill; holes are not hits); the shape under the cursor is outlined in blue before clicking. **Drag a box** to select every shape lying completely inside it (the background is never caught). `Shift` adds (click toggles). Click on empty canvas clears. | ✅ |
+| Select all | `Ctrl/Cmd+A` | Select every shape. | ✅ |
+| Hand / pan | `H`, `Space`+drag, middle button | Drag to move the viewport (works in every tool with `Space` or the middle button). | ✅ |
 | Zoom | wheel / `+` / `-` / `0` (fit) / toolbar | Zoom around the cursor, 10 %–6400 % of "fit". | ✅ |
 | Clear selection | `Esc` | | ✅ |
 | Knife (line split) | `K` / toolbar | Draw a freehand or straight (`Shift`) line; fully crossed shapes are split (see [Knife](#knife-line-cut-)). `Space`+drag pans, `Esc` cancels the line. | ✅ |

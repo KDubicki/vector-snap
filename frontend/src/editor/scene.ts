@@ -8,6 +8,7 @@ export interface ViewPoint {
 
 const MIN_ZOOM_FACTOR = 0.1; // relative to the "fit" zoom
 const MAX_ZOOM_FACTOR = 64;
+const HOVER_COLOR = '#2f80ff';
 // Dark outline + white dashes stay visible on any fill color.
 const OUTLINE_STYLES = [
   { color: '#111111', width: 3, dash: [] as number[] },
@@ -21,8 +22,10 @@ const OUTLINE_STYLES = [
 export class EditorScene {
   readonly scope: paper.PaperScope;
   private readonly content: paper.Layer;
+  private readonly hoverLayer: paper.Layer;
   private readonly overlay: paper.Layer;
   private readonly guide: paper.Layer;
+  private hovered: string | null = null;
   private fitZoom = 1;
 
   constructor(target: HTMLCanvasElement | { width: number; height: number }) {
@@ -33,6 +36,7 @@ export class EditorScene {
         : new this.scope.Size(target.width, target.height),
     );
     this.content = new this.scope.Layer();
+    this.hoverLayer = new this.scope.Layer();
     this.overlay = new this.scope.Layer();
     this.guide = new this.scope.Layer();
   }
@@ -40,6 +44,7 @@ export class EditorScene {
   /** Rebuild the scene from the document (bottom group first). */
   render(doc: EditorDoc): void {
     this.content.removeChildren();
+    this.hover(null);
     this.content.addChild(
       new this.scope.Path.Rectangle({
         rectangle: new this.scope.Rectangle(0, 0, doc.width, doc.height),
@@ -78,6 +83,49 @@ export class EditorScene {
         this.overlay.addChild(outline);
       }
     }
+  }
+
+  /** Thin outline of the shape under the cursor (preview of what a click selects). */
+  hover(id: string | null): void {
+    if (id === this.hovered) return;
+    this.hovered = id;
+    this.hoverLayer.removeChildren();
+    const item = id ? this.findItem(id) : null;
+    if (!item) return;
+    const outline = item.clone({ insert: false });
+    outline.fillColor = null;
+    outline.strokeColor = new this.scope.Color(HOVER_COLOR);
+    outline.strokeWidth = 1.5;
+    outline.strokeScaling = false;
+    this.hoverLayer.addChild(outline);
+  }
+
+  /** Draw (or clear with `null`) a selection rectangle given by two document points. */
+  drawMarquee(from: ViewPoint | null, to?: ViewPoint): void {
+    this.guide.removeChildren();
+    if (!from || !to) return;
+    for (const style of OUTLINE_STYLES) {
+      this.guide.addChild(
+        new this.scope.Path.Rectangle({
+          from: this.point(from),
+          to: this.point(to),
+          strokeColor: new this.scope.Color(style.color),
+          strokeWidth: style.width,
+          dashArray: style.dash,
+          strokeScaling: false,
+          fillColor: new this.scope.Color(0.5, 0.5, 0.5, 0.08),
+        }),
+      );
+    }
+  }
+
+  /** Ids of shapes lying completely inside the rectangle spanned by two document points. */
+  shapesInside(from: ViewPoint, to: ViewPoint): string[] {
+    const rect = new this.scope.Rectangle(this.point(from), this.point(to));
+    return this.content
+      .getItems({ match: (item: paper.Item) => Boolean(item.data?.shapeId) })
+      .filter((item) => rect.contains(item.bounds))
+      .map((item) => item.data.shapeId as string);
   }
 
   /** Draw (or clear with `null`) the knife line preview, in document coordinates. */

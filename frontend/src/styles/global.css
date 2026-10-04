@@ -592,3 +592,11 @@ select {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
+
+.editor__canvas--hand {
+  cursor: grab;
+}
+
+.editor__canvas--hand:active {
+  cursor: grabbing;
+}

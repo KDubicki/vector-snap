@@ -188,6 +188,24 @@ describe('app store', () => {
     expect(store().selection).toEqual([]);
   });
 
+  it('selects many shapes at once and everything', async () => {
+    useAppStore.setState({ quantized });
+    vi.stubGlobal('fetch', respond(vectorized));
+    await store().runVectorize();
+
+    store().selectMany(['p-0-1', 'missing']);
+    expect(store().selection).toEqual(['p-0-1']);
+
+    store().selectMany(['p-0-0', 'p-0-1'], true);
+    expect(store().selection).toEqual(['p-0-1', 'p-0-0']);
+
+    store().selectMany([]);
+    expect(store().selection).toEqual([]);
+
+    store().selectAll();
+    expect(store().selection).toEqual(['p-0-0', 'p-0-1']);
+  });
+
   it('recolors the selection and whole groups', async () => {
     useAppStore.setState({ quantized });
     vi.stubGlobal('fetch', respond(vectorized));
@@ -310,8 +328,11 @@ describe('app store', () => {
     store().deleteSelection();
     store().undo();
     store().redo();
+    store().selectMany(['x']);
+    store().selectAll();
 
     expect(store().editor).toBeNull();
+    expect(store().selection).toEqual([]);
   });
 
   it('navigates and resets', () => {
