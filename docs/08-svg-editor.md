@@ -55,8 +55,8 @@ Status: ✅ implemented · 🔜 planned.
 | Recolor | inspector / color groups panel | Recolor the selection or a whole palette group (see [Recoloring](#recoloring)). | ✅ |
 | Eyedropper | `I` | Pick a color from a shape as the current color. | 🔜 |
 | Merge | `M` | Unite selected shapes of the same color into one shape. | 🔜 |
-| Delete | `Del` / `Backspace` | Remove selected shapes. | 🔜 |
-| Undo / Redo | `Ctrl/Cmd+Z` / `Ctrl/Cmd+Shift+Z` | History navigation. | 🔜 |
+| Delete | `Del` / `Backspace` / toolbar | Remove selected shapes; groups left empty disappear. | ✅ |
+| Undo / Redo | `Ctrl/Cmd+Z` / `Ctrl/Cmd+Shift+Z`, `Ctrl+Y` / toolbar | History navigation (see [Undo / redo](#undo--redo-)). | ✅ |
 
 ## Testing
 
@@ -116,19 +116,22 @@ Implemented in `src/editor/operations.ts` (pure functions, unit-tested).
   all shapes of a group.
 - 🔜 Moving a shape to another palette group and creating new groups for new colors.
 
-## Undo / redo
+## Undo / redo ✅
 
-Command pattern; each command implements `do()` / `undo()` and stores only what it needs:
+Snapshot-based (`src/editor/history.ts`) instead of a command pattern: every edit is a
+pure function returning a new immutable `EditorDoc` that shares unchanged groups and
+shapes with the previous one, so keeping whole documents as snapshots is cheap and every
+operation is undoable without writing an inverse.
 
-| Command | Stored data |
-|---------|-------------|
-| `SplitShape` | removed shape (exported JSON via `item.exportJSON()`), ids of created shapes, insertion index |
-| `RecolorShape` | shape id, previous/next fill |
-| `RecolorGroup` | palette index, previous/next color |
-| `MergeShapes` | removed shapes JSON, created shape id |
-| `DeleteShapes` | removed shapes JSON + indices |
-
-History is capped (default 100 steps). History is reset when the user re-vectorizes.
+- All edits go through one `commit()` in the store, which pushes the previous document to
+  `history.past` and clears `history.future`. Edits that change nothing are not recorded.
+- **Coalescing:** consecutive commits with the same key within 1 s (dragging the color
+  picker fires many `input` events) form a single undo step. Keys: `recolor:<ids>`,
+  `recolor-group:<index>`.
+- Undo/redo keep only selected shapes that still exist.
+- History is capped at 100 steps and reset when a new SVG is generated.
+- Shortcuts are ignored only while typing in text fields; the canvas takes focus on
+  click, so `Ctrl/Cmd+Z` works right after using a color picker.
 
 ## Export
 

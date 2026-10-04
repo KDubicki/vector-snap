@@ -103,3 +103,18 @@ export function replaceShape(
   });
   return replaced ? { doc: { ...doc, groups }, ids } : { doc, ids: [] };
 }
+
+/** Remove shapes (FR-36). Groups left without shapes are removed as well. */
+export function deleteShapes(doc: EditorDoc, ids: string[]): EditorDoc {
+  const remove = new Set(ids);
+  return {
+    ...doc,
+    groups: doc.groups
+      .map((group) =>
+        group.shapes.some((shape) => remove.has(shape.id))
+          ? { ...group, shapes: group.shapes.filter((shape) => !remove.has(shape.id)) }
+          : group,
+      )
+      .filter((group) => group.shapes.length > 0),
+  };
+}

@@ -244,11 +244,72 @@ describe('app store', () => {
     expect(store().notice).toBeNull();
   });
 
+  it('deletes the selection and supports undo/redo of every edit', async () => {
+    useAppStore.setState({ quantized });
+    vi.stubGlobal('fetch', respond(vectorized));
+    await store().runVectorize();
+    const original = store().editor;
+
+    store().select('p-0-0');
+    store().recolorSelection('#00ff00');
+    store().deleteSelection();
+    expect(store().editor?.groups[0].shapes.map((s) => s.id)).toEqual(['p-0-1']);
+    expect(store().selection).toEqual([]);
+
+    store().undo();
+    expect(store().editor?.groups[0].shapes[0]).toMatchObject({ id: 'p-0-0', fill: '#00ff00' });
+
+    store().select('p-0-0');
+    store().undo();
+    expect(store().editor).toBe(original);
+    expect(store().selection).toEqual(['p-0-0']);
+
+    store().undo(); // nothing left
+    expect(store().editor).toBe(original);
+
+    store().redo();
+    store().redo();
+    expect(store().editor?.groups[0].shapes.map((s) => s.id)).toEqual(['p-0-1']);
+    expect(store().selection).toEqual([]);
+
+    store().redo(); // nothing left
+    expect(store().editor?.groups[0].shapes).toHaveLength(1);
+  });
+
+  it('merges rapid recolors of the same target into one undo step', async () => {
+    useAppStore.setState({ quantized });
+    vi.stubGlobal('fetch', respond(vectorized));
+    await store().runVectorize();
+    const original = store().editor;
+
+    store().recolorGroup(0, '#111111');
+    store().recolorGroup(0, '#222222');
+    store().recolorGroup(0, '#333333');
+    expect(store().history.past).toHaveLength(1);
+
+    store().undo();
+    expect(store().editor).toBe(original);
+  });
+
+  it('does not record history for edits that change nothing', async () => {
+    useAppStore.setState({ quantized });
+    vi.stubGlobal('fetch', respond(vectorized));
+    await store().runVectorize();
+
+    store().deleteSelection();
+    store().recolorSelection('#000000');
+
+    expect(store().history.past).toHaveLength(0);
+  });
+
   it('ignores editor actions without a document', () => {
     store().recolorSelection('#000000');
     store().resetSelectionColor();
     store().recolorGroup(0, '#000000');
     store().splitWithLine([]);
+    store().deleteSelection();
+    store().undo();
+    store().redo();
 
     expect(store().editor).toBeNull();
   });

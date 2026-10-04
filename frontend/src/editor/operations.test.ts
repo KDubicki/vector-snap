@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { EditorDoc } from './model';
-import { recolorGroup, recolorShapes, replaceShape, resetShapeColors } from './operations';
+import {
+  deleteShapes,
+  recolorGroup,
+  recolorShapes,
+  replaceShape,
+  resetShapeColors,
+} from './operations';
 
 const doc: EditorDoc = {
   width: 10,
@@ -98,5 +104,21 @@ describe('replaceShape', () => {
 
     expect(result.doc).toBe(doc);
     expect(result.ids).toEqual([]);
+  });
+});
+
+describe('deleteShapes', () => {
+  it('removes shapes and groups that become empty', () => {
+    const next = deleteShapes(doc, ['a', 'c']);
+
+    expect(next.groups).toHaveLength(1);
+    expect(next.groups[0].shapes.map((s) => s.id)).toEqual(['b']);
+  });
+
+  it('keeps untouched groups by reference', () => {
+    const next = deleteShapes(doc, ['c']);
+
+    expect(next.groups).toEqual([doc.groups[0]]);
+    expect(next.groups[0]).toBe(doc.groups[0]);
   });
 });

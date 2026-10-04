@@ -569,3 +569,17 @@ select {
   color: var(--color-muted);
   font-size: 0.9rem;
 }
+
+.editor__toolbar button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.editor__canvas:focus {
+  outline: none;
+}
+
+.editor__canvas:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}

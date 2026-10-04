@@ -28,12 +28,12 @@
 - [x] Paper.js integration, select, zoom/pan (FR-30, FR-38)
 - [x] Recolor shape / group (FR-33, FR-34)
 - [x] Knife split (FR-31)
-- [ ] Undo/redo (FR-37)
+- [x] Undo/redo (FR-37), delete shapes (FR-36)
 - [ ] Export normalization (FR-39)
 
 ## Milestone 4 — Polish
 
-- [ ] Lasso split, merge, delete (FR-32, FR-35, FR-36)
+- [ ] Lasso split, merge shapes (FR-32, FR-35)
 - [ ] Palette merge, algorithm choice, locked colors (FR-14…FR-16)
 - [ ] Advanced tracing options UI (FR-24)
 - [ ] docker-compose.dev.yml, Playwright E2E tests in CI

@@ -2,7 +2,8 @@ import { create } from 'zustand';
 import { ApiError, getLimits, quantize, vectorize } from '../api/client';
 import { findShape, parseSvg, type EditorDoc } from '../editor/model';
 import type { Point } from '../editor/geometry';
-import { recolorGroup, recolorShapes, resetShapeColors } from '../editor/operations';
+import { emptyHistory, record, redo, undo, type History } from '../editor/history';
+import { deleteShapes, recolorGroup, recolorShapes, resetShapeColors } from '../editor/operations';
 import { splitAlongLine } from '../editor/split';
 import { base64ToBlob } from '../lib/base64';
 import { finalPalette } from '../lib/color';
@@ -44,6 +45,8 @@ export interface AppState {
   editor: EditorDoc | null;
   /** Ids of selected shapes. */
   selection: string[];
+  /** Undo/redo snapshots of `editor`. */
+  history: History;
   /** Neutral, non-error hint for the user (e.g. why an edit did nothing). */
   notice: string | null;
   status: Status;
@@ -65,6 +68,9 @@ export interface AppState {
   recolorGroup: (paletteIndex: number, fill: string) => void;
   /** Split fully crossed shapes (the selection, if any) along a line in document coordinates. */
   splitWithLine: (line: Point[]) => void;
+  deleteSelection: () => void;
+  undo: () => void;
+  redo: () => void;
   goTo: (step: Step) => void;
   reset: () => void;
 }
@@ -82,6 +88,7 @@ const initialState = {
   vectorized: null,
   editor: null as EditorDoc | null,
   selection: [] as string[],
+  history: emptyHistory,
   notice: null as string | null,
   status: 'idle' as Status,
   error: null,
@@ -95,6 +102,26 @@ function errorMessage(error: unknown): string {
 
 function isAbort(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'AbortError';
+}
+
+/** Replace the editor document, recording the previous one for undo. */
+function commit(
+  state: AppState,
+  doc: EditorDoc,
+  coalesceKey: string | null = null,
+): Partial<AppState> {
+  if (!state.editor || doc === state.editor) return {};
+  return { editor: doc, history: record(state.history, state.editor, coalesceKey), notice: null };
+}
+
+/** Apply an undo/redo step, keeping only selected shapes that still exist. */
+function restore(state: AppState, doc: EditorDoc, history: History): Partial<AppState> {
+  return {
+    editor: doc,
+    history,
+    notice: null,
+    selection: state.selection.filter((id) => findShape(doc, id) !== null),
+  };
 }
 
 let pending: AbortController | null = null;
@@ -194,6 +221,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
         vectorized,
         editor: parseSvg(vectorized.svg),
         selection: [],
+        history: emptyHistory,
         step: 'result',
         status: 'idle',
       });
@@ -220,20 +248,30 @@ export const useAppStore = create<AppState>()((set, get) => ({
   recolorSelection: (fill) =>
     set((state) =>
       state.editor && state.selection.length
-        ? { editor: recolorShapes(state.editor, state.selection, fill) }
+        ? commit(
+            state,
+            recolorShapes(state.editor, state.selection, fill),
+            `recolor:${state.selection.join(',')}`,
+          )
         : {},
     ),
 
   resetSelectionColor: () =>
     set((state) =>
       state.editor && state.selection.length
-        ? { editor: resetShapeColors(state.editor, state.selection) }
+        ? commit(state, resetShapeColors(state.editor, state.selection))
         : {},
     ),
 
   recolorGroup: (paletteIndex, fill) =>
     set((state) =>
-      state.editor ? { editor: recolorGroup(state.editor, paletteIndex, fill) } : {},
+      state.editor
+        ? commit(
+            state,
+            recolorGroup(state.editor, paletteIndex, fill),
+            `recolor-group:${paletteIndex}`,
+          )
+        : {},
     ),
 
   splitWithLine: (line) =>
@@ -243,7 +281,26 @@ export const useAppStore = create<AppState>()((set, get) => ({
       if (result.split === 0) {
         return { notice: 'Draw a line that fully crosses a shape to split it.' };
       }
-      return { editor: result.doc, selection: result.created, notice: null };
+      return { ...commit(state, result.doc), selection: result.created };
+    }),
+
+  deleteSelection: () =>
+    set((state) =>
+      state.editor && state.selection.length
+        ? { ...commit(state, deleteShapes(state.editor, state.selection)), selection: [] }
+        : {},
+    ),
+
+  undo: () =>
+    set((state) => {
+      const step = state.editor && undo(state.history, state.editor);
+      return step ? restore(state, step.doc, step.history) : {};
+    }),
+
+  redo: () =>
+    set((state) => {
+      const step = state.editor && redo(state.history, state.editor);
+      return step ? restore(state, step.doc, step.history) : {};
     }),
 
   goTo: (step) => set({ step, error: null }),

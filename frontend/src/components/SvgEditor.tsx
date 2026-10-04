@@ -17,6 +17,18 @@ interface Gesture {
   line: ViewPoint[];
 }
 
+const NON_TEXT_INPUTS = new Set(['color', 'range', 'checkbox', 'radio', 'button', 'file']);
+
+/** True when keystrokes belong to a text field rather than to the editor shortcuts. */
+function isTextField(target: EventTarget | null): boolean {
+  if (target instanceof HTMLInputElement) return !NON_TEXT_INPUTS.has(target.type);
+  return (
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    (target instanceof HTMLElement && target.isContentEditable)
+  );
+}
+
 function viewPoint(event: { clientX: number; clientY: number }, canvas: HTMLElement): ViewPoint {
   const rect = canvas.getBoundingClientRect();
   return { x: event.clientX - rect.left, y: event.clientY - rect.top };
@@ -29,6 +41,8 @@ export function SvgEditor() {
   const selection = useAppStore((s) => s.selection);
   const select = useAppStore((s) => s.select);
   const notice = useAppStore((s) => s.notice);
+  const canUndo = useAppStore((s) => s.history.past.length > 0);
+  const canRedo = useAppStore((s) => s.history.future.length > 0);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef<EditorScene | null>(null);
@@ -92,13 +106,22 @@ export function SvgEditor() {
     sceneRef.current?.drawGuide(null);
   };
 
-  // Keyboard shortcuts: V/K tools, Esc cancels/clears, Space pans, 0 fits, +/- zoom.
+  // Keyboard shortcuts: Ctrl/Cmd+Z undo, Ctrl/Cmd+Shift+Z or Ctrl+Y redo, Delete removes,
+  // V/K tools, Esc cancels/clears, Space pans, 0 fits, +/- zoom.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const scene = sceneRef.current;
       const canvas = canvasRef.current;
       const doc = useAppStore.getState().editor;
-      if (!scene || !canvas || !doc || event.target instanceof HTMLInputElement) return;
+      if (!scene || !canvas || !doc || isTextField(event.target)) return;
+      const store = useAppStore.getState();
+      const key = event.key.toLowerCase();
+      if ((event.metaKey || event.ctrlKey) && (key === 'z' || key === 'y')) {
+        event.preventDefault();
+        if (key === 'y' || event.shiftKey) store.redo();
+        else store.undo();
+        return;
+      }
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       const center = { x: canvas.clientWidth / 2, y: canvas.clientHeight / 2 };
       switch (event.key) {
@@ -113,6 +136,11 @@ export function SvgEditor() {
         case 'k':
         case 'K':
           setTool('knife');
+          return;
+        case 'Delete':
+        case 'Backspace':
+          event.preventDefault();
+          store.deleteSelection();
           return;
         case 'Escape':
           if (gestureRef.current) {
@@ -152,6 +180,7 @@ export function SvgEditor() {
     const scene = sceneRef.current;
     if (!scene) return;
     const point = viewPoint(event, event.currentTarget);
+    event.currentTarget.focus();
     event.currentTarget.setPointerCapture(event.pointerId);
     const panning = event.button === 1 || spaceRef.current;
     gestureRef.current = {
@@ -242,6 +271,31 @@ export function SvgEditor() {
           Knife
         </button>
         <span className="editor__separator" />
+        <button
+          type="button"
+          onClick={() => useAppStore.getState().undo()}
+          disabled={!canUndo}
+          title="Undo (Ctrl/Cmd+Z)"
+        >
+          Undo
+        </button>
+        <button
+          type="button"
+          onClick={() => useAppStore.getState().redo()}
+          disabled={!canRedo}
+          title="Redo (Ctrl/Cmd+Shift+Z)"
+        >
+          Redo
+        </button>
+        <button
+          type="button"
+          onClick={() => useAppStore.getState().deleteSelection()}
+          disabled={selection.length === 0}
+          title="Delete selected shapes (Delete)"
+        >
+          Delete
+        </button>
+        <span className="editor__separator" />
         <button type="button" onClick={() => zoomBy(1 / WHEEL_ZOOM_STEP)} aria-label="Zoom out">
           −
         </button>
@@ -267,6 +321,7 @@ export function SvgEditor() {
         ref={canvasRef}
         className={`editor__canvas checkerboard editor__canvas--${tool}`}
         aria-label="SVG editor canvas"
+        tabIndex={0}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
