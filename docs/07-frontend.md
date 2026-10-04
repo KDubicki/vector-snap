@@ -66,6 +66,7 @@ Layout: left = original and quantized previews side by side, right = controls.
   button), zoom (wheel, toolbar, `+`/`-`/`0`); inspector with the selected shapes.
 - ✅ Recolor the selection (own color / back to group color) and whole color groups.
 - ✅ Knife tool: split shapes along a freehand or straight line.
+- ✅ Lasso tool: cut a freehand region out of a shape.
 - ✅ Delete shapes, undo/redo every edit (toolbar and keyboard).
 - ✅ Shape count, file size, tracing time, back to colors, new image.
 - ✅ Download exports the **edited** document in the SVG contract; shape count and file

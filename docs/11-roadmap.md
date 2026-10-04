@@ -33,7 +33,8 @@
 
 ## Milestone 4 — Polish
 
-- [ ] Lasso split, merge shapes (FR-32, FR-35)
+- [x] Lasso split (FR-32)
+- [ ] Merge shapes (FR-35)
 - [ ] Palette merge, algorithm choice, locked colors (FR-14…FR-16)
 - [ ] Advanced tracing options UI (FR-24)
 - [ ] docker-compose.dev.yml, Playwright E2E tests in CI

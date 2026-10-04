@@ -600,3 +600,7 @@ select {
 .editor__canvas--hand:active {
   cursor: grabbing;
 }
+
+.editor__canvas--lasso {
+  cursor: crosshair;
+}

@@ -4,7 +4,7 @@ import { findShape, parseSvg, type EditorDoc } from '../editor/model';
 import type { Point } from '../editor/geometry';
 import { emptyHistory, record, redo, undo, type History } from '../editor/history';
 import { deleteShapes, recolorGroup, recolorShapes, resetShapeColors } from '../editor/operations';
-import { splitAlongLine } from '../editor/split';
+import { cutWithRegion, splitAlongLine } from '../editor/split';
 import { base64ToBlob } from '../lib/base64';
 import { finalPalette } from '../lib/color';
 import type {
@@ -71,6 +71,11 @@ export interface AppState {
   recolorGroup: (paletteIndex: number, fill: string) => void;
   /** Split fully crossed shapes (the selection, if any) along a line in document coordinates. */
   splitWithLine: (line: Point[]) => void;
+  /**
+   * Cut a lasso region out of the selected shapes, or — without a selection — out of the
+   * shape the lasso started on (`startId`). The inside pieces become the selection.
+   */
+  cutWithLasso: (region: Point[], startId: string | null) => void;
   deleteSelection: () => void;
   undo: () => void;
   redo: () => void;
@@ -301,6 +306,20 @@ export const useAppStore = create<AppState>()((set, get) => ({
         return { notice: 'Draw a line that fully crosses a shape to split it.' };
       }
       return { ...commit(state, result.doc), selection: result.created };
+    }),
+
+  cutWithLasso: (region, startId) =>
+    set((state) => {
+      if (!state.editor) return {};
+      const targets = state.selection.length ? state.selection : startId ? [startId] : [];
+      if (!targets.length) {
+        return { notice: 'Start the lasso on a shape, or select the shapes to cut first.' };
+      }
+      const result = cutWithRegion(state.editor, region, targets);
+      if (result.cut === 0) {
+        return { notice: 'Draw the lasso over part of the shape, not around all of it.' };
+      }
+      return { ...commit(state, result.doc), selection: result.inside };
     }),
 
   deleteSelection: () =>

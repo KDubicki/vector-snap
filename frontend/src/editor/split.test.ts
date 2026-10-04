@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
 import type { EditorDoc } from './model';
-import { splitAlongLine } from './split';
+import { cutWithRegion, splitAlongLine } from './split';
 
 const doc: EditorDoc = {
   width: 40,
@@ -65,5 +65,30 @@ describe('splitAlongLine', () => {
     const result = splitAlongLine(doc, vertical(20), []);
 
     expect(result).toEqual({ doc, created: [], split: 0 });
+  });
+});
+
+describe('cutWithRegion', () => {
+  // covers the right half of "left" and part of the background
+  const region = [
+    { x: 10, y: 0 },
+    { x: 20, y: 0 },
+    { x: 20, y: 20 },
+    { x: 10, y: 20 },
+  ];
+
+  it('cuts only the targets and reports the inside pieces', () => {
+    const result = cutWithRegion(doc, region, ['left']);
+
+    expect(result.cut).toBe(1);
+    expect(result.inside).toEqual(['left.a']);
+    expect(result.doc.groups[0]).toBe(doc.groups[0]); // background untouched
+    expect(result.doc.groups[1].shapes.map((s) => s.id)).toEqual(['left.a', 'left.b', 'right']);
+  });
+
+  it('leaves targets the region does not split unchanged', () => {
+    const result = cutWithRegion(doc, region, ['right']);
+
+    expect(result).toEqual({ doc, inside: [], cut: 0 });
   });
 });

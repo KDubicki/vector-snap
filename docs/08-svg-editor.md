@@ -52,7 +52,7 @@ Status: ✅ implemented · 🔜 planned.
 | Zoom | wheel / `+` / `-` / `0` (fit) / toolbar | Zoom around the cursor, 10 %–6400 % of "fit". | ✅ |
 | Clear selection | `Esc` | | ✅ |
 | Knife (line split) | `K` / toolbar | Draw a freehand or straight (`Shift`) line; fully crossed shapes are split (see [Knife](#knife-line-cut-)). `Space`+drag pans, `Esc` cancels the line. | ✅ |
-| Lasso split | `L` | Draw a closed polygon/freehand region → the part of the selected shape inside the region becomes a new shape. | 🔜 |
+| Lasso | `L` / toolbar | Draw a freehand region; the part of the target shape inside it becomes a separate shape and gets selected (see [Lasso](#lasso-region-cut-)). | ✅ |
 | Recolor | inspector / color groups panel | Recolor the selection or a whole palette group (see [Recoloring](#recoloring)). | ✅ |
 | Eyedropper | `I` | Pick a color from a shape as the current color. | 🔜 |
 | Merge | `M` | Unite selected shapes of the same color into one shape. | 🔜 |
@@ -99,11 +99,24 @@ user polyline `L` (document coordinates, sampled every 4 view px; `Shift` = stra
    parent (`p-3-12.a`, `p-3-12.b`, …, existing ids are skipped) and an own color is
    inherited.
 
-### Lasso (region cut) 🔜
+### Lasso (region cut) ✅
 
-1. Close the user path into polygon `R`.
-2. `inside = S.intersect(R)`, `outside = S.subtract(R)`.
-3. Same cleanup as steps 5–7 above.
+The lasso (`L`) cuts a freehand region out of shapes — unlike the knife, it does not need
+to cross a whole shape, so it is the easier way to isolate a detail or a corner.
+
+**Which shapes are cut** (`cutWithRegion()` in `src/editor/split.ts`): the selected
+shapes, or — with nothing selected — the shape under the point where the lasso started.
+Other shapes the region overlaps (typically the background) stay intact. A shape is cut
+only if the region covers part of it; a region around the whole shape or beside it
+changes nothing and shows a hint.
+
+**Geometry** (`cutRegion()` in `src/editor/geometry.ts`):
+
+1. Close the user path into polygon `R` (ignored if its area is below 0.5 px²).
+2. `inside = S.intersect(R)`, `outside = S.subtract(R)`, each separated into independent
+   pieces with their holes; slivers below 0.5 px² are dropped.
+3. `S` is replaced by the inside and outside pieces at its z-position (derived ids as for
+   the knife); the **inside pieces become the selection**, ready to recolor or delete.
 
 Because the backend emits shapes in `cutout` mode by default (see
 [pipeline](06-image-processing-pipeline.md#5-vectorization-servicesvectorizationpy)),

@@ -262,6 +262,38 @@ describe('app store', () => {
     expect(store().notice).toBeNull();
   });
 
+  it('cuts a lasso region out of the start shape or the selection', async () => {
+    useAppStore.setState({ quantized });
+    vi.stubGlobal('fetch', respond(vectorized));
+    await store().runVectorize();
+    // left half of triangle p-0-0 (0,0) (10,0) (10,10)
+    const region = [
+      { x: -1, y: -1 },
+      { x: 5, y: -1 },
+      { x: 5, y: 11 },
+      { x: -1, y: 11 },
+    ];
+
+    store().cutWithLasso(region, null);
+    expect(store().notice).toMatch('Start the lasso on a shape');
+
+    store().cutWithLasso(region, 'p-0-1');
+    expect(store().notice).toMatch('part of the shape');
+
+    store().cutWithLasso(region, 'p-0-0');
+    expect(store().selection).toEqual(['p-0-0.a']);
+    expect(store().editor?.groups[0].shapes.map((s) => s.id)).toEqual([
+      'p-0-0.a',
+      'p-0-0.b',
+      'p-0-1',
+    ]);
+
+    store().undo();
+    store().select('p-0-0');
+    store().cutWithLasso(region, 'p-0-1'); // the selection wins over the start shape
+    expect(store().selection).toEqual(['p-0-0.a']);
+  });
+
   it('deletes the selection and supports undo/redo of every edit', async () => {
     useAppStore.setState({ quantized });
     vi.stubGlobal('fetch', respond(vectorized));
@@ -329,6 +361,7 @@ describe('app store', () => {
     store().undo();
     store().redo();
     store().selectMany(['x']);
+    store().cutWithLasso([], 'x');
     store().selectAll();
 
     expect(store().editor).toBeNull();

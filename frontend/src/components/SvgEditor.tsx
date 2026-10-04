@@ -7,7 +7,7 @@ const WHEEL_ZOOM_STEP = 1.15;
 /** Minimum distance between recorded knife points, in view pixels. */
 const KNIFE_SAMPLE_PX = 4;
 
-type Tool = 'select' | 'hand' | 'knife';
+type Tool = 'select' | 'hand' | 'knife' | 'lasso';
 
 const TOOLS: { id: Tool; label: string; key: string; title: string; hint: string }[] = [
   {
@@ -31,10 +31,19 @@ const TOOLS: { id: Tool; label: string; key: string; title: string; hint: string
     title: 'Knife (K): draw a line across shapes to split them',
     hint: 'Draw across shapes to split them · Shift: straight line · Space+drag pans',
   },
+  {
+    id: 'lasso',
+    label: 'Lasso',
+    key: 'l',
+    title: 'Lasso (L): draw around part of a shape to cut it out',
+    hint: 'Start on a shape (or select shapes first) and draw around the part to cut out',
+  },
 ];
 
 interface Gesture {
-  mode: 'pending' | 'pan' | 'knife' | 'marquee';
+  mode: 'pending' | 'pan' | 'knife' | 'lasso' | 'marquee';
+  /** Shape under the pointer when the gesture started (lasso target without selection). */
+  startId: string | null;
   start: ViewPoint;
   last: ViewPoint;
   /** Knife line in document coordinates. */
@@ -225,7 +234,8 @@ export function SvgEditor() {
     const panning = event.button === 1 || spaceRef.current || tool === 'hand';
     scene.hover(null);
     gestureRef.current = {
-      mode: panning ? 'pan' : tool === 'knife' ? 'knife' : 'pending',
+      mode: panning ? 'pan' : tool === 'knife' || tool === 'lasso' ? tool : 'pending',
+      startId: tool === 'lasso' ? scene.hitTest(point) : null,
       start: point,
       last: point,
       line: [scene.toDocument(point)],
@@ -240,6 +250,14 @@ export function SvgEditor() {
     if (!gesture) {
       // Preview what a click would select.
       scene.hover(tool === 'select' && !spaceRef.current ? scene.hitTest(point) : null);
+      return;
+    }
+
+    if (gesture.mode === 'lasso') {
+      if (Math.hypot(point.x - gesture.last.x, point.y - gesture.last.y) < KNIFE_SAMPLE_PX) return;
+      gesture.line.push(scene.toDocument(point));
+      gesture.last = point;
+      scene.drawGuide([...gesture.line, gesture.line[0]]);
       return;
     }
 
@@ -283,6 +301,10 @@ export function SvgEditor() {
       const end = scene.toDocument(point);
       const line = event.shiftKey ? [gesture.line[0], end] : [...gesture.line, end];
       useAppStore.getState().splitWithLine(line);
+    } else if (gesture.mode === 'lasso') {
+      useAppStore
+        .getState()
+        .cutWithLasso([...gesture.line, scene.toDocument(point)], gesture.startId);
     } else if (gesture.mode === 'marquee') {
       const ids = scene.shapesInside(gesture.line[0], scene.toDocument(point));
       useAppStore.getState().selectMany(ids, event.shiftKey);

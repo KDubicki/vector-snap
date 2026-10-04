@@ -101,6 +101,37 @@ export function splitShape(d: string, line: Point[]): string[] | null {
   return pieces.map(pathData);
 }
 
+export interface RegionCut {
+  /** Pieces inside the region. */
+  inside: string[];
+  /** Pieces outside the region. */
+  outside: string[];
+}
+
+/**
+ * Cut a shape with a closed region (lasso). Returns the pieces inside and outside of it,
+ * or `null` when the region does not split the shape (no overlap, or it covers it fully).
+ */
+export function cutRegion(d: string, region: Point[]): RegionCut | null {
+  if (region.length < 3) return null;
+  const s = geometryScope();
+  const shape = toPathItem(s, d);
+  const lasso = new s.Path({
+    segments: region.map((p) => new s.Point(p.x, p.y)),
+    closed: true,
+    insert: false,
+  });
+  if (Math.abs(lasso.area) < MIN_PIECE_AREA) return null;
+
+  const pieces = (item: paper.PathItem) =>
+    separatePieces(s, item)
+      .filter((piece) => Math.abs(piece.area) >= MIN_PIECE_AREA)
+      .map(pathData);
+  const inside = pieces(shape.intersect(lasso, { insert: false }));
+  const outside = pieces(shape.subtract(lasso, { insert: false }));
+  return inside.length && outside.length ? { inside, outside } : null;
+}
+
 function pathData(item: paper.PathItem): string {
   const svg = item.exportSVG({ asString: true, precision: PATH_PRECISION }) as string;
   return /\sd="([^"]+)"/.exec(svg)?.[1] ?? '';

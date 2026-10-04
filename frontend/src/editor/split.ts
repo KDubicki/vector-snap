@@ -1,4 +1,4 @@
-import { splitShape, type Point } from './geometry';
+import { cutRegion, splitShape, type Point } from './geometry';
 import type { EditorDoc } from './model';
 import { replaceShape } from './operations';
 
@@ -41,4 +41,36 @@ function splitShapes(doc: EditorDoc, line: Point[], allowed: Set<string> | null)
     }
   }
   return { doc: current, created, split };
+}
+
+export interface RegionCutResult {
+  doc: EditorDoc;
+  /** Ids of the pieces inside the region (to be selected). */
+  inside: string[];
+  /** Number of shapes that were cut. */
+  cut: number;
+}
+
+/**
+ * Cut the `targets` with a closed lasso region (FR-32): each target that the region covers
+ * partly is replaced by its pieces inside and outside the region, at the same z-position.
+ */
+export function cutWithRegion(doc: EditorDoc, region: Point[], targets: string[]): RegionCutResult {
+  const wanted = new Set(targets);
+  let current = doc;
+  const inside: string[] = [];
+  let cut = 0;
+
+  for (const group of doc.groups) {
+    for (const shape of group.shapes) {
+      if (!wanted.has(shape.id)) continue;
+      const pieces = cutRegion(shape.d, region);
+      if (!pieces) continue;
+      const result = replaceShape(current, shape.id, [...pieces.inside, ...pieces.outside]);
+      current = result.doc;
+      inside.push(...result.ids.slice(0, pieces.inside.length));
+      cut += 1;
+    }
+  }
+  return { doc: current, inside, cut };
 }
