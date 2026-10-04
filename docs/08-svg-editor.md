@@ -60,6 +60,12 @@ Status: ✅ implemented · 🔜 planned.
 
 ## Testing
 
+**Canvas sizing:** layout size comes from the `.editor__viewport` wrapper, which a
+`ResizeObserver` watches; the canvas only fills it. On HiDPI screens Paper.js writes an
+inline pixel size onto the canvas, so observing the canvas itself (with a border) caused
+a resize feedback loop that shrank it to nothing. Browser checks therefore also run with
+`deviceScaleFactor: 2` and dark mode.
+
 Paper.js runs headless in Vitest's `jsdom` environment; `src/test/canvas-stub.ts`
 provides a no-op 2D context (jsdom has no canvas), which is enough for geometry,
 hit-testing and scene construction. Model and scene logic are unit-tested; the

@@ -45,23 +45,35 @@ export function SvgEditor() {
   const canRedo = useAppStore((s) => s.history.future.length > 0);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<EditorScene | null>(null);
   const gestureRef = useRef<Gesture | null>(null);
   const spaceRef = useRef(false);
   const [zoom, setZoom] = useState(1);
   const [tool, setTool] = useState<Tool>('select');
 
-  // Create the Paper.js scene once and keep it sized to the canvas element.
+  // Create the Paper.js scene once and keep it sized to the viewport element.
+  // The wrapper is observed, not the canvas: on HiDPI screens Paper.js writes an inline
+  // pixel size onto the canvas, and measuring the canvas itself would feed that size back
+  // into the observer (a resize loop that shrank the canvas to nothing).
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    const viewport = viewportRef.current;
+    if (!canvas || !viewport) return;
     const scene = new EditorScene(canvas);
     sceneRef.current = scene;
 
     const observer = new ResizeObserver(([entry]) => {
-      scene.resize(entry.contentRect.width, entry.contentRect.height);
+      const { width, height } = entry.contentRect;
+      const size = scene.scope.view.viewSize;
+      if (
+        Math.round(size.width) !== Math.round(width) ||
+        Math.round(size.height) !== Math.round(height)
+      ) {
+        scene.resize(width, height);
+      }
     });
-    observer.observe(canvas);
+    observer.observe(viewport);
 
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
@@ -317,16 +329,18 @@ export function SvgEditor() {
           {notice}
         </p>
       )}
-      <canvas
-        ref={canvasRef}
-        className={`editor__canvas checkerboard editor__canvas--${tool}`}
-        aria-label="SVG editor canvas"
-        tabIndex={0}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={cancelGesture}
-      />
+      <div ref={viewportRef} className="editor__viewport checkerboard">
+        <canvas
+          ref={canvasRef}
+          className={`editor__canvas editor__canvas--${tool}`}
+          aria-label="SVG editor canvas"
+          tabIndex={0}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={cancelGesture}
+        />
+      </div>
     </div>
   );
 }
