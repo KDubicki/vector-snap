@@ -9,6 +9,7 @@ of the microservice can use it too.
 |--------|----------|-------------|--------|
 | SVG | — (browser) | Web, design tools | ✅ |
 | STL | `POST /api/v1/export/stl` | 3D printing (relief / multi-color prints) | ✅ |
+| 3MF | `POST /api/v1/export/3mf` | Multi-color / multi-material 3D printing (AMS, MMU, tool changers) | ✅ |
 | DXF | `POST /api/v1/export/dxf` | Laser cutters, vinyl plotters, CNC | ✅ |
 | PDF | `POST /api/v1/export/pdf` | Print, documents | ✅ |
 
@@ -70,6 +71,32 @@ balanced directed edges), the **signed volume equals area × height** (which als
 outward normals), dimensions in mm and layer heights. Performance: a 440-shape document
 exports in ≈1.5 s (≈177 k triangles, 8.8 MB).
 
+## 3MF
+
+```bash
+curl -F svg=@logo.svg -F base_mm=1 -F layer_heights='{"0": 0}' \
+     http://localhost:8000/api/v1/export/3mf -o logo.3mf
+```
+
+Same options and the same bodies as STL (`width_mm`, `base_mm`, `layer_mm`, `layered`,
+`layer_heights`, `mirror`), but packaged so a slicer keeps the colors apart — STL has no
+notion of parts or colors.
+
+- [3MF core specification](https://3mf.io/specification/) package: `[Content_Types].xml`,
+  `_rels/.rels`, `3D/3dmodel.model`; `unit="millimeter"`.
+- `<basematerials>` holds one display color per body; **every body is its own object**
+  (`base`, `color-<paletteIndex>`) referencing its color.
+- One **assembly object** with all bodies as components is the only build item, so
+  Bambu Studio, OrcaSlicer and PrusaSlicer import the bodies as **parts of one model** —
+  they stay aligned, and each part can get its own filament.
+- Meshes are **indexed**: identical vertices are merged and triangles reference them,
+  which slicers need to recognise closed, manifold parts.
+- Verified with the 3MF Consortium's reference library **lib3mf in strict mode**: no
+  warnings, every part manifold and oriented, colors assigned. Unit tests check the
+  package, materials, assembly, closed indexed meshes and that the total volume equals
+  the STL export with the same options.
+- A 440-shape document: 1.8 MB (STL: 8.8 MB) in ≈2 s.
+
 ## DXF
 
 ```bash
@@ -119,11 +146,11 @@ curl -F svg=@logo.svg -F page=a4 -F margin_mm=15 \
 
 ## Frontend
 
-For STL the panel also lists every color with an *include* checkbox and a height field
+For STL and 3MF the panel also lists every color with an *include* checkbox and a height field
 (empty = automatic, shown as placeholder); this becomes `layer_heights`. Leaving out
 every color disables the export with an explanation.
 
-The result step has an **Export to other formats** panel: choose STL, DXF or PDF, adjust
+The result step has an **Export to other formats** panel: choose STL, 3MF, DXF or PDF, adjust
 its options (number, checkbox and choice options, validated in the browser with the same
 ranges as the API; each format remembers its own values) and download the file named
 after the uploaded image (`logo.png` → `logo.stl`). The export always uses

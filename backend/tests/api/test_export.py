@@ -1,4 +1,5 @@
 import io
+import zipfile
 
 import httpx
 import pytest
@@ -126,3 +127,21 @@ def test_stl_with_every_color_left_out(client: TestClient) -> None:
 
     assert response.status_code == 422
     assert "Nothing to export" in response.json()["error"]["message"]
+
+
+def test_exports_3mf_with_the_stl_options(client: TestClient) -> None:
+    response = _post(client, "3mf", {"base_mm": "0", "layer_heights": '{"0": 0}'})
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "model/3mf"
+    assert 'filename="vectorsnap.3mf"' in response.headers["content-disposition"]
+    with zipfile.ZipFile(io.BytesIO(response.content)) as package:
+        model = package.read("3D/3dmodel.model").decode()
+    assert 'name="color-1"' in model
+    assert 'name="color-0"' not in model
+
+
+def test_3mf_validates_options_like_stl(client: TestClient) -> None:
+    response = _post(client, "3mf", {"width_mm": "-5"})
+
+    assert response.status_code == 422

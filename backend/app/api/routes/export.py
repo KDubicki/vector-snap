@@ -8,6 +8,7 @@ from fastapi.concurrency import run_in_threadpool
 from app.api.deps import read_upload
 from app.core.config import Settings, get_settings
 from app.schemas.export import parse_layer_heights
+from app.services.export_3mf import export_3mf
 from app.services.export_dxf import DxfOptions, export_dxf
 from app.services.export_pdf import PageSize, PdfOptions, export_pdf
 from app.services.export_stl import StlOptions, export_stl
@@ -26,14 +27,7 @@ def _attachment(content: bytes, media_type: str, extension: str) -> Response:
     )
 
 
-@router.post(
-    "/stl",
-    response_class=Response,
-    responses={200: {"content": {"model/stl": {}}, "description": "Binary STL"}},
-)
-async def export_to_stl(
-    settings: Annotated[Settings, Depends(get_settings)],
-    svg: SvgFile,
+def stl_options(
     width_mm: Annotated[float, Form(gt=0, le=10_000, description="Model width")] = 100.0,
     base_mm: Annotated[float, Form(ge=0, le=100, description="Base plate thickness")] = 1.0,
     layer_mm: Annotated[float, Form(gt=0, le=100, description="Height per color layer")] = 1.0,
@@ -42,10 +36,9 @@ async def export_to_stl(
         str, Form(description='Per-color height, e.g. {"0": 0, "2": 3.5}; 0 omits a color')
     ] = "{}",
     mirror: Annotated[bool, Form(description="Mirror horizontally (stamps)")] = False,
-) -> Response:
-    """Extrude every color layer into a 3D model for printing (units: millimetres)."""
-    document = parse_svg(await read_upload(svg, settings))
-    options = StlOptions(
+) -> StlOptions:
+    """3D model options shared by STL and 3MF."""
+    return StlOptions(
         width_mm=width_mm,
         base_mm=base_mm,
         layer_mm=layer_mm,
@@ -53,8 +46,37 @@ async def export_to_stl(
         layer_heights=parse_layer_heights(layer_heights),
         mirror=mirror,
     )
+
+
+ModelOptions = Annotated[StlOptions, Depends(stl_options)]
+
+
+@router.post(
+    "/stl",
+    response_class=Response,
+    responses={200: {"content": {"model/stl": {}}, "description": "Binary STL"}},
+)
+async def export_to_stl(
+    settings: Annotated[Settings, Depends(get_settings)], svg: SvgFile, options: ModelOptions
+) -> Response:
+    """Extrude every color layer into a 3D model for printing (units: millimetres)."""
+    document = parse_svg(await read_upload(svg, settings))
     content = await run_in_threadpool(export_stl, document, options)
     return _attachment(content, "model/stl", "stl")
+
+
+@router.post(
+    "/3mf",
+    response_class=Response,
+    responses={200: {"content": {"model/3mf": {}}, "description": "3MF package"}},
+)
+async def export_to_3mf(
+    settings: Annotated[Settings, Depends(get_settings)], svg: SvgFile, options: ModelOptions
+) -> Response:
+    """Like STL, but one colored part per color in one model — for multi-color printers."""
+    document = parse_svg(await read_upload(svg, settings))
+    content = await run_in_threadpool(export_3mf, document, options)
+    return _attachment(content, "model/3mf", "3mf")
 
 
 @router.post(

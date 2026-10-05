@@ -24,7 +24,8 @@ Both services are containerized and orchestrated with Docker Compose.
 - Split shapes with a knife line for fine-grained corrections
 - Recolor individual shapes or whole palette groups, delete shapes, undo/redo
 - Download the edited SVG
-- Export to STL for 3D printing (color layers as relief), DXF for laser cutters/plotters
+- Export to STL / 3MF for 3D printing (color layers as relief, per-color heights,
+  multi-color parts for AMS/MMU), DXF for laser cutters/plotters
   and PDF for print
 
 ## Quick start

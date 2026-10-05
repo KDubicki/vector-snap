@@ -42,56 +42,68 @@ export interface ExportFormat {
   perColorHeights?: boolean;
 }
 
+/** Options shared by the 3D formats (STL, 3MF), mirroring the backend form fields. */
+const MODEL_OPTIONS: ExportOption[] = [
+  {
+    type: 'number',
+    name: 'width_mm',
+    label: 'Width',
+    unit: 'mm',
+    default: 100,
+    min: 1,
+    max: 10000,
+    step: 1,
+  },
+  {
+    type: 'number',
+    name: 'base_mm',
+    label: 'Base plate',
+    unit: 'mm',
+    default: 1,
+    min: 0,
+    max: 100,
+    step: 0.2,
+  },
+  {
+    type: 'number',
+    name: 'layer_mm',
+    label: 'Height per layer',
+    unit: 'mm',
+    default: 1,
+    min: 0.1,
+    max: 100,
+    step: 0.2,
+  },
+  {
+    type: 'boolean',
+    name: 'layered',
+    label: 'Stack colors at increasing heights',
+    default: true,
+  },
+  {
+    type: 'boolean',
+    name: 'mirror',
+    label: 'Mirror (stamps, print face down)',
+    default: false,
+  },
+];
+
 export const EXPORT_FORMATS: ExportFormat[] = [
   {
     id: 'stl',
     label: 'STL',
     extension: 'stl',
     description: '3D model for printing — each color layer is extruded to its own height.',
-    options: [
-      {
-        type: 'number',
-        name: 'width_mm',
-        label: 'Width',
-        unit: 'mm',
-        default: 100,
-        min: 1,
-        max: 10000,
-        step: 1,
-      },
-      {
-        type: 'number',
-        name: 'base_mm',
-        label: 'Base plate',
-        unit: 'mm',
-        default: 1,
-        min: 0,
-        max: 100,
-        step: 0.2,
-      },
-      {
-        type: 'number',
-        name: 'layer_mm',
-        label: 'Height per layer',
-        unit: 'mm',
-        default: 1,
-        min: 0.1,
-        max: 100,
-        step: 0.2,
-      },
-      {
-        type: 'boolean',
-        name: 'layered',
-        label: 'Stack colors at increasing heights',
-        default: true,
-      },
-      {
-        type: 'boolean',
-        name: 'mirror',
-        label: 'Mirror (stamps, print face down)',
-        default: false,
-      },
-    ],
+    options: MODEL_OPTIONS,
+    perColorHeights: true,
+  },
+  {
+    id: '3mf',
+    label: '3MF',
+    extension: '3mf',
+    description:
+      'Multi-color 3D model — one colored part per color in one model, ready for AMS/MMU printers.',
+    options: MODEL_OPTIONS,
     perColorHeights: true,
   },
   {

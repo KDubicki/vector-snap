@@ -39,6 +39,14 @@ describe('export formats', () => {
     });
   });
 
+  it('offers 3MF with the same model options and per-color heights as STL', () => {
+    const threeMf = EXPORT_FORMATS.find((format) => format.id === '3mf')!;
+
+    expect(threeMf.extension).toBe('3mf');
+    expect(threeMf.options).toBe(stl.options);
+    expect(threeMf.perColorHeights).toBe(true);
+  });
+
   it('offers DXF with width and fill options', () => {
     const dxf = EXPORT_FORMATS.find((format) => format.id === 'dxf')!;
 
