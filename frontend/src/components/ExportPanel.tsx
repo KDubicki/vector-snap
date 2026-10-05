@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Suspense, lazy, useMemo, useState } from 'react';
 import { ApiError, exportFile } from '../api/client';
 import { serializeSvg } from '../editor/export';
 import {
@@ -13,6 +13,10 @@ import {
 } from '../lib/exportFormats';
 import { useAppStore } from '../state/store';
 import { ColorHeightsTable } from './ColorHeightsTable';
+import type { PreviewRequest } from './ModelPreview';
+
+// three.js is only downloaded when a 3D preview is opened.
+const ModelPreview = lazy(() => import('./ModelPreview'));
 
 function download(blob: Blob, fileName: string): void {
   const url = URL.createObjectURL(blob);
@@ -35,6 +39,7 @@ export function ExportPanel() {
   const [status, setStatus] = useState<'idle' | 'exporting'>('idle');
   const [error, setError] = useState<string | null>(null);
   const [colorSettings, setColorSettings] = useState<Record<number, Partial<ColorHeight>>>({});
+  const [preview, setPreview] = useState<PreviewRequest | null>(null);
 
   if (!editor) return null;
 
@@ -48,14 +53,17 @@ export function ExportPanel() {
   const update = (name: string, value: number | boolean | string) =>
     setValues((all) => ({ ...all, [format.id]: { ...current, [name]: value } }));
 
+  const requestOptions = () =>
+    format.perColorHeights
+      ? { ...current, layer_heights: layerHeightsJson(colorHeights) }
+      : current;
+  const invalid = Object.keys(errors).length > 0 || colorHeightsError !== null;
+
   const run = async () => {
     setStatus('exporting');
     setError(null);
     try {
-      const options = format.perColorHeights
-        ? { ...current, layer_heights: layerHeightsJson(colorHeights) }
-        : current;
-      const blob = await exportFile(format.id, serializeSvg(editor), options);
+      const blob = await exportFile(format.id, serializeSvg(editor), requestOptions());
       download(blob, exportFileName(file?.name, format.extension));
     } catch (caught) {
       setError(
@@ -160,14 +168,31 @@ export function ExportPanel() {
           {error}
         </p>
       )}
-      <button
-        type="button"
-        className="secondary"
-        disabled={status !== 'idle' || Object.keys(errors).length > 0 || colorHeightsError !== null}
-        onClick={() => void run()}
-      >
-        {status === 'exporting' ? 'Exporting…' : `Export ${format.label}`}
-      </button>
+      <div className="actions">
+        {format.perColorHeights && (
+          <button
+            type="button"
+            className="secondary"
+            disabled={invalid}
+            onClick={() => setPreview({ svg: serializeSvg(editor), options: requestOptions() })}
+          >
+            {preview ? 'Update 3D preview' : 'Preview 3D'}
+          </button>
+        )}
+        <button
+          type="button"
+          className="secondary"
+          disabled={status !== 'idle' || invalid}
+          onClick={() => void run()}
+        >
+          {status === 'exporting' ? 'Exporting…' : `Export ${format.label}`}
+        </button>
+      </div>
+      {preview && format.perColorHeights && (
+        <Suspense fallback={<p className="hint">Loading 3D viewer…</p>}>
+          <ModelPreview request={preview} />
+        </Suspense>
+      )}
     </details>
   );
 }

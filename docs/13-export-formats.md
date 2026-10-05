@@ -150,6 +150,24 @@ For STL and 3MF the panel also lists every color with an *include* checkbox and 
 (empty = automatic, shown as placeholder); this becomes `layer_heights`. Leaving out
 every color disables the export with an explanation.
 
+### 3D preview
+
+For STL and 3MF, **Preview 3D** shows the model before downloading it:
+
+- It loads exactly what the backend exports — the **3MF** for the current options — with
+  three.js' `3MFLoader`, so every part has its color and per-color heights, excluded
+  colors and mirroring are visible.
+- Orbit controls (rotate, zoom, pan) over a build-plate grid; the 3MF z-up model is laid
+  on the plate.
+- Print statistics computed from the meshes (`src/lib/meshStats.ts`, unit-tested):
+  bounding box in mm, volume in cm³, **solid filament weight** for PLA / PETG / ABS / TPU
+  (densities 1.24 / 1.27 / 1.04 / 1.21 g/cm³ — an upper bound, slicers with infill will
+  report less), number of parts and triangles.
+- three.js is **lazy-loaded**: the ≈150 kB (gzip) viewer chunk is only downloaded when a
+  preview is opened. The canvas size comes from an observed wrapper element (see the
+  HiDPI note in [08-svg-editor.md](08-svg-editor.md#testing)); renderer, controls,
+  geometries and materials are disposed on close.
+
 The result step has an **Export to other formats** panel: choose STL, 3MF, DXF or PDF, adjust
 its options (number, checkbox and choice options, validated in the browser with the same
 ranges as the API; each format remembers its own values) and download the file named

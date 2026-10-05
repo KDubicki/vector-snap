@@ -8,6 +8,7 @@
 | Build tool / dev server | Vite |
 | State management | Zustand (with a command-based undo/redo history) |
 | Vector editing | Paper.js (hit-testing, boolean path operations, SVG import/export) |
+| 3D preview | three.js (3MFLoader, OrbitControls), lazy-loaded |
 | Color picker | Native `<input type="color">` (richer picker planned) |
 | Linting / formatting | ESLint, Prettier |
 | Tests | Vitest + React Testing Library, Playwright (E2E, later) |
@@ -68,6 +69,8 @@ Layout: left = original and quantized previews side by side, right = controls.
 - ✅ Knife tool: split shapes along a freehand or straight line.
 - ✅ Lasso tool: cut a freehand region out of a shape.
 - ✅ Merge shapes and move them between color groups.
+- ✅ Export panel (STL, 3MF, DXF, PDF) with per-color heights and a 3D preview with print
+  statistics ([13-export-formats.md](13-export-formats.md)).
 - ✅ Delete shapes, undo/redo every edit (toolbar and keyboard).
 - ✅ Shape count, file size, tracing time, back to colors, new image.
 - ✅ Download exports the **edited** document in the SVG contract; shape count and file

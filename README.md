@@ -25,7 +25,8 @@ Both services are containerized and orchestrated with Docker Compose.
 - Recolor individual shapes or whole palette groups, delete shapes, undo/redo
 - Download the edited SVG
 - Export to STL / 3MF for 3D printing (color layers as relief, per-color heights,
-  multi-color parts for AMS/MMU), DXF for laser cutters/plotters
+  multi-color parts for AMS/MMU) with a 3D preview and filament estimate, DXF for laser
+  cutters/plotters
   and PDF for print
 
 ## Quick start
