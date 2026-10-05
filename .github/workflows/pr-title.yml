@@ -16,6 +16,9 @@ permissions:
 jobs:
   lint:
     name: Conventional PR title
+    # Dependabot titles ("Bump …") are generated; their commits are exempted in commitlint
+    # too. A skipped job still satisfies the required status check.
+    if: github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:

@@ -6,6 +6,9 @@
  */
 export default {
   extends: ['@commitlint/config-conventional'],
+  // Dependabot always writes "Bump …" (sentence case) and long group titles. Its commits are
+  // identified by its sign-off trailer; human commits keep the full rules.
+  ignores: [(message) => message.includes('Signed-off-by: dependabot[bot] <support@github.com>')],
   rules: {
     'scope-enum': [
       2,
