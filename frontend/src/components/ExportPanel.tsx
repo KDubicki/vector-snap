@@ -5,10 +5,14 @@ import {
   EXPORT_FORMATS,
   defaultValues,
   exportFileName,
+  layerHeightsJson,
   validate,
+  validateColorHeights,
+  type ColorHeight,
   type ExportValues,
 } from '../lib/exportFormats';
 import { useAppStore } from '../state/store';
+import { ColorHeightsTable } from './ColorHeightsTable';
 
 function download(blob: Blob, fileName: string): void {
   const url = URL.createObjectURL(blob);
@@ -30,8 +34,16 @@ export function ExportPanel() {
   const errors = useMemo(() => validate(format, current), [format, current]);
   const [status, setStatus] = useState<'idle' | 'exporting'>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [colorSettings, setColorSettings] = useState<Record<number, Partial<ColorHeight>>>({});
 
   if (!editor) return null;
+
+  const colorHeights: ColorHeight[] = editor.groups.map((group) => ({
+    paletteIndex: group.paletteIndex,
+    included: colorSettings[group.paletteIndex]?.included ?? true,
+    height: colorSettings[group.paletteIndex]?.height ?? null,
+  }));
+  const colorHeightsError = format.perColorHeights ? validateColorHeights(colorHeights) : null;
 
   const update = (name: string, value: number | boolean | string) =>
     setValues((all) => ({ ...all, [format.id]: { ...current, [name]: value } }));
@@ -40,7 +52,10 @@ export function ExportPanel() {
     setStatus('exporting');
     setError(null);
     try {
-      const blob = await exportFile(format.id, serializeSvg(editor), current);
+      const options = format.perColorHeights
+        ? { ...current, layer_heights: layerHeightsJson(colorHeights) }
+        : current;
+      const blob = await exportFile(format.id, serializeSvg(editor), options);
       download(blob, exportFileName(file?.name, format.extension));
     } catch (caught) {
       setError(
@@ -126,6 +141,20 @@ export function ExportPanel() {
           );
         })}
       </div>
+      {format.perColorHeights && (
+        <ColorHeightsTable
+          groups={editor.groups}
+          heights={colorHeights}
+          values={current}
+          error={colorHeightsError}
+          onChange={(paletteIndex, change) =>
+            setColorSettings((all) => ({
+              ...all,
+              [paletteIndex]: { ...all[paletteIndex], ...change },
+            }))
+          }
+        />
+      )}
       {error && (
         <p className="field-error" role="alert">
           {error}
@@ -134,7 +163,7 @@ export function ExportPanel() {
       <button
         type="button"
         className="secondary"
-        disabled={status !== 'idle' || Object.keys(errors).length > 0}
+        disabled={status !== 'idle' || Object.keys(errors).length > 0 || colorHeightsError !== null}
         onClick={() => void run()}
       >
         {status === 'exporting' ? 'Exporting…' : `Export ${format.label}`}

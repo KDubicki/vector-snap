@@ -38,6 +38,8 @@ export interface ExportFormat {
   extension: string;
   description: string;
   options: ExportOption[];
+  /** Offers per-color heights (sent as `layer_heights`). */
+  perColorHeights?: boolean;
 }
 
 export const EXPORT_FORMATS: ExportFormat[] = [
@@ -83,7 +85,14 @@ export const EXPORT_FORMATS: ExportFormat[] = [
         label: 'Stack colors at increasing heights',
         default: true,
       },
+      {
+        type: 'boolean',
+        name: 'mirror',
+        label: 'Mirror (stamps, print face down)',
+        default: false,
+      },
     ],
+    perColorHeights: true,
   },
   {
     id: 'dxf',
@@ -177,4 +186,39 @@ export function validate(format: ExportFormat, values: ExportValues): Record<str
 export function exportFileName(sourceName: string | undefined, extension: string): string {
   const base = sourceName?.replace(/\.[^.]+$/, '') || 'vectorsnap';
   return `${base}.${extension}`;
+}
+
+/** Per-color height settings: `null` height = automatic (from layer height / stacking). */
+export interface ColorHeight {
+  paletteIndex: number;
+  included: boolean;
+  height: number | null;
+}
+
+/** Automatic height of the layer at `position` (bottom = 0), mirroring the backend rule. */
+export function autoLayerHeight(position: number, values: ExportValues): number {
+  const layer = Number(values.layer_mm);
+  return values.layered ? layer * (position + 1) : layer;
+}
+
+/** `layer_heights` form value: excluded colors get 0, explicit heights are sent as-is. */
+export function layerHeightsJson(colors: ColorHeight[]): string {
+  const entries = colors
+    .filter((color) => !color.included || color.height !== null)
+    .map((color) => [String(color.paletteIndex), color.included ? color.height : 0]);
+  return JSON.stringify(Object.fromEntries(entries));
+}
+
+/** Validation message for per-color heights, or `null` when they are valid. */
+export function validateColorHeights(colors: ColorHeight[]): string | null {
+  if (colors.length && !colors.some((color) => color.included)) {
+    return 'Include at least one color.';
+  }
+  const invalid = colors.some(
+    (color) =>
+      color.included &&
+      color.height !== null &&
+      (!Number.isFinite(color.height) || color.height <= 0 || color.height > 100),
+  );
+  return invalid ? 'Heights must be greater than 0 and at most 100 mm.' : null;
 }

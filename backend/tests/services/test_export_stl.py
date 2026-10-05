@@ -1,7 +1,8 @@
 import numpy as np
 import pytest
 
-from app.services.export_stl import StlOptions, export_stl
+from app.core.errors import InvalidParameters
+from app.services.export_stl import StlOptions, build_bodies, export_stl
 from app.services.svg_geometry import parse_svg
 from tests.vectors import contract_svg, is_closed, read_binary_stl, signed_volume
 
@@ -71,3 +72,49 @@ def test_curved_shapes_are_closed_meshes() -> None:
 
     assert is_closed(triangles)
     assert signed_volume(triangles) == pytest.approx(np.pi * 100, rel=0.02)
+
+
+def test_per_color_heights_override_the_default_rule() -> None:
+    options = StlOptions(width_mm=40, base_mm=0, layer_mm=1, layer_heights={1: 4.5})
+
+    triangles = _export(options, [("#000000", [FRAME]), ("#ff0000", [DOT])])
+
+    # layer 0 follows the rule (1 mm), layer 1 is overridden (4.5 mm)
+    assert signed_volume(triangles) == pytest.approx(300 * 1 + 100 * 4.5)
+
+
+def test_height_zero_leaves_a_color_and_its_base_out() -> None:
+    options = StlOptions(width_mm=40, base_mm=2, layer_mm=1, layer_heights={0: 0})
+
+    triangles = _export(options, [("#000000", [FRAME]), ("#ff0000", [DOT])])
+
+    # only the dot remains: base 2 mm + layer 2 (position 1 -> 2 mm) under/over 100 mm²
+    assert signed_volume(triangles) == pytest.approx(100 * 2 + 100 * 2)
+    assert triangles[..., 0].min() == pytest.approx(30)
+
+
+def test_mirror_flips_the_model_horizontally() -> None:
+    triangles = _export(StlOptions(width_mm=40, base_mm=0, mirror=True), [("#000000", [DOT])])
+
+    # the dot at x 30..40 px of a 40 px wide document ends up at 0..10 mm
+    assert (triangles[..., 0].min(), triangles[..., 0].max()) == pytest.approx((0, 10))
+    assert is_closed(triangles)
+    assert signed_volume(triangles) == pytest.approx(100)
+
+
+def test_all_colors_left_out_is_an_error() -> None:
+    with pytest.raises(InvalidParameters, match="Nothing to export"):
+        _export(StlOptions(layer_heights={0: 0}), [("#000000", [FRAME])])
+
+
+def test_bodies_are_named_and_colored_per_layer() -> None:
+    document = parse_svg(contract_svg(40, 20, [("#000000", [FRAME]), ("#ff0000", [DOT])]))
+
+    bodies = build_bodies(document, StlOptions(base_mm=1))
+
+    assert [(body.name, body.color) for body in bodies] == [
+        ("base", "#000000"),
+        ("color-0", "#000000"),
+        ("color-1", "#ff0000"),
+    ]
+    assert all(is_closed(body.triangles) for body in bodies)

@@ -7,6 +7,7 @@ from fastapi.concurrency import run_in_threadpool
 
 from app.api.deps import read_upload
 from app.core.config import Settings, get_settings
+from app.schemas.export import parse_layer_heights
 from app.services.export_dxf import DxfOptions, export_dxf
 from app.services.export_pdf import PageSize, PdfOptions, export_pdf
 from app.services.export_stl import StlOptions, export_stl
@@ -37,10 +38,21 @@ async def export_to_stl(
     base_mm: Annotated[float, Form(ge=0, le=100, description="Base plate thickness")] = 1.0,
     layer_mm: Annotated[float, Form(gt=0, le=100, description="Height per color layer")] = 1.0,
     layered: Annotated[bool, Form(description="Stack color layers at increasing heights")] = True,
+    layer_heights: Annotated[
+        str, Form(description='Per-color height, e.g. {"0": 0, "2": 3.5}; 0 omits a color')
+    ] = "{}",
+    mirror: Annotated[bool, Form(description="Mirror horizontally (stamps)")] = False,
 ) -> Response:
     """Extrude every color layer into a 3D model for printing (units: millimetres)."""
     document = parse_svg(await read_upload(svg, settings))
-    options = StlOptions(width_mm=width_mm, base_mm=base_mm, layer_mm=layer_mm, layered=layered)
+    options = StlOptions(
+        width_mm=width_mm,
+        base_mm=base_mm,
+        layer_mm=layer_mm,
+        layered=layered,
+        layer_heights=parse_layer_heights(layer_heights),
+        mirror=mirror,
+    )
     content = await run_in_threadpool(export_stl, document, options)
     return _attachment(content, "model/stl", "stl")
 

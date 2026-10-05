@@ -2,17 +2,26 @@
 
 Each color layer is extruded to its own height on top of an optional base plate, so a
 multi-color design prints as a relief (or, with `layered=False`, all colors share one
-height). Coordinates are converted to millimetres and the y axis is flipped (SVG y points
-down, STL z-up models are viewed from above with y up). See docs/13-export-formats.md.
+height). Heights can be set per color (0 leaves a color out) and the model mirrored.
+Coordinates are converted to millimetres and the y axis is flipped (SVG y points down,
+STL z-up models are viewed from above with y up). See docs/13-export-formats.md.
 """
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 
 import numpy as np
 from numpy.typing import NDArray
-from shapely import Polygon, constrained_delaunay_triangles, get_coordinates, unary_union
+from shapely import (
+    Polygon,
+    affinity,
+    constrained_delaunay_triangles,
+    get_coordinates,
+    unary_union,
+)
 from shapely.geometry.polygon import orient
 
+from app.core.errors import InvalidParameters
 from app.services.svg_geometry import (
     VectorDocument,
     layer_geometries,
@@ -31,6 +40,20 @@ class StlOptions:
     base_mm: float = 1.0
     layer_mm: float = 1.0
     layered: bool = True
+    # Height above the base per palette index (mm); 0 leaves the color out. Colors not
+    # listed follow `layer_mm` / `layered`.
+    layer_heights: Mapping[int, float] = field(default_factory=dict)
+    # Mirror horizontally (stamps, printing the top face down).
+    mirror: bool = False
+
+
+@dataclass(frozen=True)
+class Body:
+    """One printable part: the base plate or the extrusion of one color layer."""
+
+    name: str
+    color: str  # "#rrggbb"; the base plate uses the bottom layer's color
+    triangles: NDArray[np.float64]  # N x 3 x 3, millimetres
 
 
 def _prism(polygon: Polygon, bottom: float, top: float) -> NDArray[np.float64]:
@@ -69,20 +92,48 @@ def _write_binary_stl(triangles: list[NDArray[np.float64]]) -> bytes:
     return header + np.uint32(len(vertices)).tobytes() + data.tobytes()
 
 
+def layer_height(position: int, palette_index: int, options: StlOptions) -> float:
+    """Extrusion height above the base for the layer at `position` (bottom = 0)."""
+    if palette_index in options.layer_heights:
+        return options.layer_heights[palette_index]
+    return options.layer_mm * (position + 1 if options.layered else 1)
+
+
+def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
+    """Base plate (under the included colors) and one extruded body per color layer."""
+    layers = [
+        (layer, to_millimetres(geometry, document, options.width_mm))
+        for layer, geometry in zip(document.layers, layer_geometries(document), strict=True)
+    ]
+    if options.mirror:
+        width = options.width_mm
+        layers = [
+            (layer, affinity.scale(geometry, xfact=-1, yfact=1, origin=(width / 2, 0)))
+            for layer, geometry in layers
+        ]
+
+    included = [
+        (layer, geometry, layer_height(position, layer.palette_index, options))
+        for position, (layer, geometry) in enumerate(layers)
+        if layer_height(position, layer.palette_index, options) > 0
+    ]
+    if not included:
+        raise InvalidParameters("Nothing to export: every color has height 0.")
+
+    bodies: list[Body] = []
+    if options.base_mm > 0:
+        silhouette = unary_union([geometry for _, geometry, _ in included])
+        parts = [_prism(polygon, 0.0, options.base_mm) for polygon in polygons(silhouette)]
+        if parts:
+            bodies.append(Body("base", included[0][0].fill, np.concatenate(parts)))
+    for layer, geometry, height in included:
+        top = options.base_mm + height
+        parts = [_prism(polygon, options.base_mm, top) for polygon in polygons(geometry)]
+        if parts:
+            bodies.append(Body(f"color-{layer.palette_index}", layer.fill, np.concatenate(parts)))
+    return bodies
+
+
 def export_stl(document: VectorDocument, options: StlOptions) -> bytes:
     """Extrude every color layer and return a binary STL (units: millimetres)."""
-    layer_shapes = [
-        to_millimetres(geometry, document, options.width_mm)
-        for geometry in layer_geometries(document)
-    ]
-
-    triangles: list[NDArray[np.float64]] = []
-    if options.base_mm > 0:
-        for polygon in polygons(unary_union(layer_shapes)):
-            triangles.append(_prism(polygon, 0.0, options.base_mm))
-    for position, geometry in enumerate(layer_shapes):
-        steps = position + 1 if options.layered else 1
-        top = options.base_mm + options.layer_mm * steps
-        for polygon in polygons(geometry):
-            triangles.append(_prism(polygon, options.base_mm, top))
-    return _write_binary_stl(triangles)
+    return _write_binary_stl([body.triangles for body in build_bodies(document, options)])

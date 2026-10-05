@@ -191,7 +191,7 @@ Formats, options and geometry are described in [13-export-formats.md](13-export-
 
 | Format | Media type | Options |
 |--------|------------|---------|
-| `stl` | `model/stl` | `width_mm` (0–10000, default 100), `base_mm` (0–100, 1), `layer_mm` (0–100, 1), `layered` (bool, true) |
+| `stl` | `model/stl` | `width_mm` (0–10000, default 100), `base_mm` (0–100, 1), `layer_mm` (0–100, 1), `layered` (bool, true), `layer_heights` (JSON `{"<index>": mm}`, 0 = omit), `mirror` (bool, false) |
 | `dxf` | `image/vnd.dxf` | `width_mm` (0–10000, default 100), `fill` (bool, false) |
 | `pdf` | `application/pdf` | `page` (`fit` \| `a4` \| `letter`, default `fit`), `width_mm` (0–10000, 100), `margin_mm` (0–100, 10) |
 

@@ -43,6 +43,8 @@ curl -F svg=@logo.svg -F width_mm=120 -F base_mm=1.5 -F layer_mm=0.8 \
 | `base_mm` | `1.0` | Base plate under all shapes (`0` = no base) |
 | `layer_mm` | `1.0` | Extrusion height per color layer |
 | `layered` | `true` | `true`: layer *n* (bottom to top) is *n × layer_mm* high (relief, easy color changes by height); `false`: all layers share one height |
+| `layer_heights` | `{}` | JSON object `{"<paletteIndex>": mm}` overriding the height above the base per color (0 < h ≤ 100); **`0` leaves a color out** (e.g. print a logo without its background). Colors not listed follow `layer_mm` / `layered` |
+| `mirror` | `false` | Mirror horizontally — for stamps or printing the top face down on the bed |
 
 Model construction:
 
@@ -55,8 +57,11 @@ Model construction:
   triangulation (`shapely.constrained_delaunay_triangles`, robust for polygons with
   dozens of holes) and walls from every ring edge. Caps and walls share the exact ring
   vertices, so every body is watertight with outward normals.
-- The base plate is the union of all layers, so transparent areas (or deleted shapes)
-  stay open.
+- The base plate is the union of the **included** layers, so transparent areas,
+  deleted shapes and colors left out with height 0 stay open. Leaving out every color is
+  `422 INVALID_PARAMETERS`.
+- The model is built as **bodies** (base plate, one per color) — the STL contains them
+  all; the same bodies feed other 3D formats.
 - Output is binary STL (`model/stl`), units mm.
 
 Tests check real mesh properties, not just the file: every body is **closed** (each
@@ -113,6 +118,10 @@ curl -F svg=@logo.svg -F page=a4 -F margin_mm=15 \
   page size and centering, and inspect path segments to make sure Béziers are kept.
 
 ## Frontend
+
+For STL the panel also lists every color with an *include* checkbox and a height field
+(empty = automatic, shown as placeholder); this becomes `layer_heights`. Leaving out
+every color disables the export with an explanation.
 
 The result step has an **Export to other formats** panel: choose STL, DXF or PDF, adjust
 its options (number, checkbox and choice options, validated in the browser with the same

@@ -668,3 +668,40 @@ select {
   gap: 8px;
   font-size: 0.9rem;
 }
+
+.color-heights {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+.color-heights legend {
+  padding: 0 4px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.color-heights ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.color-heights li {
+  display: grid;
+  grid-template-columns: auto auto 1fr 84px auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+}
+
+.color-heights label {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.color-heights input[type='number'] {
+  width: 84px;
+}

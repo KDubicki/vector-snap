@@ -93,3 +93,36 @@ def test_pdf_rejects_unknown_page_size(client: TestClient) -> None:
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_stl_per_color_heights_and_mirror(client: TestClient) -> None:
+    form = {
+        "width_mm": "40",
+        "base_mm": "0",
+        "layer_heights": '{"0": 0, "1": 2.5}',
+        "mirror": "true",
+    }
+
+    triangles = read_binary_stl(_post(client, "stl", form).content)
+
+    # only the 10x10 square remains, 2.5 mm high, mirrored to the left edge
+    assert signed_volume(triangles) == pytest.approx(100 * 2.5)
+    assert triangles[..., 0].min() == pytest.approx(0)
+
+
+@pytest.mark.parametrize(
+    "heights",
+    ["[1, 2]", '{"a": 1}', '{"0": -1}', '{"0": 101}', '{"0": true}', "nope"],
+)
+def test_stl_rejects_invalid_layer_heights(client: TestClient, heights: str) -> None:
+    response = _post(client, "stl", {"layer_heights": heights})
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "INVALID_PARAMETERS"
+
+
+def test_stl_with_every_color_left_out(client: TestClient) -> None:
+    response = _post(client, "stl", {"layer_heights": '{"0": 0, "1": 0}'})
+
+    assert response.status_code == 422
+    assert "Nothing to export" in response.json()["error"]["message"]
