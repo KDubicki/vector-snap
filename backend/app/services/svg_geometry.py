@@ -14,7 +14,7 @@ import numpy as np
 import svgelements
 from lxml import etree
 from numpy.typing import NDArray
-from shapely import MultiPolygon, Polygon, make_valid
+from shapely import MultiPolygon, Polygon, affinity, make_valid, unary_union
 from shapely.geometry.base import BaseGeometry
 
 from app.core.errors import InvalidSvg
@@ -155,3 +155,30 @@ def polygons(geometry: BaseGeometry) -> list[Polygon]:
     if isinstance(geometry, MultiPolygon):
         return [p for p in geometry.geoms if not p.is_empty]
     return [p for g in getattr(geometry, "geoms", []) for p in polygons(g)]
+
+
+# Drops near-collinear points left by flattening (straight edges traced as curves);
+# in document px, i.e. far below print/cut resolution.
+SIMPLIFY_TOLERANCE = 0.05
+
+
+def layer_geometries(document: VectorDocument) -> list[BaseGeometry]:
+    """United, simplified geometry of every layer (bottom to top), in document px.
+
+    Adjacent shapes of one color merge, so exports have no internal walls or double cuts.
+    """
+    return [
+        unary_union([to_polygon(flatten(shape.d)) for shape in layer.shapes]).simplify(
+            SIMPLIFY_TOLERANCE
+        )
+        for layer in document.layers
+    ]
+
+
+def to_millimetres(
+    geometry: BaseGeometry, document: VectorDocument, width_mm: float
+) -> BaseGeometry:
+    """Scale to `width_mm` and flip the y axis (SVG y points down, CAD/print y points up)."""
+    scale = width_mm / document.width
+    flipped = affinity.scale(geometry, xfact=1, yfact=-1, origin=(0, document.height / 2))
+    return affinity.scale(flipped, xfact=scale, yfact=scale, origin=(0, 0))

@@ -9,7 +9,7 @@ of the microservice can use it too.
 |--------|----------|-------------|--------|
 | SVG | — (browser) | Web, design tools | ✅ |
 | STL | `POST /api/v1/export/stl` | 3D printing (relief / multi-color prints) | ✅ |
-| DXF | `POST /api/v1/export/dxf` | Laser cutters, vinyl plotters, CNC | 🔜 |
+| DXF | `POST /api/v1/export/dxf` | Laser cutters, vinyl plotters, CNC | ✅ |
 | PDF | `POST /api/v1/export/pdf` | Print, documents | 🔜 |
 
 All endpoints take `multipart/form-data` with an `svg` file in the
@@ -64,6 +64,29 @@ edge shared by exactly two triangles in opposite directions — for touching bod
 balanced directed edges), the **signed volume equals area × height** (which also proves
 outward normals), dimensions in mm and layer heights. Performance: a 440-shape document
 exports in ≈1.5 s (≈177 k triangles, 8.8 MB).
+
+## DXF
+
+```bash
+curl -F svg=@logo.svg -F width_mm=300 -F fill=false \
+     http://localhost:8000/api/v1/export/dxf -o logo.dxf
+```
+
+| Option | Default | Meaning |
+|--------|---------|---------|
+| `width_mm` | `100` | Drawing width; height follows the aspect ratio |
+| `fill` | `false` | Also add a solid `HATCH` per polygon (holes as inner boundaries) — for previews or engraving; cutters usually only need outlines |
+
+- DXF R2010 written with [ezdxf](https://ezdxf.mozman.at/), `$INSUNITS = 4`
+  (millimetres), metric measurement.
+- **One DXF layer per color group** (`color-<paletteIndex>`) with its true color, so
+  cutter software can assign power/speed or tools per color.
+- Every polygon becomes **closed `LWPOLYLINE`s** — the outline plus one per hole.
+- Shapes of one color are united first (same geometry pipeline as STL), so pieces split
+  in the editor do not produce double cuts along their shared edge; same mm scaling and
+  y flip as STL.
+- Tests read the file back with ezdxf (layers, colors, closed outlines, extent in mm,
+  hatch boundaries) and require a clean **ezdxf audit** (no errors, no fixes).
 
 ## Frontend
 

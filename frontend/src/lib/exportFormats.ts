@@ -77,6 +77,25 @@ export const EXPORT_FORMATS: ExportFormat[] = [
       },
     ],
   },
+  {
+    id: 'dxf',
+    label: 'DXF',
+    extension: 'dxf',
+    description: 'Outlines for laser cutters, plotters and CNC — one layer per color, units in mm.',
+    options: [
+      {
+        type: 'number',
+        name: 'width_mm',
+        label: 'Width',
+        unit: 'mm',
+        default: 100,
+        min: 1,
+        max: 10000,
+        step: 1,
+      },
+      { type: 'boolean', name: 'fill', label: 'Add solid fills (hatch)', default: false },
+    ],
+  },
 ];
 
 export type ExportValues = Record<string, number | boolean>;

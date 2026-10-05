@@ -7,6 +7,7 @@ from fastapi.concurrency import run_in_threadpool
 
 from app.api.deps import read_upload
 from app.core.config import Settings, get_settings
+from app.services.export_dxf import DxfOptions, export_dxf
 from app.services.export_stl import StlOptions, export_stl
 from app.services.svg_geometry import parse_svg
 
@@ -41,3 +42,22 @@ async def export_to_stl(
     options = StlOptions(width_mm=width_mm, base_mm=base_mm, layer_mm=layer_mm, layered=layered)
     content = await run_in_threadpool(export_stl, document, options)
     return _attachment(content, "model/stl", "stl")
+
+
+@router.post(
+    "/dxf",
+    response_class=Response,
+    responses={200: {"content": {"image/vnd.dxf": {}}, "description": "DXF R2010"}},
+)
+async def export_to_dxf(
+    settings: Annotated[Settings, Depends(get_settings)],
+    svg: SvgFile,
+    width_mm: Annotated[float, Form(gt=0, le=10_000, description="Drawing width")] = 100.0,
+    fill: Annotated[bool, Form(description="Add solid hatch fills")] = False,
+) -> Response:
+    """Closed outlines per color layer for laser cutters, plotters and CNC (units: mm)."""
+    document = parse_svg(await read_upload(svg, settings))
+    content = await run_in_threadpool(
+        export_dxf, document, DxfOptions(width_mm=width_mm, fill=fill)
+    )
+    return _attachment(content, "image/vnd.dxf", "dxf")

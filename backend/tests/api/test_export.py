@@ -1,5 +1,8 @@
+import io
+
 import httpx
 import pytest
+from ezdxf.filemanagement import read as read_dxf
 from fastapi.testclient import TestClient
 
 from tests.vectors import contract_svg, is_balanced, is_closed, read_binary_stl, signed_volume
@@ -56,4 +59,21 @@ def test_rejects_invalid_svg(client: TestClient) -> None:
     response = _post(client, "stl", data=b"<svg")
 
     assert response.status_code == 422
+    assert response.json()["error"]["code"] == "INVALID_SVG"
+
+
+def test_exports_dxf(client: TestClient) -> None:
+    response = _post(client, "dxf", {"width_mm": "40", "fill": "true"})
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/vnd.dxf"
+    assert 'filename="vectorsnap.dxf"' in response.headers["content-disposition"]
+    drawing = read_dxf(io.StringIO(response.text))
+    assert len(drawing.modelspace().query("LWPOLYLINE")) == 2
+    assert len(drawing.modelspace().query("HATCH")) == 2
+
+
+def test_dxf_rejects_invalid_svg(client: TestClient) -> None:
+    response = _post(client, "dxf", data=b"<svg")
+
     assert response.json()["error"]["code"] == "INVALID_SVG"

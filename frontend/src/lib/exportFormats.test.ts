@@ -19,6 +19,13 @@ describe('export formats', () => {
     });
   });
 
+  it('offers DXF with width and fill options', () => {
+    const dxf = EXPORT_FORMATS.find((format) => format.id === 'dxf')!;
+
+    expect(dxf.extension).toBe('dxf');
+    expect(defaultValues(dxf)).toEqual({ width_mm: 100, fill: false });
+  });
+
   it('builds file names from the source file', () => {
     expect(exportFileName('logo.final.png', 'stl')).toBe('logo.final.stl');
     expect(exportFileName(undefined, 'dxf')).toBe('vectorsnap.dxf');

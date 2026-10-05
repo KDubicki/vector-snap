@@ -44,7 +44,8 @@ backend/
 │       ├── vectorization.py    # label_map + palette → raw SVG (vtracer)
 │       ├── svg_postprocess.py  # sanitize, group per color, add ids / data attrs
 │       ├── svg_geometry.py     # parse contract SVG, flatten curves, polygons (exports)
-│       └── export_stl.py       # SVG → STL (extruded color layers)
+│       ├── export_stl.py       # SVG → STL (extruded color layers)
+│       └── export_dxf.py       # SVG → DXF (outlines per color layer)
 └── tests/
     ├── conftest.py             # fixtures: TestClient, sample images
     ├── services/               # unit tests per service

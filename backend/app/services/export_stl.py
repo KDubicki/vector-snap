@@ -10,25 +10,19 @@ from dataclasses import dataclass
 
 import numpy as np
 from numpy.typing import NDArray
-from shapely import (
-    Polygon,
-    affinity,
-    constrained_delaunay_triangles,
-    get_coordinates,
-    unary_union,
-)
+from shapely import Polygon, constrained_delaunay_triangles, get_coordinates, unary_union
 from shapely.geometry.polygon import orient
 
-from app.services.svg_geometry import VectorDocument, flatten, polygons, to_polygon
+from app.services.svg_geometry import (
+    VectorDocument,
+    layer_geometries,
+    polygons,
+    to_millimetres,
+)
 
 _TRIANGLE_DTYPE = np.dtype(
     [("normal", "<f4", (3,)), ("vertices", "<f4", (3, 3)), ("attribute", "<u2")]
 )
-
-
-# Drops near-collinear points left by flattening (straight edges traced as curves);
-# in document px, i.e. far below print resolution.
-SIMPLIFY_TOLERANCE = 0.05
 
 
 @dataclass(frozen=True)
@@ -77,26 +71,18 @@ def _write_binary_stl(triangles: list[NDArray[np.float64]]) -> bytes:
 
 def export_stl(document: VectorDocument, options: StlOptions) -> bytes:
     """Extrude every color layer and return a binary STL (units: millimetres)."""
-    scale = options.width_mm / document.width
-
-    def to_mm(geometry: Polygon) -> Polygon:
-        flipped = affinity.scale(geometry, xfact=1, yfact=-1, origin=(0, document.height / 2))
-        return affinity.scale(flipped, xfact=scale, yfact=scale, origin=(0, 0))
-
     layer_shapes = [
-        unary_union([to_polygon(flatten(shape.d)) for shape in layer.shapes]).simplify(
-            SIMPLIFY_TOLERANCE
-        )
-        for layer in document.layers
+        to_millimetres(geometry, document, options.width_mm)
+        for geometry in layer_geometries(document)
     ]
 
     triangles: list[NDArray[np.float64]] = []
     if options.base_mm > 0:
         for polygon in polygons(unary_union(layer_shapes)):
-            triangles.append(_prism(to_mm(polygon), 0.0, options.base_mm))
+            triangles.append(_prism(polygon, 0.0, options.base_mm))
     for position, geometry in enumerate(layer_shapes):
         steps = position + 1 if options.layered else 1
         top = options.base_mm + options.layer_mm * steps
         for polygon in polygons(geometry):
-            triangles.append(_prism(to_mm(polygon), options.base_mm, top))
+            triangles.append(_prism(polygon, options.base_mm, top))
     return _write_binary_stl(triangles)
