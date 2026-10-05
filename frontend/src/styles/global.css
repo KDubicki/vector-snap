@@ -630,3 +630,27 @@ select {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
+
+.export {
+  gap: 10px;
+}
+
+.export .segmented {
+  margin-top: 8px;
+}
+
+.options .checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.field-error {
+  margin: 0;
+  color: var(--color-error-text);
+  font-size: 0.8rem;
+}
+
+.export > button {
+  margin-top: 4px;
+}

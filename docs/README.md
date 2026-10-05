@@ -17,6 +17,7 @@ numbered in the recommended reading order.
 | 10 | [Development workflow](10-development-workflow.md) | Branching, commits, code style, testing |
 | 11 | [Roadmap](11-roadmap.md) | Milestones and future ideas |
 | 12 | [Continuous integration](12-ci-cd.md) | GitHub Actions pipelines, path filters, commit checks, branch protection |
+| 13 | [Export formats](13-export-formats.md) | STL, DXF, PDF conversion |
 | —  | [ADR](adr/) | Architecture Decision Records |
 
 ## Conventions

@@ -17,6 +17,7 @@ Responses are JSON unless stated otherwise. Errors use the format described in
 | `GET`  | `/api/v1/limits` | Server-side limits (for client-side validation/UI) |
 | `POST` | `/api/v1/quantize` | Reduce an image to N colors, return indexed PNG + palette |
 | `POST` | `/api/v1/vectorize` | Convert an image to SVG |
+| `POST` | `/api/v1/export/stl` | SVG → STL 3D model ([details](13-export-formats.md#stl)) |
 
 ---
 
@@ -176,6 +177,22 @@ If `image` is not indexed and `colors` is omitted, the request fails with
 
 Same as `/quantize`, plus `422 INVALID_PARAMETERS` (palette length mismatch, invalid hex,
 missing `colors` in one-shot mode).
+
+---
+
+## `POST /api/v1/export/{format}`
+
+Converts an SVG in the [output contract](#svg-output-contract) to another format.
+Request: `multipart/form-data` with an `svg` file and format options; response: the file
+as an attachment (`Content-Disposition: attachment; filename="vectorsnap.<ext>"`).
+Formats, options and geometry are described in [13-export-formats.md](13-export-formats.md).
+
+| Format | Media type | Options |
+|--------|------------|---------|
+| `stl` | `model/stl` | `width_mm` (0–10000, default 100), `base_mm` (0–100, 1), `layer_mm` (0–100, 1), `layered` (bool, true) |
+
+Errors: `413 FILE_TOO_LARGE`, `422 INVALID_SVG` (not well-formed, not SVG, no
+viewBox/size, no shapes), `422 VALIDATION_ERROR` (options out of range).
 
 ---
 

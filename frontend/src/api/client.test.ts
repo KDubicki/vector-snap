@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ApiError, getLimits, quantize, vectorize } from './client';
+import { ApiError, exportFile, getLimits, quantize, vectorize } from './client';
 
 function mockFetch(response: Response) {
   const fetchMock = vi.fn().mockResolvedValue(response);
@@ -58,6 +58,31 @@ describe('api client', () => {
     expect(form.get('palette')).toBe('["#000000","#ffffff"]');
     expect(form.get('mode')).toBe('polygon');
     expect(form.get('filter_speckle')).toBe('2');
+  });
+
+  it('exports an svg with options and returns the file', async () => {
+    const fetchMock = mockFetch(new Response(new Blob(['solid']), { status: 200 }));
+
+    const blob = await exportFile('stl', '<svg/>', { width_mm: 50, layered: true });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const form = init.body as FormData;
+    expect(url).toBe('/api/v1/export/stl');
+    expect(await (form.get('svg') as Blob).text()).toBe('<svg/>');
+    expect(form.get('width_mm')).toBe('50');
+    expect(form.get('layered')).toBe('true');
+    expect(await blob.text()).toBe('solid');
+  });
+
+  it('maps export errors to ApiError', async () => {
+    mockFetch(
+      jsonResponse(
+        { error: { code: 'INVALID_SVG', message: 'Bad SVG', details: {} }, request_id: 'r' },
+        422,
+      ),
+    );
+
+    await expect(exportFile('stl', 'x', {})).rejects.toMatchObject({ code: 'INVALID_SVG' });
   });
 
   it('maps the backend error envelope to ApiError', async () => {

@@ -24,6 +24,7 @@ Both services are containerized and orchestrated with Docker Compose.
 - Split shapes with a knife line for fine-grained corrections
 - Recolor individual shapes or whole palette groups, delete shapes, undo/redo
 - Download the edited SVG
+- Export to STL for 3D printing (color layers as relief)
 
 ## Quick start
 
@@ -101,7 +102,8 @@ Detailed documentation lives in [`docs/`](docs/README.md):
 10. [Development workflow](docs/10-development-workflow.md)
 11. [Roadmap](docs/11-roadmap.md)
 12. [Continuous integration](docs/12-ci-cd.md)
-13. [Architecture Decision Records](docs/adr/)
+13. [Export formats](docs/13-export-formats.md)
+14. [Architecture Decision Records](docs/adr/)
 
 ## Continuous integration
 

@@ -4,6 +4,7 @@ import { shapeCount } from '../editor/model';
 import { useObjectUrl } from '../lib/useObjectUrl';
 import { useAppStore } from '../state/store';
 import { EditorPalettePanel } from './EditorPalettePanel';
+import { ExportPanel } from './ExportPanel';
 import { ShapeInspector } from './ShapeInspector';
 import { SvgEditor } from './SvgEditor';
 
@@ -50,6 +51,7 @@ export function ResultStep() {
             </a>
           )}
         </div>
+        <ExportPanel />
         <button type="button" className="link" onClick={reset}>
           Start with a new image
         </button>

@@ -42,6 +42,11 @@ class InvalidParameters(VectorSnapError):
     code = "INVALID_PARAMETERS"
 
 
+class InvalidSvg(VectorSnapError):
+    status_code = 422
+    code = "INVALID_SVG"
+
+
 class NotIndexedImage(InvalidImage):
     """Raised when an indexed (palette-mode) PNG was expected."""
 

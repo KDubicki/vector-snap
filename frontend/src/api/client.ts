@@ -21,18 +21,39 @@ export class ApiError extends Error {
   }
 }
 
+async function toApiError(response: Response): Promise<ApiError> {
+  const body = (await response.json().catch(() => null)) as ApiErrorBody | null;
+  return new ApiError(
+    response.status,
+    body?.error.code ?? 'UNKNOWN_ERROR',
+    body?.error.message ?? response.statusText,
+    body?.request_id ?? response.headers.get('X-Request-ID'),
+  );
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${BASE_URL}/v1${path}`, init);
-  if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as ApiErrorBody | null;
-    throw new ApiError(
-      response.status,
-      body?.error.code ?? 'UNKNOWN_ERROR',
-      body?.error.message ?? response.statusText,
-      body?.request_id ?? response.headers.get('X-Request-ID'),
-    );
-  }
+  if (!response.ok) throw await toApiError(response);
   return (await response.json()) as T;
+}
+
+/** Convert an SVG (VectorSnap contract) to another format on the backend. */
+export async function exportFile(
+  format: string,
+  svg: string,
+  options: Record<string, string | number | boolean>,
+  signal?: AbortSignal,
+): Promise<Blob> {
+  const form = new FormData();
+  form.append('svg', new Blob([svg], { type: 'image/svg+xml' }), 'document.svg');
+  for (const [key, value] of Object.entries(options)) form.append(key, String(value));
+  const response = await fetch(`${BASE_URL}/v1/export/${format}`, {
+    method: 'POST',
+    body: form,
+    signal,
+  });
+  if (!response.ok) throw await toApiError(response);
+  return response.blob();
 }
 
 export function getLimits(signal?: AbortSignal): Promise<Limits> {
