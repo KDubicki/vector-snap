@@ -77,3 +77,19 @@ def test_dxf_rejects_invalid_svg(client: TestClient) -> None:
     response = _post(client, "dxf", data=b"<svg")
 
     assert response.json()["error"]["code"] == "INVALID_SVG"
+
+
+def test_exports_pdf(client: TestClient) -> None:
+    response = _post(client, "pdf", {"page": "a4", "margin_mm": "15"})
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/pdf"
+    assert 'filename="vectorsnap.pdf"' in response.headers["content-disposition"]
+    assert response.content.startswith(b"%PDF-")
+
+
+def test_pdf_rejects_unknown_page_size(client: TestClient) -> None:
+    response = _post(client, "pdf", {"page": "a3"})
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"

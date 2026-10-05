@@ -654,3 +654,17 @@ select {
 .export > button {
   margin-top: 4px;
 }
+
+.options .option {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.9rem;
+}
+
+.options .checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+}

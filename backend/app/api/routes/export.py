@@ -8,6 +8,7 @@ from fastapi.concurrency import run_in_threadpool
 from app.api.deps import read_upload
 from app.core.config import Settings, get_settings
 from app.services.export_dxf import DxfOptions, export_dxf
+from app.services.export_pdf import PageSize, PdfOptions, export_pdf
 from app.services.export_stl import StlOptions, export_stl
 from app.services.svg_geometry import parse_svg
 
@@ -61,3 +62,22 @@ async def export_to_dxf(
         export_dxf, document, DxfOptions(width_mm=width_mm, fill=fill)
     )
     return _attachment(content, "image/vnd.dxf", "dxf")
+
+
+@router.post(
+    "/pdf",
+    response_class=Response,
+    responses={200: {"content": {"application/pdf": {}}, "description": "One-page PDF"}},
+)
+async def export_to_pdf(
+    settings: Annotated[Settings, Depends(get_settings)],
+    svg: SvgFile,
+    page: Annotated[PageSize, Form(description="fit = page fits the drawing")] = "fit",
+    width_mm: Annotated[float, Form(gt=0, le=10_000, description="Drawing width (fit)")] = 100.0,
+    margin_mm: Annotated[float, Form(ge=0, le=100, description="Page margin")] = 10.0,
+) -> Response:
+    """Vector PDF with exact curves for print."""
+    document = parse_svg(await read_upload(svg, settings))
+    options = PdfOptions(page=page, width_mm=width_mm, margin_mm=margin_mm)
+    content = await run_in_threadpool(export_pdf, document, options)
+    return _attachment(content, "application/pdf", "pdf")

@@ -10,7 +10,7 @@ of the microservice can use it too.
 | SVG | — (browser) | Web, design tools | ✅ |
 | STL | `POST /api/v1/export/stl` | 3D printing (relief / multi-color prints) | ✅ |
 | DXF | `POST /api/v1/export/dxf` | Laser cutters, vinyl plotters, CNC | ✅ |
-| PDF | `POST /api/v1/export/pdf` | Print, documents | 🔜 |
+| PDF | `POST /api/v1/export/pdf` | Print, documents | ✅ |
 
 All endpoints take `multipart/form-data` with an `svg` file in the
 [SVG output contract](05-api-specification.md#svg-output-contract) plus format options,
@@ -88,9 +88,34 @@ curl -F svg=@logo.svg -F width_mm=300 -F fill=false \
 - Tests read the file back with ezdxf (layers, colors, closed outlines, extent in mm,
   hatch boundaries) and require a clean **ezdxf audit** (no errors, no fixes).
 
+## PDF
+
+```bash
+curl -F svg=@logo.svg -F page=a4 -F margin_mm=15 \
+     http://localhost:8000/api/v1/export/pdf -o logo.pdf
+```
+
+| Option | Default | Meaning |
+|--------|---------|---------|
+| `page` | `fit` | `fit`: the page is the drawing plus margins; `a4` / `letter`: standard page, orientation chosen from the drawing's aspect ratio, drawing scaled to fit inside the margins and centered |
+| `width_mm` | `100` | Drawing width for `page=fit` |
+| `margin_mm` | `10` | Margin on every side |
+
+- Written with [ReportLab](https://www.reportlab.com/); one page, compressed streams,
+  title/creator metadata.
+- **Curves stay curves**: no flattening — every path segment becomes a native PDF path
+  operator (cubic Bézier → `c`; quadratic curves are converted exactly to cubic; arcs via
+  cubic approximation), so the output is resolution-independent and small (a 440-shape
+  document: 0.24 MB in 0.18 s).
+- Each shape is filled in its own color with the **nonzero** rule, like SVG, so holes
+  render the same as in the browser.
+- Tests render the PDF with pdfium and check pixel colors (shape, hole, background),
+  page size and centering, and inspect path segments to make sure Béziers are kept.
+
 ## Frontend
 
-The result step has an **Export to other formats** panel: choose a format, adjust its
-options (validated in the browser with the same ranges as the API) and download the
-file named after the uploaded image (`logo.png` → `logo.stl`). The export always uses
+The result step has an **Export to other formats** panel: choose STL, DXF or PDF, adjust
+its options (number, checkbox and choice options, validated in the browser with the same
+ranges as the API; each format remembers its own values) and download the file named
+after the uploaded image (`logo.png` → `logo.stl`). The export always uses
 the **edited** document. Formats are declared in `src/lib/exportFormats.ts`.

@@ -33,7 +33,7 @@ export function ExportPanel() {
 
   if (!editor) return null;
 
-  const update = (name: string, value: number | boolean) =>
+  const update = (name: string, value: number | boolean | string) =>
     setValues((all) => ({ ...all, [format.id]: { ...current, [name]: value } }));
 
   const run = async () => {
@@ -70,33 +70,61 @@ export function ExportPanel() {
       </div>
       <p className="hint">{format.description}</p>
       <div className="options">
-        {format.options.map((option) =>
-          option.type === 'number' ? (
-            <label key={option.name}>
-              {option.label}
-              {option.unit ? ` (${option.unit})` : ''}
-              <input
-                type="number"
-                min={option.min}
-                max={option.max}
-                step={option.step}
-                value={Number.isFinite(current[option.name]) ? Number(current[option.name]) : ''}
-                aria-invalid={Boolean(errors[option.name])}
-                onChange={(event) => update(option.name, event.target.valueAsNumber)}
-              />
-              {errors[option.name] && <span className="field-error">{errors[option.name]}</span>}
-            </label>
-          ) : (
-            <label key={option.name} className="checkbox">
-              <input
-                type="checkbox"
-                checked={Boolean(current[option.name])}
-                onChange={(event) => update(option.name, event.target.checked)}
-              />
-              {option.label}
-            </label>
-          ),
-        )}
+        {format.options.map((option) => {
+          const id = `export-${format.id}-${option.name}`;
+          const errorId = `${id}-error`;
+          if (option.type === 'boolean') {
+            return (
+              <div key={option.name} className="checkbox">
+                <input
+                  id={id}
+                  type="checkbox"
+                  checked={Boolean(current[option.name])}
+                  onChange={(event) => update(option.name, event.target.checked)}
+                />
+                <label htmlFor={id}>{option.label}</label>
+              </div>
+            );
+          }
+          return (
+            <div key={option.name} className="option">
+              <label htmlFor={id}>
+                {option.label}
+                {option.type === 'number' && option.unit ? ` (${option.unit})` : ''}
+              </label>
+              {option.type === 'choice' ? (
+                <select
+                  id={id}
+                  value={String(current[option.name])}
+                  onChange={(event) => update(option.name, event.target.value)}
+                >
+                  {option.choices.map((choice) => (
+                    <option key={choice.value} value={choice.value}>
+                      {choice.label}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  id={id}
+                  type="number"
+                  min={option.min}
+                  max={option.max}
+                  step={option.step}
+                  value={Number.isFinite(current[option.name]) ? Number(current[option.name]) : ''}
+                  aria-invalid={Boolean(errors[option.name])}
+                  aria-describedby={errors[option.name] ? errorId : undefined}
+                  onChange={(event) => update(option.name, event.target.valueAsNumber)}
+                />
+              )}
+              {errors[option.name] && (
+                <span id={errorId} className="field-error">
+                  {errors[option.name]}
+                </span>
+              )}
+            </div>
+          );
+        })}
       </div>
       {error && (
         <p className="field-error" role="alert">

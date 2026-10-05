@@ -48,6 +48,6 @@
   SVGs without a browser.
 - Automatic color count suggestion (elbow method / silhouette score).
 - Background removal before tracing.
-- Export to EPS; more 3D options (per-layer heights, lithophane).
+- More export options: EPS, per-layer STL heights, lithophane.
 - Generated TypeScript client from OpenAPI.
 - Kubernetes manifests / Helm chart.

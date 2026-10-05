@@ -26,6 +26,15 @@ describe('export formats', () => {
     expect(defaultValues(dxf)).toEqual({ width_mm: 100, fill: false });
   });
 
+  it('offers PDF with a validated page choice', () => {
+    const pdf = EXPORT_FORMATS.find((format) => format.id === 'pdf')!;
+
+    expect(defaultValues(pdf)).toEqual({ page: 'fit', width_mm: 100, margin_mm: 10 });
+    expect(validate(pdf, { ...defaultValues(pdf), page: 'a3' })).toEqual({
+      page: 'Choose one of the options.',
+    });
+  });
+
   it('builds file names from the source file', () => {
     expect(exportFileName('logo.final.png', 'stl')).toBe('logo.final.stl');
     expect(exportFileName(undefined, 'dxf')).toBe('vectorsnap.dxf');

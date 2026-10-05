@@ -22,7 +22,15 @@ export interface BooleanOption {
   default: boolean;
 }
 
-export type ExportOption = NumberOption | BooleanOption;
+export interface ChoiceOption {
+  type: 'choice';
+  name: string;
+  label: string;
+  default: string;
+  choices: { value: string; label: string }[];
+}
+
+export type ExportOption = NumberOption | BooleanOption | ChoiceOption;
 
 export interface ExportFormat {
   id: string;
@@ -96,9 +104,48 @@ export const EXPORT_FORMATS: ExportFormat[] = [
       { type: 'boolean', name: 'fill', label: 'Add solid fills (hatch)', default: false },
     ],
   },
+  {
+    id: 'pdf',
+    label: 'PDF',
+    extension: 'pdf',
+    description: 'Vector PDF with exact curves for print.',
+    options: [
+      {
+        type: 'choice',
+        name: 'page',
+        label: 'Page',
+        default: 'fit',
+        choices: [
+          { value: 'fit', label: 'Fit to drawing' },
+          { value: 'a4', label: 'A4' },
+          { value: 'letter', label: 'Letter' },
+        ],
+      },
+      {
+        type: 'number',
+        name: 'width_mm',
+        label: 'Drawing width (fit page)',
+        unit: 'mm',
+        default: 100,
+        min: 1,
+        max: 10000,
+        step: 1,
+      },
+      {
+        type: 'number',
+        name: 'margin_mm',
+        label: 'Margin',
+        unit: 'mm',
+        default: 10,
+        min: 0,
+        max: 100,
+        step: 1,
+      },
+    ],
+  },
 ];
 
-export type ExportValues = Record<string, number | boolean>;
+export type ExportValues = Record<string, number | boolean | string>;
 
 export function defaultValues(format: ExportFormat): ExportValues {
   return Object.fromEntries(format.options.map((option) => [option.name, option.default]));
@@ -114,6 +161,10 @@ export function validate(format: ExportFormat, values: ExportValues): Record<str
         errors[option.name] = 'Enter a number.';
       } else if (value < option.min || value > option.max) {
         errors[option.name] = `Must be between ${option.min} and ${option.max}.`;
+      }
+    } else if (option.type === 'choice') {
+      if (!option.choices.some((choice) => choice.value === value)) {
+        errors[option.name] = 'Choose one of the options.';
       }
     } else if (typeof value !== 'boolean') {
       errors[option.name] = 'Invalid value.';
