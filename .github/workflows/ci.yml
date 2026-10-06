@@ -9,9 +9,12 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# PRs: one group per PR, a new push cancels the superseded run.
+# Everything else (pushes to main, manual runs): a unique group per run. A shared group
+# would keep only one running and one pending run and silently cancel the others, even
+# with cancel-in-progress disabled, so queued pushes to main must never share a group.
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref }}
-  # Cancel superseded runs on PRs; never cancel runs on main.
+  group: ci-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:

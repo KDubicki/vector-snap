@@ -32,7 +32,10 @@ frontend runs only the frontend pipeline, and a change to a shared file (e.g.
 | `workflow_dispatch` (manual) | **All** pipelines, regardless of changes |
 
 Runs on the same PR are de-duplicated (`concurrency`): a new push cancels the running
-pipeline for that PR. Runs on `main` are never cancelled.
+pipeline for that PR. Runs on `main` are never cancelled: every non-PR run gets its own
+concurrency group. (A group shared by all pushes to `main` would keep only one running
+and one pending run and **silently cancel the rest**, even with `cancel-in-progress`
+off — which is what happened when several pushes queued up during a GitHub outage.)
 
 ## Path-based triggering
 
@@ -255,6 +258,7 @@ Differences from GitHub under `act`:
 | `CI result` fails but all visible jobs are green | A job was **cancelled** (e.g. superseded push) — re-run, or check the list printed by the `CI result` step |
 | Commit messages job fails on an old commit | Reword it with `git rebase -i` (or squash) and force-push the PR branch |
 | PR title check fails | Edit the title, e.g. `feat(editor): add lasso split` — the check re-runs automatically |
+| A run on `main` is *cancelled* within seconds with no jobs | Concurrency eviction from an older workflow version (shared group); re-run it. Fixed in `ci.yml` by giving every non-PR run its own group |
 | Jobs stay *queued* and end with "The job was not acquired by Runner of type hosted even after multiple attempts" | Not a code problem: GitHub could not assign a hosted runner. Check [githubstatus.com](https://www.githubstatus.com/) (Actions incidents) and the account's Actions minutes (*Settings → Billing*; private repos on the Free plan have a monthly quota). Re-run the workflow once runners are available |
 | Coverage threshold failure | Add tests; thresholds are intentional (NFR-10) and should not be lowered without discussion |
 | `pip-audit` / `npm audit` failure without code changes | A new advisory was published — upgrade the dependency (or wait for the Dependabot PR) |
