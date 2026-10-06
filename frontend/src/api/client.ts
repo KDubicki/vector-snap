@@ -69,6 +69,9 @@ export function quantize(
   form.append('image', image);
   form.append('colors', String(params.colors));
   if (params.algorithm) form.append('algorithm', params.algorithm);
+  if (params.locked_colors?.length) {
+    form.append('locked_colors', JSON.stringify(params.locked_colors));
+  }
   return request<QuantizeResponse>('/quantize', { method: 'POST', body: form, signal });
 }
 

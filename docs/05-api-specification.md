@@ -63,7 +63,7 @@ Reduces the image to `colors` representative colors.
 | `image` | file | ✅ | — | JPEG or PNG |
 | `colors` | int | ✅ | — | Target palette size, `min_colors ≤ colors ≤ max_colors` |
 | `algorithm` | enum | | `kmeans` | `kmeans` \| `median_cut` |
-| `locked_colors` | JSON string | | `[]` | Hex colors that MUST be part of the palette, e.g. `["#ff0000"]` (counts toward `colors`) |
+| `locked_colors` | JSON string | | `[]` | Hex colors that MUST be part of the palette, e.g. `["#ff0000"]` (counts toward `colors`); honored by both algorithms |
 | `max_working_size` | int | | `1024` | Image is downscaled to this longer side for clustering; labels are then assigned at full resolution |
 | `seed` | int | | `0` | Random seed (deterministic output) |
 

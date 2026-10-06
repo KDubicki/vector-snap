@@ -96,6 +96,46 @@ describe('app store', () => {
     expect(store().overrides).toEqual({});
   });
 
+  it('locks colors up to the palette size and re-quantizes with them', async () => {
+    store().selectFile(file);
+    store().setColors(2);
+    const fetchMock = respond(quantized);
+    vi.stubGlobal('fetch', fetchMock);
+    await store().runQuantize();
+
+    store().lockColor('#FF0000');
+    store().lockColor('#ff0000');
+    store().lockColor('#00ff00');
+    store().lockColor('#0000ff');
+    expect(store().locked).toEqual(['#ff0000', '#00ff00']);
+
+    await store().runQuantize();
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const form = (fetchMock.mock.calls[1] as [string, RequestInit])[1].body as FormData;
+    expect(form.get('locked_colors')).toBe('["#ff0000","#00ff00"]');
+  });
+
+  it('keeps the color count at least the number of locked colors', () => {
+    store().setColors(3);
+    store().lockColor('#ff0000');
+    store().lockColor('#00ff00');
+
+    store().setColors(1);
+    expect(store().colors).toBe(2);
+  });
+
+  it('unlocks colors and ignores colors that are not locked', () => {
+    store().lockColor('#ff0000');
+    const locked = store().locked;
+
+    store().unlockColor('#00FF00');
+    expect(store().locked).toBe(locked);
+
+    store().unlockColor('#FF0000');
+    expect(store().locked).toEqual([]);
+  });
+
   it('stores api errors from quantization', async () => {
     store().selectFile(file);
     vi.stubGlobal(

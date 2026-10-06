@@ -3,6 +3,7 @@ import { finalPalette } from '../lib/color';
 import { useObjectUrl } from '../lib/useObjectUrl';
 import { useAppStore } from '../state/store';
 import { ColorCountSelector } from './ColorCountSelector';
+import { LockedColors } from './LockedColors';
 import { PaletteEditor } from './PaletteEditor';
 import { QuantizedPreview } from './QuantizedPreview';
 import { TracingOptionsPanel } from './TracingOptionsPanel';
@@ -15,18 +16,20 @@ export function PaletteStep() {
   const algorithm = useAppStore((s) => s.algorithm);
   const limits = useAppStore((s) => s.limits);
   const quantized = useAppStore((s) => s.quantized);
+  const locked = useAppStore((s) => s.locked);
   const overrides = useAppStore((s) => s.overrides);
   const tracing = useAppStore((s) => s.tracing);
   const status = useAppStore((s) => s.status);
   const actions = useAppStore.getState();
 
   const sourceUrl = useObjectUrl(file);
+  const canLock = locked.length < colors;
 
   useEffect(() => {
     if (!file) return;
     const timer = setTimeout(() => void useAppStore.getState().runQuantize(), QUANTIZE_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [file, colors, algorithm]);
+  }, [file, colors, algorithm, locked]);
 
   const originalPalette = useMemo(() => quantized?.palette.map((c) => c.hex) ?? [], [quantized]);
   const targetPalette = useMemo(
@@ -61,7 +64,7 @@ export function PaletteStep() {
       <aside className="panel">
         <ColorCountSelector
           value={colors}
-          min={limits.min_colors}
+          min={Math.max(limits.min_colors, locked.length)}
           max={limits.max_colors}
           onChange={actions.setColors}
         />
@@ -86,11 +89,21 @@ export function PaletteStep() {
           <PaletteEditor
             palette={quantized.palette}
             overrides={overrides}
+            locked={locked}
+            canLock={canLock}
+            onLock={actions.lockColor}
+            onUnlock={actions.unlockColor}
             onChange={actions.setOverride}
             onReset={actions.resetOverride}
             onResetAll={actions.resetOverrides}
           />
         )}
+        <LockedColors
+          locked={locked}
+          canLock={canLock}
+          onLock={actions.lockColor}
+          onUnlock={actions.unlockColor}
+        />
         <TracingOptionsPanel
           options={tracing}
           onChange={actions.setTracing}

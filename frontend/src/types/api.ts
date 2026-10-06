@@ -28,6 +28,8 @@ export interface EncodedImage {
 export interface QuantizeParams {
   colors: number;
   algorithm?: QuantizeAlgorithm;
+  /** Hex colors that must appear exactly in the palette (FR-16). */
+  locked_colors?: string[];
 }
 
 export interface QuantizeResponse {

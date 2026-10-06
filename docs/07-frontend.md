@@ -49,6 +49,12 @@ Layout: left = original and quantized previews side by side, right = controls.
   previous one (`AbortController`). Unchanged parameters never re-quantize, so returning
   from the result step keeps edits.
 - **Method**: perceptual (k-means) / fast (median cut).
+- **Locked colors** (FR-16): the lock toggle on a palette row, or "Lock color" with a
+  color picker for brand colors, adds a color to `locked`. Locked colors are sent as
+  `locked_colors` and re-quantize (debounced like the color count); the backend keeps
+  them exactly in the palette. At most `colors` colors can be locked, and the color count
+  cannot go below the number of locked colors. Locked colors persist across images until
+  "New image".
 - **Palette list**: one row per color — color picker, hex value, coverage bar, per-color
   reset and "Reset all".
   - Edits are previewed **instantly client-side**: the indexed PNG is decoded onto a
@@ -108,7 +114,8 @@ interface AppState {
   colors: number;
   algorithm: 'kmeans' | 'median_cut';
   quantized: QuantizeResponse | null;        // indexed PNG + original palette
-  quantizedFor: { file; colors; algorithm } | null; // params that produced `quantized`
+  quantizedFor: { file; colors; algorithm; locked } | null; // params that produced `quantized`
+  locked: string[];                          // colors kept exactly in the palette (FR-16)
   overrides: Record<number, string>;         // palette index → edited hex
   tracing: TracingOptions;                   // defaults: DEFAULT_TRACING (lib/tracing.ts)
   vectorized: VectorizeResponse | null;
@@ -116,8 +123,9 @@ interface AppState {
   selection: string[];                       // selected shape ids
   status: 'idle' | 'quantizing' | 'vectorizing';
   error: string | null;
-  // actions: loadLimits, selectFile, setColors, setAlgorithm, setOverride, resetOverride,
-  // resetOverrides, setTracing, resetTracing, runQuantize, runVectorize, goTo, reset
+  // actions: loadLimits, selectFile, setColors, setAlgorithm, lockColor, unlockColor,
+  // setOverride, resetOverride, resetOverrides, setTracing, resetTracing, runQuantize,
+  // runVectorize, goTo, reset
 }
 ```
 

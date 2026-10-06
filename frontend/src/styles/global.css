@@ -300,7 +300,7 @@ select {
 
 .palette li {
   display: grid;
-  grid-template-columns: 36px 72px 1fr auto;
+  grid-template-columns: 36px 72px 1fr auto auto;
   align-items: center;
   gap: 8px;
 }
@@ -761,4 +761,73 @@ select {
 
 .model-preview__stats dd {
   font-weight: 500;
+}
+
+.icon-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: var(--color-muted);
+  cursor: pointer;
+}
+
+.icon-toggle:hover:not(:disabled) {
+  border-color: var(--color-border);
+}
+
+.icon-toggle.active {
+  color: var(--color-accent);
+}
+
+.icon-toggle:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.locked-colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.locked-colors li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px 2px 4px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  font-size: 0.85rem;
+}
+
+.locked-colors__swatch {
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+}
+
+.locked-colors__add {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.locked-colors__add input[type='color'] {
+  width: 36px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
 }

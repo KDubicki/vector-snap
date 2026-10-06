@@ -43,7 +43,9 @@ Output: `labels: H×W uint8` (palette index per pixel, 255 = transparent) and
 3. Convert them to **CIE Lab** (D65) — Euclidean distance in Lab approximates perceived
    color difference far better than in RGB.
 4. Fit `MiniBatchKMeans(n_clusters=N, random_state=seed, n_init=3)` with the counts as
-   `sample_weight`.
+   `sample_weight`. If the downscaled copy has no more unique colors than `N` (possible
+   when colors are locked), those colors are used as the centers directly — k-means can
+   return duplicate centers in that case and would merge colors.
 5. `locked_colors`: each locked color replaces its nearest still-free centroid (greedy).
 6. Assign every unique color of the **full-resolution** image to the nearest centroid
    (chunked to bound memory), then map pixels through the unique-color index.
@@ -55,6 +57,10 @@ Output: `labels: H×W uint8` (palette index per pixel, 255 = transparent) and
 Pillow's `Image.quantize(colors=N, method=Image.Quantize.MEDIANCUT, dither=NONE)`.
 Faster and fully deterministic, slightly worse visual quality on gradients. Useful for
 large images or as a fallback.
+
+`locked_colors` work the same way as for k-means: each locked color replaces its nearest
+still-free palette entry (greedy, in Lab), and every opaque pixel is then reassigned to
+the nearest entry of the adjusted palette in Lab.
 
 ### Post-quantization cleanup
 

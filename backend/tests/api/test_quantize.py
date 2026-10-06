@@ -39,6 +39,20 @@ def test_quantize_supports_median_cut(client: TestClient) -> None:
     assert len(response.json()["palette"]) <= 4
 
 
+@pytest.mark.parametrize("algorithm", ["kmeans", "median_cut"])
+def test_quantize_keeps_locked_colors(client: TestClient, algorithm: str) -> None:
+    response = _post(
+        client,
+        encode(noisy()),
+        colors="4",
+        algorithm=algorithm,
+        locked_colors='["#123456"]',
+    )
+
+    assert response.status_code == 200
+    assert "#123456" in [c["hex"] for c in response.json()["palette"]]
+
+
 @pytest.mark.parametrize("colors", ["1", "65"])
 def test_quantize_rejects_color_count_out_of_range(client: TestClient, colors: str) -> None:
     response = _post(client, encode(stripes()), colors=colors)

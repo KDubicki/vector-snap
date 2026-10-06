@@ -70,6 +70,15 @@ def test_locked_colors_appear_exactly_in_palette() -> None:
     assert (255, 0, 0) in [tuple(int(v) for v in c) for c in result.palette]
 
 
+def test_locking_a_color_keeps_every_color_of_a_flat_image() -> None:
+    image = decode_image(encode(stripes()), max_dimension=64)
+
+    result = quantize_kmeans(image, colors=8, locked_colors=[(250, 0, 0)])
+
+    palette = sorted(tuple(int(v) for v in c) for c in result.palette)
+    assert palette == sorted([(250, 0, 0), GREEN, BLUE])
+
+
 @pytest.mark.parametrize("algorithm", [quantize_kmeans, quantize_median_cut])
 def test_transparent_pixels_get_transparent_label(
     algorithm: Callable[[DecodedImage, int], QuantizationResult],
@@ -91,3 +100,29 @@ def test_median_cut_limits_palette_size() -> None:
 
     assert 1 <= len(result.palette) <= 4
     assert list(result.coverage) == sorted(result.coverage, reverse=True)
+
+
+def test_median_cut_keeps_locked_colors_exactly() -> None:
+    image = decode_image(encode(noisy()), max_dimension=64)
+
+    result = quantize_median_cut(image, colors=4, locked_colors=[(255, 0, 0), (0, 0, 255)])
+
+    palette = [tuple(int(v) for v in c) for c in result.palette]
+    assert (255, 0, 0) in palette
+    assert (0, 0, 255) in palette
+    assert len(palette) <= 4
+    assert result.coverage.sum() == pytest.approx(1.0)
+
+
+def test_median_cut_assigns_pixels_to_the_pinned_color() -> None:
+    image = decode_image(encode(stripes()), max_dimension=64)
+    # A shade close to the red stripe takes its place; red pixels must now use it.
+    locked = (230, 20, 20)
+
+    result = quantize_median_cut(image, colors=3, locked_colors=[locked])
+
+    palette = [tuple(int(v) for v in c) for c in result.palette]
+    assert locked in palette
+    assert RED not in palette
+    red_pixels = (image.rgb == RED).all(axis=2)
+    assert (result.labels[red_pixels] == palette.index(locked)).all()

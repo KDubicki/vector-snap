@@ -46,6 +46,19 @@ describe('api client', () => {
     expect(form.has('algorithm')).toBe(false);
   });
 
+  it('sends locked colors as a JSON array only when there are any', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => jsonResponse({ palette: [] }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await quantize(new Blob(['img']), { colors: 4, locked_colors: ['#ff0000'] });
+    await quantize(new Blob(['img']), { colors: 4, locked_colors: [] });
+
+    const form = (call: number) =>
+      (fetchMock.mock.calls[call] as [string, RequestInit])[1].body as FormData;
+    expect(form(0).get('locked_colors')).toBe('["#ff0000"]');
+    expect(form(1).has('locked_colors')).toBe(false);
+  });
+
   it('sends palette as JSON and tracing options as fields', async () => {
     const fetchMock = mockFetch(jsonResponse({ svg: '<svg/>' }));
 

@@ -76,6 +76,25 @@ def _nearest(
     return nearest
 
 
+def _pin_locked(
+    centers: NDArray[np.float64], locked: list[tuple[int, int, int]]
+) -> dict[int, tuple[int, int, int]]:
+    """Replace each locked color's nearest still-free center (Lab) with the color itself.
+
+    Greedy, in the order given; colors beyond the number of centers are ignored. Updates
+    `centers` in place and returns the pinned colors by center index.
+    """
+    pinned: dict[int, tuple[int, int, int]] = {}
+    for color in locked[: len(centers)]:
+        color_lab = srgb_to_lab(np.array([color], dtype=np.uint8))
+        distances = ((centers - color_lab) ** 2).sum(axis=1)
+        distances[list(pinned)] = np.inf
+        index = int(distances.argmin())
+        centers[index] = color_lab[0]
+        pinned[index] = color
+    return pinned
+
+
 def _finalize(
     image: DecodedImage, opaque_labels: NDArray[np.intp], palette: NDArray[np.uint8]
 ) -> QuantizationResult:
@@ -120,21 +139,18 @@ def quantize_kmeans(
 
     working = _working_sample(image, max_working_size)
     w_unique, w_counts = np.unique(_pack(working), return_counts=True)
-    n_clusters = min(colors, len(w_unique))
-    kmeans = MiniBatchKMeans(
-        n_clusters=n_clusters, random_state=seed, n_init=3, batch_size=4096
-    ).fit(srgb_to_lab(_unpack(w_unique)), sample_weight=w_counts)
-    centers: NDArray[np.float64] = kmeans.cluster_centers_
+    w_lab = srgb_to_lab(_unpack(w_unique))
+    if len(w_unique) <= colors:
+        # Every color can be its own cluster. k-means would not reliably find that (it can
+        # return duplicate centers and merge colors), so use the colors directly.
+        centers = w_lab
+    else:
+        kmeans = MiniBatchKMeans(
+            n_clusters=colors, random_state=seed, n_init=3, batch_size=4096
+        ).fit(w_lab, sample_weight=w_counts)
+        centers = kmeans.cluster_centers_
 
-    # Pin each locked color to its nearest still-free centroid.
-    pinned: dict[int, tuple[int, int, int]] = {}
-    for color in locked[:n_clusters]:
-        color_lab = srgb_to_lab(np.array([color], dtype=np.uint8))
-        distances = ((centers - color_lab) ** 2).sum(axis=1)
-        distances[list(pinned)] = np.inf
-        index = int(distances.argmin())
-        centers[index] = color_lab[0]
-        pinned[index] = color
+    pinned = _pin_locked(centers, locked)
 
     unique_labels = _nearest(srgb_to_lab(_unpack(unique)), centers)
     palette = np.zeros((len(centers), 3), dtype=np.uint8)
@@ -166,8 +182,17 @@ def _working_sample(image: DecodedImage, max_working_size: int) -> NDArray[np.ui
     return sample if len(sample) else image.rgb[image.alpha_mask]
 
 
-def quantize_median_cut(image: DecodedImage, colors: int) -> QuantizationResult:
-    """Quantize using Pillow's median cut without dithering."""
+def quantize_median_cut(
+    image: DecodedImage,
+    colors: int,
+    *,
+    locked_colors: list[tuple[int, int, int]] | None = None,
+) -> QuantizationResult:
+    """Quantize using Pillow's median cut without dithering.
+
+    Locked colors replace their nearest palette entries; pixels are then reassigned to the
+    nearest entry of the adjusted palette in Lab space.
+    """
     rgb = image.rgb.copy()
     # Transparent pixels must not influence the palette: paint them with an opaque color.
     rgb[~image.alpha_mask] = image.rgb[image.alpha_mask][0]
@@ -177,4 +202,13 @@ def quantize_median_cut(image: DecodedImage, colors: int) -> QuantizationResult:
     labels = np.asarray(quantized, dtype=np.intp)
     raw_palette = quantized.getpalette() or []
     palette = np.asarray(raw_palette, dtype=np.uint8).reshape(-1, 3)[: int(labels.max()) + 1]
-    return _finalize(image, labels[image.alpha_mask], palette)
+    if not locked_colors:
+        return _finalize(image, labels[image.alpha_mask], palette)
+
+    centers = srgb_to_lab(palette)
+    for index, color in _pin_locked(centers, locked_colors).items():
+        palette[index] = color
+    opaque = image.rgb[image.alpha_mask]
+    unique, inverse = np.unique(_pack(opaque), return_inverse=True)
+    unique_labels = _nearest(srgb_to_lab(_unpack(unique)), centers)
+    return _finalize(image, unique_labels[inverse.reshape(-1)], palette)

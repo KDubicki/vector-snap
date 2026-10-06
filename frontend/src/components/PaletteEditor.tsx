@@ -1,8 +1,15 @@
 import type { PaletteColor } from '../types/api';
+import { LockIcon } from './LockedColors';
 
 interface PaletteEditorProps {
   palette: PaletteColor[];
   overrides: Record<number, string>;
+  /** Locked colors; a row is locked when its quantized color is one of them. */
+  locked: string[];
+  /** Whether another color can be locked (the palette has a free slot). */
+  canLock: boolean;
+  onLock: (hex: string) => void;
+  onUnlock: (hex: string) => void;
   onChange: (index: number, hex: string) => void;
   onReset: (index: number) => void;
   onResetAll: () => void;
@@ -11,6 +18,10 @@ interface PaletteEditorProps {
 export function PaletteEditor({
   palette,
   overrides,
+  locked,
+  canLock,
+  onLock,
+  onUnlock,
   onChange,
   onReset,
   onResetAll,
@@ -29,6 +40,7 @@ export function PaletteEditor({
         {palette.map((color) => {
           const hex = overrides[color.index] ?? color.hex;
           const isChanged = color.index in overrides;
+          const isLocked = locked.includes(color.hex.toLowerCase());
           return (
             <li key={color.index}>
               <input
@@ -44,6 +56,23 @@ export function PaletteEditor({
                   {(color.coverage * 100).toFixed(1)}%
                 </span>
               )}
+              <button
+                type="button"
+                className={`icon-toggle${isLocked ? ' active' : ''}`}
+                aria-pressed={isLocked}
+                aria-label={`${isLocked ? 'Unlock' : 'Lock'} ${color.hex}`}
+                title={
+                  isLocked
+                    ? 'Locked: kept exactly when colors are reduced again'
+                    : canLock
+                      ? 'Lock this color so it stays exactly in the palette'
+                      : 'Every palette slot is locked'
+                }
+                disabled={!isLocked && !canLock}
+                onClick={() => (isLocked ? onUnlock(color.hex) : onLock(hex))}
+              >
+                <LockIcon locked={isLocked} />
+              </button>
               {isChanged && (
                 <button
                   type="button"

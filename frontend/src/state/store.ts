@@ -35,7 +35,14 @@ export interface AppState {
   algorithm: QuantizeAlgorithm;
   quantized: QuantizeResponse | null;
   /** Parameters that produced `quantized`; avoids re-quantizing (and losing edits) needlessly. */
-  quantizedFor: { file: File; colors: number; algorithm: QuantizeAlgorithm } | null;
+  quantizedFor: {
+    file: File;
+    colors: number;
+    algorithm: QuantizeAlgorithm;
+    locked: string[];
+  } | null;
+  /** Colors that must appear exactly in the palette (FR-16); at most `colors` of them. */
+  locked: string[];
   overrides: Record<number, string>;
   tracing: TracingOptions;
   vectorized: VectorizeResponse | null;
@@ -54,6 +61,9 @@ export interface AppState {
   selectFile: (file: File) => void;
   setColors: (colors: number) => void;
   setAlgorithm: (algorithm: QuantizeAlgorithm) => void;
+  /** Lock a color into the palette; ignored when it is locked already or no slot is free. */
+  lockColor: (hex: string) => void;
+  unlockColor: (hex: string) => void;
   setOverride: (index: number, hex: string) => void;
   resetOverride: (index: number) => void;
   resetOverrides: () => void;
@@ -94,6 +104,7 @@ const initialState = {
   algorithm: 'kmeans' as QuantizeAlgorithm,
   quantized: null,
   quantizedFor: null,
+  locked: [] as string[],
   overrides: {},
   tracing: DEFAULT_TRACING,
   vectorized: null,
@@ -176,8 +187,22 @@ export const useAppStore = create<AppState>()((set, get) => ({
     });
   },
 
-  setColors: (colors) => set({ colors }),
+  setColors: (colors) => set((state) => ({ colors: Math.max(colors, state.locked.length) })),
   setAlgorithm: (algorithm) => set({ algorithm }),
+
+  lockColor: (hex) =>
+    set((state) => {
+      const color = hex.toLowerCase();
+      if (state.locked.includes(color) || state.locked.length >= state.colors) return {};
+      return { locked: [...state.locked, color] };
+    }),
+  unlockColor: (hex) =>
+    set((state) => {
+      const color = hex.toLowerCase();
+      return state.locked.includes(color)
+        ? { locked: state.locked.filter((locked) => locked !== color) }
+        : {};
+    }),
 
   setOverride: (index, hex) =>
     set((state) => ({ overrides: { ...state.overrides, [index]: hex.toLowerCase() } })),
@@ -193,23 +218,24 @@ export const useAppStore = create<AppState>()((set, get) => ({
   resetTracing: () => set({ tracing: DEFAULT_TRACING }),
 
   runQuantize: async () => {
-    const { file, colors, algorithm, quantizedFor } = get();
+    const { file, colors, algorithm, locked, quantizedFor } = get();
     if (!file) return;
     if (
       quantizedFor?.file === file &&
       quantizedFor.colors === colors &&
-      quantizedFor.algorithm === algorithm
+      quantizedFor.algorithm === algorithm &&
+      quantizedFor.locked === locked
     ) {
       return;
     }
     const signal = nextSignal();
     set({ status: 'quantizing', error: null });
     try {
-      const quantized = await quantize(file, { colors, algorithm }, signal);
+      const quantized = await quantize(file, { colors, algorithm, locked_colors: locked }, signal);
       // Overrides refer to palette indices of the previous result, so they are dropped.
       set({
         quantized,
-        quantizedFor: { file, colors, algorithm },
+        quantizedFor: { file, colors, algorithm, locked },
         overrides: {},
         vectorized: null,
         status: 'idle',

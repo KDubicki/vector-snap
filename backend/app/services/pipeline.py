@@ -52,7 +52,7 @@ def quantize_image(
 ) -> tuple[DecodedImage, QuantizationResult]:
     image = decode_image(data, max_dimension)
     if algorithm == "median_cut":
-        return image, quantize_median_cut(image, colors)
+        return image, quantize_median_cut(image, colors, locked_colors=locked_colors)
     result = quantize_kmeans(
         image,
         colors,
