@@ -16,6 +16,7 @@ Responses are JSON unless stated otherwise. Errors use the format described in
 | `GET`  | `/api/v1/health/ready` | Readiness probe |
 | `GET`  | `/api/v1/limits` | Server-side limits (for client-side validation/UI) |
 | `POST` | `/api/v1/quantize` | Reduce an image to N colors, return indexed PNG + palette |
+| `POST` | `/api/v1/suggest-colors` | Suggest a color count for an image |
 | `POST` | `/api/v1/vectorize` | Convert an image to SVG |
 | `POST` | `/api/v1/export/stl` | SVG → STL 3D model ([details](13-export-formats.md#stl)) |
 | `POST` | `/api/v1/export/3mf` | SVG → multi-color 3MF ([details](13-export-formats.md#3mf)) |
@@ -99,6 +100,42 @@ Reduces the image to `colors` representative colors.
 `422 INVALID_IMAGE` (corrupt file, no opaque pixels), `422 INVALID_PARAMETERS` (`colors`
 outside `min_colors…max_colors`, malformed `locked_colors`), `422 VALIDATION_ERROR`
 (missing/mistyped fields; `details.errors` lists `loc`, `msg`, `type` per field).
+
+---
+
+## `POST /api/v1/suggest-colors`
+
+Suggests a value for `colors`: the fewest colors whose mean perceptual error stays at or
+below a target, see [06 §3](06-image-processing-pipeline.md#color-count-suggestion).
+
+### Request (`multipart/form-data`)
+
+| Field | Type | Required | Description |
+|-------|------|:--------:|-------------|
+| `image` | file | ✅ | JPEG or PNG |
+
+### Response — 200 OK
+
+```json
+{
+  "colors": 4,
+  "target_delta_e": 5.0,
+  "errors": [
+    { "colors": 2, "mean_delta_e": 46.55 },
+    { "colors": 3, "mean_delta_e": 16.42 },
+    { "colors": 4, "mean_delta_e": 4.45 }
+  ]
+}
+```
+
+- `colors` is within `min_colors…max_colors`.
+- `errors` is the mean CIE76 ΔE between the image and its k-means reduction for every
+  evaluated count; it is empty for flat images, whose exact color count is returned.
+
+### Errors
+
+`413 FILE_TOO_LARGE`, `415 UNSUPPORTED_MEDIA_TYPE`, `422 IMAGE_TOO_LARGE`,
+`422 INVALID_IMAGE`.
 
 ---
 

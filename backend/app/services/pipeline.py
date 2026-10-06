@@ -19,9 +19,11 @@ from app.services.image_io import (
 )
 from app.services.quantization import (
     TRANSPARENT_LABEL,
+    ColorSuggestion,
     QuantizationResult,
     quantize_kmeans,
     quantize_median_cut,
+    suggest_color_count,
 )
 from app.services.svg_postprocess import build_svg
 from app.services.vectorization import TracingOptions, trace
@@ -61,6 +63,13 @@ def quantize_image(
         seed=seed,
     )
     return image, result
+
+
+def suggest_colors(
+    data: bytes, *, min_colors: int, max_colors: int, max_dimension: int
+) -> ColorSuggestion:
+    image = decode_image(data, max_dimension)
+    return suggest_color_count(image, min_colors=min_colors, max_colors=max_colors)
 
 
 def to_indexed_png(result: QuantizationResult) -> bytes:

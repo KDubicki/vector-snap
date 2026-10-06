@@ -48,6 +48,10 @@ Layout: left = original and quantized previews side by side, right = controls.
   Changing it triggers `POST /quantize`, debounced 400 ms; a newer request aborts the
   previous one (`AbortController`). Unchanged parameters never re-quantize, so returning
   from the result step keeps edits.
+- **Suggest**: asks `POST /suggest-colors` for a color count and applies it (clamped to
+  the limits and the number of locked colors); a hint shows the suggestion with a "use
+  it" link once the count is changed. Runs with its own `AbortController`, so it never
+  cancels a quantization in flight.
 - **Method**: perceptual (k-means) / fast (median cut).
 - **Locked colors** (FR-16): the lock toggle on a palette row, or "Lock color" with a
   color picker for brand colors, adds a color to `locked`. Locked colors are sent as
@@ -115,6 +119,8 @@ interface AppState {
   algorithm: 'kmeans' | 'median_cut';
   quantized: QuantizeResponse | null;        // indexed PNG + original palette
   quantizedFor: { file; colors; algorithm; locked } | null; // params that produced `quantized`
+  suggestedColors: number | null;            // from POST /suggest-colors, per file
+  suggesting: boolean;
   locked: string[];                          // colors kept exactly in the palette (FR-16)
   overrides: Record<number, string>;         // palette index → edited hex
   tracing: TracingOptions;                   // defaults: DEFAULT_TRACING (lib/tracing.ts)
@@ -123,9 +129,9 @@ interface AppState {
   selection: string[];                       // selected shape ids
   status: 'idle' | 'quantizing' | 'vectorizing';
   error: string | null;
-  // actions: loadLimits, selectFile, setColors, setAlgorithm, lockColor, unlockColor,
-  // setOverride, resetOverride, resetOverrides, setTracing, resetTracing, runQuantize,
-  // runVectorize, goTo, reset
+  // actions: loadLimits, selectFile, setColors, setAlgorithm, suggestColors, lockColor,
+  // unlockColor, setOverride, resetOverride, resetOverrides, setTracing, resetTracing,
+  // runQuantize, runVectorize, goTo, reset
 }
 ```
 

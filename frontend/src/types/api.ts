@@ -40,6 +40,13 @@ export interface QuantizeResponse {
   image: EncodedImage;
 }
 
+export interface ColorSuggestion {
+  colors: number;
+  target_delta_e: number;
+  /** Mean color difference (CIE76 ΔE) per evaluated color count; empty for flat images. */
+  errors: { colors: number; mean_delta_e: number }[];
+}
+
 export interface TracingOptions {
   mode: TracingMode;
   stacking: Stacking;

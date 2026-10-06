@@ -17,6 +17,8 @@ export function PaletteStep() {
   const limits = useAppStore((s) => s.limits);
   const quantized = useAppStore((s) => s.quantized);
   const locked = useAppStore((s) => s.locked);
+  const suggestedColors = useAppStore((s) => s.suggestedColors);
+  const suggesting = useAppStore((s) => s.suggesting);
   const overrides = useAppStore((s) => s.overrides);
   const tracing = useAppStore((s) => s.tracing);
   const status = useAppStore((s) => s.status);
@@ -67,6 +69,9 @@ export function PaletteStep() {
           min={Math.max(limits.min_colors, locked.length)}
           max={limits.max_colors}
           onChange={actions.setColors}
+          suggested={suggestedColors}
+          suggesting={suggesting}
+          onSuggest={() => void actions.suggestColors()}
         />
         <div className="field">
           <span>Method</span>

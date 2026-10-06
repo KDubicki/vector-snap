@@ -1,5 +1,6 @@
 import type {
   ApiErrorBody,
+  ColorSuggestion,
   Limits,
   QuantizeParams,
   QuantizeResponse,
@@ -73,6 +74,13 @@ export function quantize(
     form.append('locked_colors', JSON.stringify(params.locked_colors));
   }
   return request<QuantizeResponse>('/quantize', { method: 'POST', body: form, signal });
+}
+
+/** Ask the backend how many colors represent the image well. */
+export function suggestColors(image: Blob, signal?: AbortSignal): Promise<ColorSuggestion> {
+  const form = new FormData();
+  form.append('image', image);
+  return request<ColorSuggestion>('/suggest-colors', { method: 'POST', body: form, signal });
 }
 
 export function vectorize(

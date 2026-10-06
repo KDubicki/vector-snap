@@ -37,6 +37,7 @@
 - [x] Merge shapes (FR-35), move shapes between color groups
 - [x] Palette merge, algorithm choice, locked colors (FR-14…FR-16)
 - [x] Advanced tracing options UI (FR-24)
+- [x] Automatic color count suggestion (`POST /suggest-colors`, ΔE target + elbow)
 - [ ] docker-compose.dev.yml, Playwright E2E tests in CI
 - [ ] Release workflow: changelog, version tags, image publishing to a registry
 
@@ -46,7 +47,6 @@
   large images and batch processing.
 - Server-side SVG operations (`/svg/recolor`, `/svg/split`) so other services can edit
   SVGs without a browser.
-- Automatic color count suggestion (elbow method / silhouette score).
 - Background removal before tracing.
 - More export options: EPS, per-layer STL heights, lithophane.
 - Generated TypeScript client from OpenAPI.

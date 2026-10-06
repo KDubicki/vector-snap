@@ -1,6 +1,6 @@
 from enum import StrEnum
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.schemas.palette import PaletteColor
 
@@ -22,3 +22,14 @@ class QuantizeResponse(BaseModel):
     palette: list[PaletteColor]
     has_transparency: bool
     image: EncodedImage
+
+
+class ColorCountError(BaseModel):
+    colors: int
+    mean_delta_e: float = Field(description="Mean CIE76 color difference to the original")
+
+
+class ColorSuggestionResponse(BaseModel):
+    colors: int
+    target_delta_e: float
+    errors: list[ColorCountError]

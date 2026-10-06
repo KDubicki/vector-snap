@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { ApiError, getLimits, quantize, vectorize } from '../api/client';
+import { ApiError, getLimits, quantize, suggestColors, vectorize } from '../api/client';
 import { findShape, parseSvg, type EditorDoc } from '../editor/model';
 import { pathArea, uniteShapes, type Point } from '../editor/geometry';
 import { emptyHistory, record, redo, undo, type History } from '../editor/history';
@@ -41,6 +41,9 @@ export interface AppState {
     algorithm: QuantizeAlgorithm;
     locked: string[];
   } | null;
+  /** Color count suggested for `file` by the backend, once requested. */
+  suggestedColors: number | null;
+  suggesting: boolean;
   /** Colors that must appear exactly in the palette (FR-16); at most `colors` of them. */
   locked: string[];
   overrides: Record<number, string>;
@@ -61,6 +64,8 @@ export interface AppState {
   selectFile: (file: File) => void;
   setColors: (colors: number) => void;
   setAlgorithm: (algorithm: QuantizeAlgorithm) => void;
+  /** Ask the backend for a good color count for the current file and apply it. */
+  suggestColors: () => Promise<void>;
   /** Lock a color into the palette; ignored when it is locked already or no slot is free. */
   lockColor: (hex: string) => void;
   unlockColor: (hex: string) => void;
@@ -104,6 +109,8 @@ const initialState = {
   algorithm: 'kmeans' as QuantizeAlgorithm,
   quantized: null,
   quantizedFor: null,
+  suggestedColors: null as number | null,
+  suggesting: false,
   locked: [] as string[],
   overrides: {},
   tracing: DEFAULT_TRACING,
@@ -147,6 +154,9 @@ function restore(state: AppState, doc: EditorDoc, history: History): Partial<App
 }
 
 let pending: AbortController | null = null;
+// Separate from `pending`: a suggestion must not abort quantization (or vice versa), since
+// an unchanged color count would never re-trigger the aborted quantization.
+let pendingSuggestion: AbortController | null = null;
 
 /** Abort the in-flight request (if any) and return a signal for the next one. */
 function nextSignal(): AbortSignal {
@@ -176,11 +186,14 @@ export const useAppStore = create<AppState>()((set, get) => ({
       set({ error: `File is larger than ${max_upload_mb} MB.` });
       return;
     }
+    pendingSuggestion?.abort();
     set({
       file,
+      suggesting: false,
       step: 'palette',
       quantized: null,
       quantizedFor: null,
+      suggestedColors: null,
       overrides: {},
       vectorized: null,
       error: null,
@@ -189,6 +202,31 @@ export const useAppStore = create<AppState>()((set, get) => ({
 
   setColors: (colors) => set((state) => ({ colors: Math.max(colors, state.locked.length) })),
   setAlgorithm: (algorithm) => set({ algorithm }),
+
+  suggestColors: async () => {
+    const { file } = get();
+    if (!file) return;
+    pendingSuggestion?.abort();
+    const controller = new AbortController();
+    pendingSuggestion = controller;
+    set({ suggesting: true, error: null });
+    try {
+      const suggestion = await suggestColors(file, controller.signal);
+      set((state) => {
+        const { min_colors, max_colors } = state.limits;
+        const colors = Math.min(
+          Math.max(suggestion.colors, min_colors, state.locked.length),
+          max_colors,
+        );
+        return { colors, suggestedColors: colors, suggesting: false };
+      });
+    } catch (error) {
+      if (isAbort(error)) return;
+      set({ suggesting: false, error: errorMessage(error) });
+    } finally {
+      if (pendingSuggestion === controller) pendingSuggestion = null;
+    }
+  },
 
   lockColor: (hex) =>
     set((state) => {
@@ -402,6 +440,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
 
   reset: () => {
     pending?.abort();
+    pendingSuggestion?.abort();
     set({ ...initialState, limits: get().limits });
   },
 }));

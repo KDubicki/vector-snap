@@ -83,3 +83,24 @@ def test_quantize_rejects_unsupported_files(client: TestClient) -> None:
 
     assert response.status_code == 415
     assert response.json()["error"]["code"] == "UNSUPPORTED_MEDIA_TYPE"
+
+
+def test_suggest_colors_returns_a_count_and_error_curve(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/suggest-colors", files={"image": ("image.png", encode(noisy()), "image/png")}
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["colors"] == 4
+    assert body["target_delta_e"] == 5.0
+    assert [e["colors"] for e in body["errors"]] == [2, 3, 4]
+    assert body["errors"][-1]["mean_delta_e"] <= 5.0
+
+
+def test_suggest_colors_rejects_unsupported_files(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/suggest-colors", files={"image": ("image.gif", b"GIF89a....", "image/gif")}
+    )
+
+    assert response.status_code == 415

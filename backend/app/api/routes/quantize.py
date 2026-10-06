@@ -7,8 +7,15 @@ from fastapi.concurrency import run_in_threadpool
 from app.api.deps import check_color_count, read_upload
 from app.core.config import Settings, get_settings
 from app.schemas.palette import PaletteColor, parse_hex_colors, rgb_to_hex
-from app.schemas.quantize import EncodedImage, QuantizeAlgorithm, QuantizeResponse
-from app.services.pipeline import quantize_image, to_indexed_png
+from app.schemas.quantize import (
+    ColorCountError,
+    ColorSuggestionResponse,
+    EncodedImage,
+    QuantizeAlgorithm,
+    QuantizeResponse,
+)
+from app.services.pipeline import quantize_image, suggest_colors, to_indexed_png
+from app.services.quantization import SUGGEST_TARGET_DELTA_E
 
 router = APIRouter(tags=["processing"])
 
@@ -54,4 +61,28 @@ async def quantize(
         palette=palette,
         has_transparency=result.has_transparency,
         image=EncodedImage(data=base64.b64encode(png).decode("ascii")),
+    )
+
+
+@router.post("/suggest-colors", response_model=ColorSuggestionResponse)
+async def suggest_color_count(
+    settings: Annotated[Settings, Depends(get_settings)],
+    image: Annotated[UploadFile, File(description="JPEG or PNG image")],
+) -> ColorSuggestionResponse:
+    """Suggest a palette size: the fewest colors whose mean error stays below the target."""
+    data = await read_upload(image, settings)
+    suggestion = await run_in_threadpool(
+        suggest_colors,
+        data,
+        min_colors=settings.min_colors,
+        max_colors=settings.max_colors,
+        max_dimension=settings.max_image_dimension,
+    )
+    return ColorSuggestionResponse(
+        colors=suggestion.colors,
+        target_delta_e=SUGGEST_TARGET_DELTA_E,
+        errors=[
+            ColorCountError(colors=k, mean_delta_e=round(error, 2))
+            for k, error in suggestion.errors
+        ],
     )

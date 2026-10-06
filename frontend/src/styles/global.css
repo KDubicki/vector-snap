@@ -233,7 +233,8 @@ select {
 .field > span,
 .field > label,
 .field summary,
-.field__header span {
+.field__header span,
+.field__header label {
   font-weight: 600;
 }
 
@@ -830,4 +831,8 @@ select {
   border-radius: 6px;
   background: none;
   cursor: pointer;
+}
+
+.hint .link {
+  font-size: inherit;
 }

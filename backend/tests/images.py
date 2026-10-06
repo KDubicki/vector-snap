@@ -46,3 +46,11 @@ def noisy(seed: int = 0) -> Image.Image:
     base[16:, 16:] = (230, 230, 30)
     noise = rng.integers(-12, 13, size=base.shape)
     return Image.fromarray(np.clip(base + noise, 0, 255).astype(np.uint8), mode="RGB")
+
+
+def gradient(size: int = 96) -> Image.Image:
+    """Smooth two-axis gradient: no small palette represents it well."""
+    x = np.linspace(0.0, 1.0, size)
+    u, v = np.meshgrid(x, x)
+    rgb = np.dstack([u * 255, v * 255, (1 - u) * 200])
+    return Image.fromarray(rgb.astype(np.uint8), mode="RGB")

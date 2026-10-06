@@ -62,6 +62,24 @@ large images or as a fallback.
 still-free palette entry (greedy, in Lab), and every opaque pixel is then reassigned to
 the nearest entry of the adjusted palette in Lab.
 
+### Color count suggestion
+
+`suggest_color_count` (`POST /suggest-colors`) proposes a value for `colors`:
+
+1. **Flat images** (logos, icons) with no more unique opaque colors than `max_colors`
+   get exactly their color count (at least `min_colors`).
+2. Otherwise the image is downscaled to 128 px on the longer side and its unique colors
+   (weighted by pixel count) are clustered in Lab with `KMeans(n_init=1, random_state=0)`
+   for `k = min_colors, min_colors + 1, …` up to `min(max_colors, 24)`.
+3. For each `k` the **mean ΔE** (CIE76, pixel-weighted distance to the nearest center) is
+   computed; the first `k` with mean ΔE ≤ 5 — barely noticeable — is returned.
+4. If no `k` gets there (smooth gradients, photos), the **elbow** of the error curve is
+   returned: the point farthest below the straight line between its ends, after
+   normalizing both axes.
+
+Full `KMeans` is used instead of `MiniBatchKMeans` here: on the small sample it is about
+3× faster across the ~20 fits, keeping the request well under a second.
+
 ### Post-quantization cleanup
 
 - **Dithering is always disabled** — dithered noise produces thousands of tiny paths.

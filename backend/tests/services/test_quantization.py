@@ -5,13 +5,24 @@ import pytest
 
 from app.services.image_io import DecodedImage, decode_image
 from app.services.quantization import (
+    SUGGEST_TARGET_DELTA_E,
     TRANSPARENT_LABEL,
     QuantizationResult,
     quantize_kmeans,
     quantize_median_cut,
     srgb_to_lab,
+    suggest_color_count,
 )
-from tests.images import BLUE, GREEN, RED, encode, noisy, stripes, with_transparent_corner
+from tests.images import (
+    BLUE,
+    GREEN,
+    RED,
+    encode,
+    gradient,
+    noisy,
+    stripes,
+    with_transparent_corner,
+)
 
 
 def test_srgb_to_lab_reference_points() -> None:
@@ -126,3 +137,48 @@ def test_median_cut_assigns_pixels_to_the_pinned_color() -> None:
     assert RED not in palette
     red_pixels = (image.rgb == RED).all(axis=2)
     assert (result.labels[red_pixels] == palette.index(locked)).all()
+
+
+def test_suggestion_for_flat_image_is_its_color_count() -> None:
+    image = decode_image(encode(stripes()), max_dimension=64)
+
+    suggestion = suggest_color_count(image, min_colors=2, max_colors=64)
+
+    assert suggestion.colors == 3
+    assert suggestion.errors == []
+
+
+def test_suggestion_respects_the_minimum_color_count() -> None:
+    image = decode_image(encode(stripes(colors=(RED,), widths=(4,))), max_dimension=64)
+
+    assert suggest_color_count(image, min_colors=2, max_colors=64).colors == 2
+
+
+def test_suggestion_finds_the_color_blocks_of_a_noisy_image() -> None:
+    image = decode_image(encode(noisy()), max_dimension=64)
+
+    suggestion = suggest_color_count(image, min_colors=2, max_colors=64)
+
+    assert suggestion.colors == 4
+    assert suggestion.errors[-1][0] == 4
+    assert suggestion.errors[-1][1] <= SUGGEST_TARGET_DELTA_E
+
+
+def test_suggestion_falls_back_to_the_elbow_for_gradients() -> None:
+    image = decode_image(encode(gradient()), max_dimension=128)
+
+    suggestion = suggest_color_count(image, min_colors=2, max_colors=12)
+
+    counts = [k for k, _ in suggestion.errors]
+    assert counts == list(range(2, 13))
+    assert all(error > SUGGEST_TARGET_DELTA_E for _, error in suggestion.errors)
+    assert 3 <= suggestion.colors < 12
+    assert suggestion.colors == suggest_color_count(image, min_colors=2, max_colors=12).colors
+
+
+def test_suggestion_never_exceeds_the_maximum() -> None:
+    image = decode_image(encode(gradient()), max_dimension=128)
+
+    suggestion = suggest_color_count(image, min_colors=2, max_colors=3)
+
+    assert suggestion.colors in (2, 3)

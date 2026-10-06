@@ -159,6 +159,61 @@ describe('app store', () => {
     expect(store().status).toBe('quantizing');
   });
 
+  it('applies the suggested color count, clamped to the limits and locked colors', async () => {
+    useAppStore.setState({ limits: { min_colors: 2, max_colors: 64, max_upload_mb: 10 } });
+    store().selectFile(file);
+    const fetchMock = respond({ colors: 70, target_delta_e: 5, errors: [] });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await store().suggestColors();
+
+    expect((fetchMock.mock.calls[0] as [string])[0]).toBe('/api/v1/suggest-colors');
+    expect(store().colors).toBe(64);
+    expect(store().suggestedColors).toBe(64);
+    expect(store().suggesting).toBe(false);
+
+    store().setColors(3);
+    store().lockColor('#ff0000');
+    store().lockColor('#00ff00');
+    store().lockColor('#0000ff');
+    vi.stubGlobal('fetch', respond({ colors: 2, target_delta_e: 5, errors: [] }));
+    await store().suggestColors();
+    expect(store().colors).toBe(3);
+  });
+
+  it('reports suggestion errors and clears the suggestion for a new file', async () => {
+    useAppStore.setState({ limits: { min_colors: 2, max_colors: 64, max_upload_mb: 10 } });
+    store().selectFile(file);
+    vi.stubGlobal(
+      'fetch',
+      respond({ error: { code: 'X', message: 'Too big', details: {} }, request_id: null }, 413),
+    );
+
+    await store().suggestColors();
+    expect(store().error).toBe('Too big');
+    expect(store().suggesting).toBe(false);
+
+    vi.stubGlobal('fetch', respond({ colors: 5, target_delta_e: 5, errors: [] }));
+    await store().suggestColors();
+    expect(store().suggestedColors).toBe(5);
+
+    store().selectFile(new File(['other'], 'other.png', { type: 'image/png' }));
+    expect(store().suggestedColors).toBeNull();
+  });
+
+  it('keeps suggesting state when a suggestion is aborted and does nothing without a file', async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new DOMException('aborted', 'AbortError'));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await store().suggestColors();
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    store().selectFile(file);
+    await store().suggestColors();
+    expect(store().error).toBeNull();
+    expect(store().suggesting).toBe(true);
+  });
+
   it('manages palette overrides', () => {
     store().setOverride(1, '#ABCDEF');
     store().setOverride(2, '#000000');

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ApiError, exportFile, getLimits, quantize, vectorize } from './client';
+import { ApiError, exportFile, getLimits, quantize, suggestColors, vectorize } from './client';
 
 function mockFetch(response: Response) {
   const fetchMock = vi.fn().mockResolvedValue(response);
@@ -57,6 +57,18 @@ describe('api client', () => {
       (fetchMock.mock.calls[call] as [string, RequestInit])[1].body as FormData;
     expect(form(0).get('locked_colors')).toBe('["#ff0000"]');
     expect(form(1).has('locked_colors')).toBe(false);
+  });
+
+  it('posts the image to get a color count suggestion', async () => {
+    const fetchMock = mockFetch(jsonResponse({ colors: 6, target_delta_e: 5, errors: [] }));
+    const image = new Blob(['img']);
+
+    const suggestion = await suggestColors(image);
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('/api/v1/suggest-colors');
+    expect((init.body as FormData).get('image')).toBeInstanceOf(Blob);
+    expect(suggestion.colors).toBe(6);
   });
 
   it('sends palette as JSON and tracing options as fields', async () => {
