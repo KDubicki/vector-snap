@@ -14,6 +14,7 @@ import {
 import { cutWithRegion, splitAlongLine } from '../editor/split';
 import { base64ToBlob } from '../lib/base64';
 import { finalPalette } from '../lib/color';
+import { DEFAULT_TRACING } from '../lib/tracing';
 import type {
   Limits,
   QuantizeAlgorithm,
@@ -26,16 +27,6 @@ export type Step = 'upload' | 'palette' | 'result';
 export type Status = 'idle' | 'quantizing' | 'vectorizing';
 
 export const DEFAULT_COLORS = 8;
-export const DEFAULT_TRACING: TracingOptions = {
-  mode: 'spline',
-  stacking: 'cutout',
-  filter_speckle: 4,
-  corner_threshold: 60,
-  length_threshold: 4,
-  splice_threshold: 45,
-  path_precision: 2,
-};
-
 export interface AppState {
   step: Step;
   limits: Pick<Limits, 'min_colors' | 'max_colors' | 'max_upload_mb'>;
@@ -67,6 +58,7 @@ export interface AppState {
   resetOverride: (index: number) => void;
   resetOverrides: () => void;
   setTracing: (options: Partial<TracingOptions>) => void;
+  resetTracing: () => void;
   runQuantize: () => Promise<void>;
   runVectorize: () => Promise<void>;
   select: (id: string | null, additive?: boolean) => void;
@@ -198,6 +190,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
   resetOverrides: () => set({ overrides: {} }),
 
   setTracing: (options) => set((state) => ({ tracing: { ...state.tracing, ...options } })),
+  resetTracing: () => set({ tracing: DEFAULT_TRACING }),
 
   runQuantize: async () => {
     const { file, colors, algorithm, quantizedFor } = get();

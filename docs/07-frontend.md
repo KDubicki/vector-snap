@@ -57,7 +57,10 @@ Layout: left = original and quantized previews side by side, right = controls.
   - Merge: give two colors the same value; they become one region in the SVG.
   - 🔜 Hover highlighting, drag-to-merge.
 - **Tracing options** (collapsible): curves (spline/polygon), shapes (cutout/stacked),
-  speck filter, corner threshold.
+  speck filter, corner threshold and an **Advanced** subsection with minimum segment
+  length, splice threshold (both spline only, disabled in polygon mode) and coordinate
+  precision (FR-24). Values are clamped to the ranges accepted by `POST /vectorize`
+  (`src/lib/tracing.ts`); "Restore defaults" resets all tracing options.
 - **Convert to SVG** → `POST /vectorize` with the indexed PNG and the final palette.
 
 ### Step 3 — SVG editor
@@ -107,14 +110,14 @@ interface AppState {
   quantized: QuantizeResponse | null;        // indexed PNG + original palette
   quantizedFor: { file; colors; algorithm } | null; // params that produced `quantized`
   overrides: Record<number, string>;         // palette index → edited hex
-  tracing: TracingOptions;                   // defaults: spline, cutout, speckle 4
+  tracing: TracingOptions;                   // defaults: DEFAULT_TRACING (lib/tracing.ts)
   vectorized: VectorizeResponse | null;
   editor: EditorDoc | null;                  // editable document (docs/08)
   selection: string[];                       // selected shape ids
   status: 'idle' | 'quantizing' | 'vectorizing';
   error: string | null;
   // actions: loadLimits, selectFile, setColors, setAlgorithm, setOverride, resetOverride,
-  // resetOverrides, setTracing, runQuantize, runVectorize, goTo, reset
+  // resetOverrides, setTracing, resetTracing, runQuantize, runVectorize, goTo, reset
 }
 ```
 

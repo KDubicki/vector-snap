@@ -352,6 +352,26 @@ select {
   font-size: 0.9rem;
 }
 
+.options__advanced summary {
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.options__advanced > .options {
+  padding-left: 12px;
+  border-left: 2px solid var(--color-border);
+}
+
+.options__reset {
+  justify-self: start;
+  font-size: 0.85rem;
+}
+
+.options input:disabled {
+  opacity: 0.5;
+}
+
 .actions {
   display: flex;
   gap: 8px;

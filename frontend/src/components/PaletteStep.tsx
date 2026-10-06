@@ -91,7 +91,11 @@ export function PaletteStep() {
             onResetAll={actions.resetOverrides}
           />
         )}
-        <TracingOptionsPanel options={tracing} onChange={actions.setTracing} />
+        <TracingOptionsPanel
+          options={tracing}
+          onChange={actions.setTracing}
+          onReset={actions.resetTracing}
+        />
         <div className="actions">
           <button type="button" className="secondary" onClick={actions.reset}>
             New image

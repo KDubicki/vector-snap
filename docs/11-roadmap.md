@@ -36,7 +36,7 @@
 - [x] Lasso split (FR-32)
 - [x] Merge shapes (FR-35), move shapes between color groups
 - [ ] Palette merge, algorithm choice, locked colors (FR-14…FR-16)
-- [ ] Advanced tracing options UI (FR-24)
+- [x] Advanced tracing options UI (FR-24)
 - [ ] docker-compose.dev.yml, Playwright E2E tests in CI
 - [ ] Release workflow: changelog, version tags, image publishing to a registry
 

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { DEFAULT_TRACING } from '../lib/tracing';
 import type { QuantizeResponse, VectorizeResponse } from '../types/api';
 import { DEFAULT_COLORS, useAppStore } from './store';
 
@@ -127,6 +128,14 @@ describe('app store', () => {
 
     store().resetOverrides();
     expect(store().overrides).toEqual({});
+  });
+
+  it('restores the default tracing options', () => {
+    store().setTracing({ mode: 'polygon', path_precision: 4 });
+    expect(store().tracing).toMatchObject({ mode: 'polygon', path_precision: 4 });
+
+    store().resetTracing();
+    expect(store().tracing).toEqual(DEFAULT_TRACING);
   });
 
   it('vectorizes with the final palette and tracing options', async () => {
