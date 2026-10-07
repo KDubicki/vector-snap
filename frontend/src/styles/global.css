@@ -836,3 +836,33 @@ select {
 .hint .link {
   font-size: inherit;
 }
+
+.filament-plan__toggle {
+  justify-self: start;
+  align-self: flex-start;
+  font-size: 0.9rem;
+}
+
+.filament-plan {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+.filament-plan ol {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.9rem;
+}
+
+.filament-plan li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}

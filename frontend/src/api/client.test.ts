@@ -1,5 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ApiError, exportFile, getLimits, quantize, suggestColors, vectorize } from './client';
+import {
+  ApiError,
+  exportFile,
+  getFilamentPlan,
+  getLimits,
+  quantize,
+  suggestColors,
+  vectorize,
+} from './client';
 
 function mockFetch(response: Response) {
   const fetchMock = vi.fn().mockResolvedValue(response);
@@ -144,5 +152,20 @@ describe('api client', () => {
       message: 'Bad Gateway',
       requestId: 'req-2',
     });
+  });
+
+  it('requests the filament plan with the 3d export options', async () => {
+    const plan = { steps: [], conflicts: [], height_mm: 0 };
+    const fetchMock = mockFetch(jsonResponse(plan));
+
+    const result = await getFilamentPlan('<svg/>', { base_mm: 0.6, layered: true });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const form = init.body as FormData;
+    expect(url).toBe('/api/v1/export/filament-plan');
+    expect(form.get('svg')).toBeInstanceOf(Blob);
+    expect(form.get('base_mm')).toBe('0.6');
+    expect(form.get('layered')).toBe('true');
+    expect(result).toEqual(plan);
   });
 });

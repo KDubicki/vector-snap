@@ -1,5 +1,5 @@
 import { Suspense, lazy, useMemo, useState } from 'react';
-import { ApiError, exportFile } from '../api/client';
+import { ApiError, exportFile, getFilamentPlan } from '../api/client';
 import { serializeSvg } from '../editor/export';
 import {
   EXPORT_FORMATS,
@@ -12,7 +12,9 @@ import {
   type ExportValues,
 } from '../lib/exportFormats';
 import { useAppStore } from '../state/store';
+import type { FilamentPlan } from '../types/api';
 import { ColorHeightsTable } from './ColorHeightsTable';
+import { FilamentPlanView } from './FilamentPlanView';
 import type { PreviewRequest } from './ModelPreview';
 
 // three.js is only downloaded when a 3D preview is opened.
@@ -40,6 +42,9 @@ export function ExportPanel() {
   const [error, setError] = useState<string | null>(null);
   const [colorSettings, setColorSettings] = useState<Record<number, Partial<ColorHeight>>>({});
   const [preview, setPreview] = useState<PreviewRequest | null>(null);
+  // Cleared whenever an option changes, so a shown plan always matches the options.
+  const [plan, setPlan] = useState<FilamentPlan | null>(null);
+  const [planning, setPlanning] = useState(false);
 
   if (!editor) return null;
 
@@ -50,14 +55,30 @@ export function ExportPanel() {
   }));
   const colorHeightsError = format.perColorHeights ? validateColorHeights(colorHeights) : null;
 
-  const update = (name: string, value: number | boolean | string) =>
+  const update = (name: string, value: number | boolean | string) => {
     setValues((all) => ({ ...all, [format.id]: { ...current, [name]: value } }));
+    setPlan(null);
+  };
 
   const requestOptions = () =>
     format.perColorHeights
       ? { ...current, layer_heights: layerHeightsJson(colorHeights) }
       : current;
   const invalid = Object.keys(errors).length > 0 || colorHeightsError !== null;
+
+  const showPlan = async () => {
+    setPlanning(true);
+    setError(null);
+    try {
+      setPlan(await getFilamentPlan(serializeSvg(editor), requestOptions()));
+    } catch (caught) {
+      setError(
+        caught instanceof ApiError || caught instanceof Error ? caught.message : 'Planning failed',
+      );
+    } finally {
+      setPlanning(false);
+    }
+  };
 
   const run = async () => {
     setStatus('exporting');
@@ -85,7 +106,10 @@ export function ExportPanel() {
             role="radio"
             aria-checked={item.id === format.id}
             className={item.id === format.id ? 'active' : ''}
-            onClick={() => setFormatId(item.id)}
+            onClick={() => {
+              setFormatId(item.id);
+              setPlan(null);
+            }}
           >
             {item.label}
           </button>
@@ -158,12 +182,13 @@ export function ExportPanel() {
           heights={colorHeights}
           values={current}
           error={colorHeightsError}
-          onChange={(paletteIndex, change) =>
+          onChange={(paletteIndex, change) => {
             setColorSettings((all) => ({
               ...all,
               [paletteIndex]: { ...all[paletteIndex], ...change },
-            }))
-          }
+            }));
+            setPlan(null);
+          }}
         />
       )}
       {error && (
@@ -191,6 +216,17 @@ export function ExportPanel() {
           {status === 'exporting' ? 'Exporting…' : `Export ${format.label}`}
         </button>
       </div>
+      {format.perColorHeights && (
+        <button
+          type="button"
+          className="link filament-plan__toggle"
+          disabled={planning || invalid}
+          onClick={() => void showPlan()}
+        >
+          {planning ? 'Planning…' : plan ? 'Update filament changes' : 'Plan filament changes'}
+        </button>
+      )}
+      {plan && format.perColorHeights && <FilamentPlanView plan={plan} />}
       {preview && format.perColorHeights && (
         <Suspense fallback={<p className="hint">Loading 3D viewer…</p>}>
           <ModelPreview request={preview} />

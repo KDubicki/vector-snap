@@ -12,6 +12,7 @@ of the microservice can use it too.
 | 3MF | `POST /api/v1/export/3mf` | Multi-color / multi-material 3D printing (AMS, MMU, tool changers) | ✅ |
 | DXF | `POST /api/v1/export/dxf` | Laser cutters, vinyl plotters, CNC | ✅ |
 | PDF | `POST /api/v1/export/pdf` | Print, documents | ✅ |
+| Filament plan | `POST /api/v1/export/filament-plan` | Filament changes for multi-color prints on one extruder (JSON) | ✅ |
 
 All endpoints take `multipart/form-data` with an `svg` file in the
 [SVG output contract](05-api-specification.md#svg-output-contract) plus format options,
@@ -111,6 +112,40 @@ notion of parts or colors.
   the STL export with the same options.
 - A 440-shape document: 1.8 MB (STL: 8.8 MB) in ≈2 s.
 
+## Filament change plan
+
+```bash
+curl -F svg=@logo.svg -F base_mm=0.6 -F print_layer_mm=0.2 \
+     http://localhost:8000/api/v1/export/filament-plan
+```
+
+Single-extruder printers can still print a layered relief in several colors: pause at
+the height where one color ends and swap the filament, so everything above comes out in
+the next color and the top face of every region gets its own color. `POST
+/export/filament-plan` takes the same form fields as STL/3MF and returns where to change:
+
+```json
+{
+  "steps": [
+    { "z_mm": 0.0, "layer": 1, "color": "#000000" },
+    { "z_mm": 1.6, "layer": 9, "color": "#ff0000" }
+  ],
+  "conflicts": [],
+  "height_mm": 2.6
+}
+```
+
+- The plan is derived from the **exported bodies** (`app/services/filament_plan.py`), so
+  it reflects per-color heights, left-out colors, removed details and layer snapping.
+- The first step is the starting filament (the base plate uses the bottom color). Each
+  band between two consecutive tops is printed in the color of the bodies ending at the
+  upper one; consecutive bands of the same color need no change.
+- `layer` is the first printer layer in the new color (1-based), only with
+  `print_layer_mm` set — the number to enter in the slicer's layer slider.
+- **Conflicts**: different colors ending at the same height (e.g. `layered=false`)
+  cannot be separated by filament changes; they need different heights or a
+  multi-material printer.
+
 ## DXF
 
 ```bash
@@ -164,6 +199,13 @@ For STL and 3MF the panel also lists every color with an *include* checkbox and 
 (empty = automatic, shown as placeholder, already rounded to the printer layer height
 when one is set); this becomes `layer_heights`. Leaving out
 every color disables the export with an explanation.
+
+### Filament changes
+
+For STL and 3MF, **Plan filament changes** shows the plan for the current options: the
+starting color, every change with its layer and height, conflicts, and a **Copy** button
+for the plain-text version. Changing any option hides the plan so it never shows stale
+heights.
 
 ### 3D preview
 

@@ -65,6 +65,15 @@ export interface VectorizeResponse {
   svg: string;
 }
 
+/** Filament changes for printing a 3D export on a single-extruder printer. */
+export interface FilamentPlan {
+  /** The starting filament at z = 0, then one entry per change. */
+  steps: { z_mm: number; layer: number | null; color: string }[];
+  /** Different colors ending at the same height: they cannot be separated by changes. */
+  conflicts: { z_mm: number; colors: string[] }[];
+  height_mm: number;
+}
+
 export interface ApiErrorBody {
   error: { code: string; message: string; details: Record<string, unknown> };
   request_id: string | null;

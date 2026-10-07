@@ -1,6 +1,7 @@
 import type {
   ApiErrorBody,
   ColorSuggestion,
+  FilamentPlan,
   Limits,
   QuantizeParams,
   QuantizeResponse,
@@ -45,9 +46,7 @@ export async function exportFile(
   options: Record<string, string | number | boolean>,
   signal?: AbortSignal,
 ): Promise<Blob> {
-  const form = new FormData();
-  form.append('svg', new Blob([svg], { type: 'image/svg+xml' }), 'document.svg');
-  for (const [key, value] of Object.entries(options)) form.append(key, String(value));
+  const form = exportForm(svg, options);
   const response = await fetch(`${BASE_URL}/v1/export/${format}`, {
     method: 'POST',
     body: form,
@@ -55,6 +54,26 @@ export async function exportFile(
   });
   if (!response.ok) throw await toApiError(response);
   return response.blob();
+}
+
+function exportForm(svg: string, options: Record<string, string | number | boolean>): FormData {
+  const form = new FormData();
+  form.append('svg', new Blob([svg], { type: 'image/svg+xml' }), 'document.svg');
+  for (const [key, value] of Object.entries(options)) form.append(key, String(value));
+  return form;
+}
+
+/** Where to change filament when printing the 3D export (same options as STL/3MF). */
+export function getFilamentPlan(
+  svg: string,
+  options: Record<string, string | number | boolean>,
+  signal?: AbortSignal,
+): Promise<FilamentPlan> {
+  return request<FilamentPlan>('/export/filament-plan', {
+    method: 'POST',
+    body: exportForm(svg, options),
+    signal,
+  });
 }
 
 export function getLimits(signal?: AbortSignal): Promise<Limits> {

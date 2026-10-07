@@ -163,3 +163,24 @@ def test_3mf_drops_details_thinner_than_min_feature(client: TestClient) -> None:
 
     assert 'name="color-0"' in model
     assert 'name="color-1"' not in model
+
+
+def test_filament_plan(client: TestClient) -> None:
+    response = _post(client, "filament-plan", {"base_mm": "0.6", "print_layer_mm": "0.2"})
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "steps": [
+            {"z_mm": 0.0, "layer": 1, "color": "#000000"},
+            {"z_mm": 1.6, "layer": 9, "color": "#ff0000"},
+        ],
+        "conflicts": [],
+        "height_mm": 2.6,
+    }
+
+
+def test_filament_plan_rejects_invalid_svg(client: TestClient) -> None:
+    response = _post(client, "filament-plan", data=b"<svg")
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "INVALID_SVG"

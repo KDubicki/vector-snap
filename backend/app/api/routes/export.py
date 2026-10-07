@@ -7,11 +7,17 @@ from fastapi.concurrency import run_in_threadpool
 
 from app.api.deps import read_upload
 from app.core.config import Settings, get_settings
-from app.schemas.export import parse_layer_heights
+from app.schemas.export import (
+    FilamentConflictModel,
+    FilamentPlanResponse,
+    FilamentStepModel,
+    parse_layer_heights,
+)
 from app.services.export_3mf import export_3mf
 from app.services.export_dxf import DxfOptions, export_dxf
 from app.services.export_pdf import PageSize, PdfOptions, export_pdf
 from app.services.export_stl import StlOptions, export_stl
+from app.services.filament_plan import filament_plan
 from app.services.svg_geometry import parse_svg
 
 router = APIRouter(prefix="/export", tags=["export"])
@@ -85,6 +91,20 @@ async def export_to_3mf(
     document = parse_svg(await read_upload(svg, settings))
     content = await run_in_threadpool(export_3mf, document, options)
     return _attachment(content, "model/3mf", "3mf")
+
+
+@router.post("/filament-plan", response_model=FilamentPlanResponse)
+async def export_filament_plan(
+    settings: Annotated[Settings, Depends(get_settings)], svg: SvgFile, options: ModelOptions
+) -> FilamentPlanResponse:
+    """Where to change filament when printing the STL/3MF on a single-extruder printer."""
+    document = parse_svg(await read_upload(svg, settings))
+    plan = await run_in_threadpool(filament_plan, document, options)
+    return FilamentPlanResponse(
+        steps=[FilamentStepModel(z_mm=s.z_mm, layer=s.layer, color=s.color) for s in plan.steps],
+        conflicts=[FilamentConflictModel(z_mm=c.z_mm, colors=c.colors) for c in plan.conflicts],
+        height_mm=plan.height_mm,
+    )
 
 
 @router.post(

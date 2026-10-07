@@ -1,6 +1,8 @@
 import json
 import math
 
+from pydantic import BaseModel, Field
+
 from app.core.errors import InvalidParameters
 
 MAX_LAYER_HEIGHT_MM = 100.0
@@ -33,3 +35,22 @@ def parse_layer_heights(raw: str) -> dict[int, float]:
             )
         heights[index] = float(value)
     return heights
+
+
+class FilamentStepModel(BaseModel):
+    z_mm: float = Field(description="Height where this color starts")
+    layer: int | None = Field(
+        description="First printer layer in this color (1-based); null without print_layer_mm"
+    )
+    color: str
+
+
+class FilamentConflictModel(BaseModel):
+    z_mm: float = Field(description="Height where these colors all end")
+    colors: list[str]
+
+
+class FilamentPlanResponse(BaseModel):
+    steps: list[FilamentStepModel] = Field(description="Starting filament, then each change")
+    conflicts: list[FilamentConflictModel]
+    height_mm: float
