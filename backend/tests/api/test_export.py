@@ -47,7 +47,11 @@ def test_stl_defaults(client: TestClient) -> None:
 
 @pytest.mark.parametrize(
     ("form", "code"),
-    [({"width_mm": "0"}, "VALIDATION_ERROR"), ({"layer_mm": "-1"}, "VALIDATION_ERROR")],
+    [
+        ({"width_mm": "0"}, "VALIDATION_ERROR"),
+        ({"layer_mm": "-1"}, "VALIDATION_ERROR"),
+        ({"min_feature_mm": "-0.1"}, "VALIDATION_ERROR"),
+    ],
 )
 def test_rejects_invalid_options(client: TestClient, form: dict[str, str], code: str) -> None:
     response = _post(client, "stl", form)
@@ -145,3 +149,16 @@ def test_3mf_validates_options_like_stl(client: TestClient) -> None:
     response = _post(client, "3mf", {"width_mm": "-5"})
 
     assert response.status_code == 422
+
+
+def test_3mf_drops_details_thinner_than_min_feature(client: TestClient) -> None:
+    svg = contract_svg(
+        40, 20, [("#000000", ["M0,0 L20,0 L20,20 L0,20 Z"]), ("#ff0000", ["M30,0 h10 v0.2 h-10 z"])]
+    )
+    form = {"width_mm": "40", "min_feature_mm": "0.4"}
+
+    with zipfile.ZipFile(io.BytesIO(_post(client, "3mf", form, data=svg).content)) as package:
+        model = package.read("3D/3dmodel.model").decode()
+
+    assert 'name="color-0"' in model
+    assert 'name="color-1"' not in model

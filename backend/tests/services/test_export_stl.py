@@ -118,3 +118,32 @@ def test_bodies_are_named_and_colored_per_layer() -> None:
         ("color-1", "#ff0000"),
     ]
     assert all(is_closed(body.triangles) for body in bodies)
+
+
+THIN_LINE = "M0,15 L20,15 L20,15.2 L0,15.2 Z"  # 20 x 0.2 px
+
+
+def test_min_feature_removes_details_thinner_than_the_nozzle() -> None:
+    square = "M0,0 L10,0 L10,10 L0,10 Z"
+    options = StlOptions(width_mm=40, base_mm=1, layer_mm=1, min_feature_mm=0.4)
+
+    triangles = _export(options, [("#000000", [square, THIN_LINE])])
+
+    # Only the square survives, unchanged: base (100 x 1) + layer (100 x 1).
+    assert signed_volume(triangles) == pytest.approx(200)
+    assert triangles[..., 1].min() == pytest.approx(10)  # y flipped: line was at y=15
+
+
+def test_min_feature_keeps_everything_when_disabled() -> None:
+    options = StlOptions(width_mm=40, base_mm=0, layer_mm=1)
+
+    triangles = _export(options, [("#000000", [THIN_LINE])])
+
+    assert signed_volume(triangles) == pytest.approx(20 * 0.2)
+
+
+def test_min_feature_rejects_documents_with_only_thin_details() -> None:
+    options = StlOptions(width_mm=40, base_mm=1, min_feature_mm=0.4)
+
+    with pytest.raises(InvalidParameters, match=r"thinner than 0\.4 mm"):
+        _export(options, [("#000000", [THIN_LINE])])

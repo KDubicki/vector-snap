@@ -13,6 +13,8 @@ export interface NumberOption {
   min: number;
   max: number;
   step: number;
+  /** Short explanation shown under the field. */
+  hint?: string;
 }
 
 export interface BooleanOption {
@@ -73,6 +75,17 @@ const MODEL_OPTIONS: ExportOption[] = [
     min: 0.1,
     max: 100,
     step: 0.2,
+  },
+  {
+    type: 'number',
+    name: 'min_feature_mm',
+    label: 'Remove details thinner than',
+    unit: 'mm',
+    default: 0,
+    min: 0,
+    max: 10,
+    step: 0.1,
+    hint: 'Set to the nozzle width (e.g. 0.4) to drop lines and specks too thin to print. 0 keeps everything.',
   },
   {
     type: 'boolean',

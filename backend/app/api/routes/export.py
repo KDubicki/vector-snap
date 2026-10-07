@@ -36,6 +36,9 @@ def stl_options(
         str, Form(description='Per-color height, e.g. {"0": 0, "2": 3.5}; 0 omits a color')
     ] = "{}",
     mirror: Annotated[bool, Form(description="Mirror horizontally (stamps)")] = False,
+    min_feature_mm: Annotated[
+        float, Form(ge=0, le=10, description="Remove parts narrower than this (nozzle width)")
+    ] = 0.0,
 ) -> StlOptions:
     """3D model options shared by STL and 3MF."""
     return StlOptions(
@@ -45,6 +48,7 @@ def stl_options(
         layered=layered,
         layer_heights=parse_layer_heights(layer_heights),
         mirror=mirror,
+        min_feature_mm=min_feature_mm,
     )
 
 

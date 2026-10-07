@@ -46,6 +46,7 @@ curl -F svg=@logo.svg -F width_mm=120 -F base_mm=1.5 -F layer_mm=0.8 \
 | `layered` | `true` | `true`: layer *n* (bottom to top) is *n × layer_mm* high (relief, easy color changes by height); `false`: all layers share one height |
 | `layer_heights` | `{}` | JSON object `{"<paletteIndex>": mm}` overriding the height above the base per color (0 < h ≤ 100); **`0` leaves a color out** (e.g. print a logo without its background). Colors not listed follow `layer_mm` / `layered` |
 | `mirror` | `false` | Mirror horizontally — for stamps or printing the top face down on the bed |
+| `min_feature_mm` | `0` | Remove every part narrower than this before extrusion — set it to the nozzle width (e.g. `0.4`); `0` keeps everything |
 
 Model construction:
 
@@ -58,6 +59,12 @@ Model construction:
   triangulation (`shapely.constrained_delaunay_triangles`, robust for polygons with
   dozens of holes) and walls from every ring edge. Caps and walls share the exact ring
   vertices, so every body is watertight with outward normals.
+- **Printability** (`min_feature_mm`): a morphological opening per layer — shrink by
+  half the width, grow back with mitred joins, clip to the original — removes lines,
+  slivers and specks narrower than the nozzle, which slicers would drop or print as
+  stringy blobs, while the remaining shapes keep their exact outline and sharp corners.
+  The base plate is filtered the same way. If nothing is left, the export is
+  `422 INVALID_PARAMETERS`.
 - The base plate is the union of the **included** layers, so transparent areas,
   deleted shapes and colors left out with height 0 stay open. Leaving out every color is
   `422 INVALID_PARAMETERS`.
@@ -79,7 +86,7 @@ curl -F svg=@logo.svg -F base_mm=1 -F layer_heights='{"0": 0}' \
 ```
 
 Same options and the same bodies as STL (`width_mm`, `base_mm`, `layer_mm`, `layered`,
-`layer_heights`, `mirror`), but packaged so a slicer keeps the colors apart — STL has no
+`layer_heights`, `mirror`, `min_feature_mm`), but packaged so a slicer keeps the colors apart — STL has no
 notion of parts or colors.
 
 - [3MF core specification](https://3mf.io/specification/) package: `[Content_Types].xml`,

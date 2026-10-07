@@ -2,7 +2,8 @@
 
 Each color layer is extruded to its own height on top of an optional base plate, so a
 multi-color design prints as a relief (or, with `layered=False`, all colors share one
-height). Heights can be set per color (0 leaves a color out) and the model mirrored.
+height). Heights can be set per color (0 leaves a color out) and the model mirrored;
+details thinner than the nozzle can be removed before extrusion.
 Coordinates are converted to millimetres and the y axis is flipped (SVG y points down,
 STL z-up models are viewed from above with y up). See docs/13-export-formats.md.
 """
@@ -19,6 +20,7 @@ from shapely import (
     get_coordinates,
     unary_union,
 )
+from shapely.geometry.base import BaseGeometry
 from shapely.geometry.polygon import orient
 
 from app.core.errors import InvalidParameters
@@ -45,6 +47,8 @@ class StlOptions:
     layer_heights: Mapping[int, float] = field(default_factory=dict)
     # Mirror horizontally (stamps, printing the top face down).
     mirror: bool = False
+    # Remove parts narrower than this (mm), e.g. the nozzle width; 0 keeps everything.
+    min_feature_mm: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -92,6 +96,20 @@ def _write_binary_stl(triangles: list[NDArray[np.float64]]) -> bytes:
     return header + np.uint32(len(vertices)).tobytes() + data.tobytes()
 
 
+def printable(geometry: BaseGeometry, min_feature_mm: float) -> BaseGeometry:
+    """Drop every part of `geometry` narrower than `min_feature_mm`.
+
+    Morphological opening: shrinking by half the width removes thin lines, slivers and
+    specks entirely; growing back restores everything else. Mitred joins keep the
+    corners of the remaining shapes sharp.
+    """
+    if min_feature_mm <= 0:
+        return geometry
+    radius = min_feature_mm / 2
+    shrunk = geometry.buffer(-radius, join_style="mitre")
+    return shrunk.buffer(radius, join_style="mitre").intersection(geometry)
+
+
 def layer_height(position: int, palette_index: int, options: StlOptions) -> float:
     """Extrusion height above the base for the layer at `position` (bottom = 0)."""
     if palette_index in options.layer_heights:
@@ -122,15 +140,23 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
 
     bodies: list[Body] = []
     if options.base_mm > 0:
-        silhouette = unary_union([geometry for _, geometry, _ in included])
+        silhouette = printable(
+            unary_union([geometry for _, geometry, _ in included]), options.min_feature_mm
+        )
         parts = [_prism(polygon, 0.0, options.base_mm) for polygon in polygons(silhouette)]
         if parts:
             bodies.append(Body("base", included[0][0].fill, np.concatenate(parts)))
     for layer, geometry, height in included:
         top = options.base_mm + height
-        parts = [_prism(polygon, options.base_mm, top) for polygon in polygons(geometry)]
+        shapes = polygons(printable(geometry, options.min_feature_mm))
+        parts = [_prism(polygon, options.base_mm, top) for polygon in shapes]
         if parts:
             bodies.append(Body(f"color-{layer.palette_index}", layer.fill, np.concatenate(parts)))
+    if not bodies:
+        raise InvalidParameters(
+            f"Nothing to export: every shape is thinner than {options.min_feature_mm:g} mm.",
+            {"field": "min_feature_mm"},
+        )
     return bodies
 
 

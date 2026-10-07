@@ -17,6 +17,7 @@ describe('export formats', () => {
       width_mm: 100,
       base_mm: 1,
       layer_mm: 1,
+      min_feature_mm: 0,
       layered: true,
       mirror: false,
     });
@@ -29,12 +30,14 @@ describe('export formats', () => {
         width_mm: 0,
         base_mm: Number.NaN,
         layer_mm: 1,
+        min_feature_mm: 11,
         layered: 'yes' as never,
         mirror: false,
       }),
     ).toEqual({
       width_mm: 'Must be between 1 and 10000.',
       base_mm: 'Enter a number.',
+      min_feature_mm: 'Must be between 0 and 10.',
       layered: 'Invalid value.',
     });
   });
