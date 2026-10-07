@@ -39,6 +39,9 @@ def stl_options(
     min_feature_mm: Annotated[
         float, Form(ge=0, le=10, description="Remove parts narrower than this (nozzle width)")
     ] = 0.0,
+    print_layer_mm: Annotated[
+        float, Form(ge=0, le=1, description="Printer layer height; heights snap to it")
+    ] = 0.0,
 ) -> StlOptions:
     """3D model options shared by STL and 3MF."""
     return StlOptions(
@@ -49,6 +52,7 @@ def stl_options(
         layer_heights=parse_layer_heights(layer_heights),
         mirror=mirror,
         min_feature_mm=min_feature_mm,
+        print_layer_mm=print_layer_mm,
     )
 
 

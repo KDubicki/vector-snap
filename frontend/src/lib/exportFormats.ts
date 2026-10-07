@@ -88,6 +88,17 @@ const MODEL_OPTIONS: ExportOption[] = [
     hint: 'Set to the nozzle width (e.g. 0.4) to drop lines and specks too thin to print. 0 keeps everything.',
   },
   {
+    type: 'number',
+    name: 'print_layer_mm',
+    label: 'Printer layer height',
+    unit: 'mm',
+    default: 0,
+    min: 0,
+    max: 1,
+    step: 0.04,
+    hint: 'Rounds the base and every color to whole layers (e.g. 0.2), so colors change exactly at a layer. 0 keeps exact heights.',
+  },
+  {
     type: 'boolean',
     name: 'layered',
     label: 'Stack colors at increasing heights',
@@ -220,10 +231,21 @@ export interface ColorHeight {
   height: number | null;
 }
 
+/**
+ * Round a height to whole printer layers (at least one), mirroring the backend; heights of
+ * 0 and a printer layer height of 0 (off) leave the value unchanged.
+ */
+export function snapToLayers(height: number, printLayer: number): number {
+  if (!(printLayer > 0) || !(height > 0)) return height;
+  const layers = Math.max(1, Math.floor(height / printLayer + 0.5 + 1e-9));
+  return Number((layers * printLayer).toFixed(6));
+}
+
 /** Automatic height of the layer at `position` (bottom = 0), mirroring the backend rule. */
 export function autoLayerHeight(position: number, values: ExportValues): number {
   const layer = Number(values.layer_mm);
-  return values.layered ? layer * (position + 1) : layer;
+  const height = values.layered ? layer * (position + 1) : layer;
+  return snapToLayers(height, Number(values.print_layer_mm ?? 0));
 }
 
 /** `layer_heights` form value: excluded colors get 0, explicit heights are sent as-is. */

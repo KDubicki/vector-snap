@@ -51,6 +51,7 @@ def test_stl_defaults(client: TestClient) -> None:
         ({"width_mm": "0"}, "VALIDATION_ERROR"),
         ({"layer_mm": "-1"}, "VALIDATION_ERROR"),
         ({"min_feature_mm": "-0.1"}, "VALIDATION_ERROR"),
+        ({"print_layer_mm": "2"}, "VALIDATION_ERROR"),
     ],
 )
 def test_rejects_invalid_options(client: TestClient, form: dict[str, str], code: str) -> None:

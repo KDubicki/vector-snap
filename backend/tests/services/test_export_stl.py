@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from app.core.errors import InvalidParameters
-from app.services.export_stl import StlOptions, build_bodies, export_stl
+from app.services.export_stl import StlOptions, build_bodies, export_stl, snap_to_layers
 from app.services.svg_geometry import parse_svg
 from tests.vectors import contract_svg, is_closed, read_binary_stl, signed_volume
 
@@ -147,3 +147,30 @@ def test_min_feature_rejects_documents_with_only_thin_details() -> None:
 
     with pytest.raises(InvalidParameters, match=r"thinner than 0\.4 mm"):
         _export(options, [("#000000", [THIN_LINE])])
+
+
+def test_heights_snap_to_whole_printer_layers() -> None:
+    # base 1.0 -> 1.05 (7 x 0.15); layers 0.5 -> 0.45 (3 layers) and 1.0 -> 1.05 (7 layers)
+    options = StlOptions(width_mm=40, base_mm=1.0, layer_mm=0.5, print_layer_mm=0.15)
+
+    triangles = _export(options, [("#000000", [FRAME]), ("#ff0000", [DOT])])
+
+    tops = sorted({round(z, 4) for z in triangles[..., 2].ravel()})
+    assert tops == [0, 1.05, 1.5, 2.1]
+    assert all(round(z / 0.15, 6).is_integer() for z in tops)
+
+
+def test_snapping_keeps_at_least_one_layer() -> None:
+    options = StlOptions(width_mm=40, base_mm=0.05, layer_heights={0: 0.01}, print_layer_mm=0.2)
+
+    triangles = _export(options, [("#000000", [FRAME])])
+
+    assert sorted({round(z, 4) for z in triangles[..., 2].ravel()}) == [0, 0.2, 0.4]
+
+
+@pytest.mark.parametrize(
+    ("height", "layer", "expected"),
+    [(1.0, 0.0, 1.0), (0.0, 0.2, 0.0), (0.3, 0.2, 0.4), (0.29, 0.2, 0.2), (1.0, 0.12, 0.96)],
+)
+def test_snap_to_layers(height: float, layer: float, expected: float) -> None:
+    assert snap_to_layers(height, layer) == pytest.approx(expected)

@@ -3,11 +3,13 @@
 Each color layer is extruded to its own height on top of an optional base plate, so a
 multi-color design prints as a relief (or, with `layered=False`, all colors share one
 height). Heights can be set per color (0 leaves a color out) and the model mirrored;
-details thinner than the nozzle can be removed before extrusion.
+details thinner than the nozzle can be removed before extrusion, and heights can be
+rounded to whole printer layers.
 Coordinates are converted to millimetres and the y axis is flipped (SVG y points down,
 STL z-up models are viewed from above with y up). See docs/13-export-formats.md.
 """
 
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
@@ -49,6 +51,8 @@ class StlOptions:
     mirror: bool = False
     # Remove parts narrower than this (mm), e.g. the nozzle width; 0 keeps everything.
     min_feature_mm: float = 0.0
+    # Printer layer height (mm): the base and every color end on a layer boundary; 0 = off.
+    print_layer_mm: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -110,11 +114,29 @@ def printable(geometry: BaseGeometry, min_feature_mm: float) -> BaseGeometry:
     return shrunk.buffer(radius, join_style="mitre").intersection(geometry)
 
 
+def snap_to_layers(height: float, print_layer_mm: float) -> float:
+    """Round a positive height to whole printer layers, keeping at least one layer.
+
+    Heights of 0 stay 0 (no base / color left out); `print_layer_mm` 0 disables snapping.
+    """
+    if print_layer_mm <= 0 or height <= 0:
+        return height
+    # Half up, with a little slack for float error (0.3 / 0.2 = 1.4999...).
+    layers = max(1, math.floor(height / print_layer_mm + 0.5 + 1e-9))
+    return round(layers * print_layer_mm, 6)
+
+
+def base_height(options: StlOptions) -> float:
+    return snap_to_layers(options.base_mm, options.print_layer_mm)
+
+
 def layer_height(position: int, palette_index: int, options: StlOptions) -> float:
     """Extrusion height above the base for the layer at `position` (bottom = 0)."""
     if palette_index in options.layer_heights:
-        return options.layer_heights[palette_index]
-    return options.layer_mm * (position + 1 if options.layered else 1)
+        height = options.layer_heights[palette_index]
+    else:
+        height = options.layer_mm * (position + 1 if options.layered else 1)
+    return snap_to_layers(height, options.print_layer_mm)
 
 
 def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
@@ -138,18 +160,19 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
     if not included:
         raise InvalidParameters("Nothing to export: every color has height 0.")
 
+    base = base_height(options)
     bodies: list[Body] = []
-    if options.base_mm > 0:
+    if base > 0:
         silhouette = printable(
             unary_union([geometry for _, geometry, _ in included]), options.min_feature_mm
         )
-        parts = [_prism(polygon, 0.0, options.base_mm) for polygon in polygons(silhouette)]
+        parts = [_prism(polygon, 0.0, base) for polygon in polygons(silhouette)]
         if parts:
             bodies.append(Body("base", included[0][0].fill, np.concatenate(parts)))
     for layer, geometry, height in included:
-        top = options.base_mm + height
+        top = base + height
         shapes = polygons(printable(geometry, options.min_feature_mm))
-        parts = [_prism(polygon, options.base_mm, top) for polygon in shapes]
+        parts = [_prism(polygon, base, top) for polygon in shapes]
         if parts:
             bodies.append(Body(f"color-{layer.palette_index}", layer.fill, np.concatenate(parts)))
     if not bodies:

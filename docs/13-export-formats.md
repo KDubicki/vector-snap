@@ -46,6 +46,7 @@ curl -F svg=@logo.svg -F width_mm=120 -F base_mm=1.5 -F layer_mm=0.8 \
 | `layered` | `true` | `true`: layer *n* (bottom to top) is *n × layer_mm* high (relief, easy color changes by height); `false`: all layers share one height |
 | `layer_heights` | `{}` | JSON object `{"<paletteIndex>": mm}` overriding the height above the base per color (0 < h ≤ 100); **`0` leaves a color out** (e.g. print a logo without its background). Colors not listed follow `layer_mm` / `layered` |
 | `mirror` | `false` | Mirror horizontally — for stamps or printing the top face down on the bed |
+| `print_layer_mm` | `0` | Printer layer height (≤ 1 mm): the base and every color are rounded to whole layers, so each color ends exactly on a layer boundary; `0` keeps the exact heights |
 | `min_feature_mm` | `0` | Remove every part narrower than this before extrusion — set it to the nozzle width (e.g. `0.4`); `0` keeps everything |
 
 Model construction:
@@ -65,6 +66,12 @@ Model construction:
   stringy blobs, while the remaining shapes keep their exact outline and sharp corners.
   The base plate is filtered the same way. If nothing is left, the export is
   `422 INVALID_PARAMETERS`.
+- **Layer snapping** (`print_layer_mm`): the base thickness and every color height
+  (automatic or explicit) are rounded half-up to whole printer layers, keeping at least
+  one layer, so the top of each color — where a filament change has to happen — falls on
+  a layer the slicer actually prints, instead of being rounded by the slicer. E.g. with
+  0.2 mm layers a 0.5 mm color becomes 0.6 mm. The slicer's first-layer height is
+  assumed equal to the layer height.
 - The base plate is the union of the **included** layers, so transparent areas,
   deleted shapes and colors left out with height 0 stay open. Leaving out every color is
   `422 INVALID_PARAMETERS`.
@@ -86,7 +93,7 @@ curl -F svg=@logo.svg -F base_mm=1 -F layer_heights='{"0": 0}' \
 ```
 
 Same options and the same bodies as STL (`width_mm`, `base_mm`, `layer_mm`, `layered`,
-`layer_heights`, `mirror`, `min_feature_mm`), but packaged so a slicer keeps the colors apart — STL has no
+`layer_heights`, `mirror`, `min_feature_mm`, `print_layer_mm`), but packaged so a slicer keeps the colors apart — STL has no
 notion of parts or colors.
 
 - [3MF core specification](https://3mf.io/specification/) package: `[Content_Types].xml`,
@@ -154,7 +161,8 @@ curl -F svg=@logo.svg -F page=a4 -F margin_mm=15 \
 ## Frontend
 
 For STL and 3MF the panel also lists every color with an *include* checkbox and a height field
-(empty = automatic, shown as placeholder); this becomes `layer_heights`. Leaving out
+(empty = automatic, shown as placeholder, already rounded to the printer layer height
+when one is set); this becomes `layer_heights`. Leaving out
 every color disables the export with an explanation.
 
 ### 3D preview

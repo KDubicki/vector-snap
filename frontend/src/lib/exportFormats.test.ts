@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   EXPORT_FORMATS,
   autoLayerHeight,
+  snapToLayers,
   defaultValues,
   exportFileName,
   layerHeightsJson,
@@ -18,6 +19,7 @@ describe('export formats', () => {
       base_mm: 1,
       layer_mm: 1,
       min_feature_mm: 0,
+      print_layer_mm: 0,
       layered: true,
       mirror: false,
     });
@@ -31,6 +33,7 @@ describe('export formats', () => {
         base_mm: Number.NaN,
         layer_mm: 1,
         min_feature_mm: 11,
+        print_layer_mm: 0.2,
         layered: 'yes' as never,
         mirror: false,
       }),
@@ -76,6 +79,7 @@ describe('per-color heights', () => {
   it('computes automatic heights like the backend', () => {
     expect(autoLayerHeight(2, { layer_mm: 0.5, layered: true })).toBe(1.5);
     expect(autoLayerHeight(2, { layer_mm: 0.5, layered: false })).toBe(0.5);
+    expect(autoLayerHeight(2, { layer_mm: 0.5, layered: true, print_layer_mm: 0.2 })).toBe(1.6);
   });
 
   it('sends only excluded colors and explicit heights', () => {
@@ -98,5 +102,13 @@ describe('per-color heights', () => {
       'greater than 0',
     );
     expect(validateColorHeights([{ paletteIndex: 0, included: true, height: 2 }])).toBeNull();
+  });
+
+  it('snaps heights to whole printer layers like the backend', () => {
+    expect(snapToLayers(1, 0)).toBe(1);
+    expect(snapToLayers(0, 0.2)).toBe(0);
+    expect(snapToLayers(0.3, 0.2)).toBe(0.4);
+    expect(snapToLayers(0.05, 0.2)).toBe(0.2);
+    expect(snapToLayers(1, 0.12)).toBe(0.96);
   });
 });
