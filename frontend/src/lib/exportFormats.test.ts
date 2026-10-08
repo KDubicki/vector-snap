@@ -22,6 +22,7 @@ describe('export formats', () => {
       base_margin_mm: 0,
       layer_mm: 1,
       stack_order: 'document',
+      loop_hole_mm: 0,
       min_feature_mm: 0,
       print_layer_mm: 0,
       layered: true,
@@ -39,6 +40,7 @@ describe('export formats', () => {
         base_margin_mm: -1,
         layer_mm: 1,
         stack_order: 'document',
+        loop_hole_mm: 0,
         min_feature_mm: 11,
         print_layer_mm: 0.2,
         layered: 'yes' as never,
@@ -51,6 +53,15 @@ describe('export formats', () => {
       base_margin_mm: 'Must be between 0 and 100.',
       min_feature_mm: 'Must be between 0 and 10.',
       layered: 'Invalid value.',
+    });
+  });
+
+  it('requires a base plate for a hanging loop', () => {
+    const values = { ...defaultValues(stl), loop_hole_mm: 4 };
+
+    expect(validate(stl, values)).toEqual({});
+    expect(validate(stl, { ...values, base_mm: 0 })).toEqual({
+      loop_hole_mm: 'A hanging loop needs a base plate.',
     });
   });
 

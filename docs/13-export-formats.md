@@ -50,6 +50,7 @@ curl -F svg=@logo.svg -F width_mm=120 -F base_mm=1.5 -F layer_mm=0.8 \
 | `layered` | `true` | `true`: layer *n* (bottom to top) is *n × layer_mm* high (relief, easy color changes by height); `false`: all layers share one height |
 | `layer_heights` | `{}` | JSON object `{"<paletteIndex>": mm}` overriding the height above the base per color (0 < h ≤ 100); **`0` leaves a color out** (e.g. print a logo without its background). Colors not listed follow `layer_mm` / `layered` |
 | `stack_order` | `document` | Bottom-to-top order of the colors for automatic heights: `document` (as in the SVG — largest coverage at the bottom), `light_to_dark` or `dark_to_light` |
+| `loop_hole_mm` | `0` | Hanging loop on top of the base plate with a hole of this diameter (0–20 mm) — keyrings, ornaments, hooks; needs `base_mm > 0`. `0` = no loop |
 | `mirror` | `false` | Mirror horizontally — for stamps or printing the top face down on the bed |
 | `print_layer_mm` | `0` | Printer layer height (≤ 1 mm): the base and every color are rounded to whole layers, so each color ends exactly on a layer boundary; `0` keeps the exact heights |
 | `min_feature_mm` | `0` | Remove every part narrower than this before extrusion — set it to the nozzle width (e.g. `0.4`); `0` keeps everything |
@@ -71,6 +72,11 @@ Model construction:
   stringy blobs, while the remaining shapes keep their exact outline and sharp corners.
   The base plate is filtered the same way. If nothing is left, the export is
   `422 INVALID_PARAMETERS`.
+- **Hanging loop** (`loop_hole_mm`): a ring with a 2 mm wall around the hole is added
+  to the base plate, centered on the plate's top edge — on the topmost point closest to
+  the middle — and reaching half a wall into the plate so it is solidly joined. The hole
+  starts just above the plate, so it never cuts the design. It follows the base shape
+  and margin; without a base plate the export is `422 INVALID_PARAMETERS`.
 - **Stack order** (`stack_order`): with `light_to_dark` / `dark_to_light` the colors are
   ranked by WCAG relative luminance (equally bright colors keep the document order)
   before automatic heights are assigned, so e.g. dark outlines and text end up on top
@@ -110,7 +116,7 @@ curl -F svg=@logo.svg -F base_mm=1 -F layer_heights='{"0": 0}' \
 ```
 
 Same options and the same bodies as STL (`width_mm`, `base_mm`, `base_shape`,
-`base_margin_mm`, `stack_order`, `layer_mm`, `layered`, `layer_heights`, `mirror`, `min_feature_mm`,
+`base_margin_mm`, `stack_order`, `loop_hole_mm`, `layer_mm`, `layered`, `layer_heights`, `mirror`, `min_feature_mm`,
 `print_layer_mm`), but packaged so a slicer keeps the colors apart — STL has no
 notion of parts or colors.
 

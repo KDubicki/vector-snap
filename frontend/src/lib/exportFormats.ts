@@ -17,6 +17,8 @@ export interface NumberOption {
   step: number;
   /** Short explanation shown under the field. */
   hint?: string;
+  /** A value above 0 needs this other number option to be above 0 too. */
+  requires?: { name: string; message: string };
 }
 
 export interface BooleanOption {
@@ -117,6 +119,18 @@ const MODEL_OPTIONS: ExportOption[] = [
       { value: 'dark_to_light', label: 'Dark to light' },
     ],
     hint: 'Which colors are stacked higher; the bottom color also prints the base plate.',
+  },
+  {
+    type: 'number',
+    name: 'loop_hole_mm',
+    label: 'Hanging loop hole',
+    unit: 'mm',
+    default: 0,
+    min: 0,
+    max: 20,
+    step: 0.5,
+    hint: 'Adds a loop at the top of the base plate for a keyring or hook, with a hole of this diameter (e.g. 4). 0 = no loop.',
+    requires: { name: 'base_mm', message: 'A hanging loop needs a base plate.' },
   },
   {
     type: 'number',
@@ -277,6 +291,8 @@ export function validate(format: ExportFormat, values: ExportValues): Record<str
         errors[option.name] = 'Enter a number.';
       } else if (value < option.min || value > option.max) {
         errors[option.name] = `Must be between ${option.min} and ${option.max}.`;
+      } else if (value > 0 && option.requires && !(Number(values[option.requires.name]) > 0)) {
+        errors[option.name] = option.requires.message;
       }
     } else if (option.type === 'choice') {
       if (!option.choices.some((choice) => choice.value === value)) {

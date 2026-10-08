@@ -6,7 +6,7 @@ height). Heights can be set per color (0 leaves a color out) and the model mirro
 details thinner than the nozzle can be removed before extrusion, and heights can be
 rounded to whole printer layers. The base plate follows the design's outline or is a
 rectangle, rounded rectangle or circle around it; colors can be stacked in document order or
-by brightness.
+by brightness, and a hanging loop can be added at the top of the base plate.
 Coordinates are converted to millimetres and the y axis is flipped (SVG y points down,
 STL z-up models are viewed from above with y up). See docs/13-export-formats.md.
 """
@@ -31,6 +31,7 @@ from shapely import (
 )
 from shapely.geometry.base import BaseGeometry
 from shapely.geometry.polygon import orient
+from shapely.ops import nearest_points
 
 from app.core.errors import InvalidParameters
 from app.services.svg_geometry import (
@@ -42,11 +43,13 @@ from app.services.svg_geometry import (
 
 BaseShape = Literal["outline", "rectangle", "rounded", "circle"]
 # Bottom-to-top order of the color layers: as in the SVG (largest coverage at the bottom)
-# or by brightness.
+# or by brightness, and a hanging loop can be added at the top of the base plate.
 StackOrder = Literal["document", "light_to_dark", "dark_to_light"]
 
 # Corner radius of the "rounded" base plate, relative to its shorter side.
 ROUNDED_CORNER_RATIO = 0.15
+# Width of the ring around the hanging loop's hole (mm).
+LOOP_WALL_MM = 2.0
 # Segments per quarter circle of round outlines.
 _QUAD_SEGS = 32
 
@@ -74,6 +77,8 @@ class StlOptions:
     base_shape: BaseShape = "outline"
     base_margin_mm: float = 0.0
     stack_order: StackOrder = "document"
+    # Hole diameter of a hanging loop on top of the base plate (keyrings, hooks); 0 = none.
+    loop_hole_mm: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -162,6 +167,24 @@ def base_outline(silhouette: BaseGeometry, shape: BaseShape, margin_mm: float) -
     return rectangle.buffer(-radius, join_style="mitre").buffer(radius, quad_segs=_QUAD_SEGS)
 
 
+def with_loop(outline: BaseGeometry, hole_mm: float) -> BaseGeometry:
+    """Add a ring with a `hole_mm` hole above the top of `outline` (millimetres).
+
+    The ring is centered on the outline's top, as close to the middle as possible, and
+    reaches half a wall into it, so it is joined to the plate; the hole starts just above
+    the outline and never cuts into the design.
+    """
+    if hole_mm <= 0 or outline.is_empty:
+        return outline
+    minx, _, maxx, maxy = outline.bounds
+    top = outline.intersection(box(minx, maxy - LOOP_WALL_MM / 2, maxx, maxy))
+    anchor = nearest_points(top, Point((minx + maxx) / 2, maxy))[0]
+    radius = hole_mm / 2
+    center = Point(anchor.x, maxy + radius)
+    ring = center.buffer(radius + LOOP_WALL_MM, quad_segs=_QUAD_SEGS)
+    return outline.union(ring).difference(center.buffer(radius, quad_segs=_QUAD_SEGS))
+
+
 def relative_luminance(hex_color: str) -> float:
     """WCAG relative luminance of a `#rrggbb` color: 0 (black) to 1 (white)."""
     channels = [int(hex_color[i : i + 2], 16) / 255 for i in (1, 3, 5)]
@@ -226,12 +249,17 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
         raise InvalidParameters("Nothing to export: every color has height 0.")
 
     base = base_height(options)
+    if options.loop_hole_mm > 0 and base <= 0:
+        raise InvalidParameters(
+            "A hanging loop needs a base plate (base_mm > 0).", {"field": "loop_hole_mm"}
+        )
     bodies: list[Body] = []
     if base > 0:
         silhouette = printable(
             unary_union([geometry for _, geometry, _ in included]), options.min_feature_mm
         )
         silhouette = base_outline(silhouette, options.base_shape, options.base_margin_mm)
+        silhouette = with_loop(silhouette, options.loop_hole_mm)
         parts = [_prism(polygon, 0.0, base) for polygon in polygons(silhouette)]
         if parts:
             bodies.append(Body("base", included[0][0].fill, np.concatenate(parts)))

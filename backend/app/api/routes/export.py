@@ -66,6 +66,9 @@ def stl_options(
     stack_order: Annotated[
         StackOrder, Form(description="Bottom-to-top color order: document or by brightness")
     ] = "document",
+    loop_hole_mm: Annotated[
+        float, Form(ge=0, le=20, description="Hanging loop hole diameter on the base; 0 = none")
+    ] = 0.0,
 ) -> StlOptions:
     """3D model options shared by STL and 3MF."""
     return StlOptions(
@@ -80,6 +83,7 @@ def stl_options(
         base_shape=base_shape,
         base_margin_mm=base_margin_mm,
         stack_order=stack_order,
+        loop_hole_mm=loop_hole_mm,
     )
 
 

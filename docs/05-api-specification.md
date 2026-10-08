@@ -235,7 +235,7 @@ Formats, options and geometry are described in [13-export-formats.md](13-export-
 
 | Format | Media type | Options |
 |--------|------------|---------|
-| `stl` | `model/stl` | `width_mm` (0–10000, default 100), `base_mm` (0–100, 1), `layer_mm` (0–100, 1), `layered` (bool, true), `layer_heights` (JSON `{"<index>": mm}`, 0 = omit), `mirror` (bool, false), `min_feature_mm` (0–10, 0), `print_layer_mm` (0–1, 0), `base_shape` (`outline` \| `rectangle` \| `rounded` \| `circle`), `base_margin_mm` (0–100, 0), `stack_order` (`document` \| `light_to_dark` \| `dark_to_light`) |
+| `stl` | `model/stl` | `width_mm` (0–10000, default 100), `base_mm` (0–100, 1), `layer_mm` (0–100, 1), `layered` (bool, true), `layer_heights` (JSON `{"<index>": mm}`, 0 = omit), `mirror` (bool, false), `min_feature_mm` (0–10, 0), `print_layer_mm` (0–1, 0), `base_shape` (`outline` \| `rectangle` \| `rounded` \| `circle`), `base_margin_mm` (0–100, 0), `stack_order` (`document` \| `light_to_dark` \| `dark_to_light`), `loop_hole_mm` (0–20, 0; needs `base_mm` > 0) |
 | `3mf` | `model/3mf` | same as `stl` |
 | `dxf` | `image/vnd.dxf` | `width_mm` (0–10000, default 100), `fill` (bool, false) |
 | `pdf` | `application/pdf` | `page` (`fit` \| `a4` \| `letter`, default `fit`), `width_mm` (0–10000, 100), `margin_mm` (0–100, 10) |

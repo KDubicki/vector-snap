@@ -55,6 +55,8 @@ def test_stl_defaults(client: TestClient) -> None:
         ({"base_shape": "star"}, "VALIDATION_ERROR"),
         ({"base_margin_mm": "-1"}, "VALIDATION_ERROR"),
         ({"stack_order": "random"}, "VALIDATION_ERROR"),
+        ({"loop_hole_mm": "21"}, "VALIDATION_ERROR"),
+        ({"loop_hole_mm": "4", "base_mm": "0"}, "INVALID_PARAMETERS"),
     ],
 )
 def test_rejects_invalid_options(client: TestClient, form: dict[str, str], code: str) -> None:

@@ -274,3 +274,32 @@ def test_equally_bright_colors_keep_the_document_order() -> None:
         "c",
         "b",
     ]
+
+
+def test_hanging_loop_is_added_above_the_middle_of_the_base() -> None:
+    options = StlOptions(width_mm=40, base_mm=1, base_shape="rectangle", loop_hole_mm=4)
+
+    base = _base(options, [("#000000", [FRAME]), ("#ff0000", [DOT])])
+
+    # 40x20 plate; ring around a 4 mm hole centered at (20, 22): outer radius 4 mm
+    assert base[..., 1].max() == pytest.approx(26, abs=1e-3)
+    assert (base[..., 0].min(), base[..., 0].max()) == pytest.approx((0, 40))
+    ring_area = np.pi * (16 - 4)
+    overlap = 16 * np.arccos(2 / 4) - 2 * np.sqrt(16 - 4)  # circular segment inside the plate
+    assert signed_volume(base) == pytest.approx(800 + ring_area - overlap, rel=1e-3)
+
+
+def test_hanging_loop_hole_stays_open() -> None:
+    options = StlOptions(width_mm=40, base_mm=1, loop_hole_mm=4)
+    document = parse_svg(contract_svg(40, 20, [("#000000", [FRAME])]))
+
+    triangles = np.concatenate([body.triangles for body in build_bodies(document, options)])
+
+    # no triangle covers the hole center at (10, 22) — the frame's top-middle plus 2 mm
+    inside = (np.hypot(triangles[..., 0] - 10, triangles[..., 1] - 22) < 2 - 1e-3).any(axis=1)
+    assert not inside.any()
+
+
+def test_hanging_loop_needs_a_base_plate() -> None:
+    with pytest.raises(InvalidParameters, match="needs a base plate"):
+        _export(StlOptions(base_mm=0, loop_hole_mm=4), [("#000000", [FRAME])])
