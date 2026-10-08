@@ -5,7 +5,7 @@ from fastapi.concurrency import run_in_threadpool
 
 from app.api.deps import check_color_count, read_upload
 from app.core.config import Settings, get_settings
-from app.schemas.palette import PaletteColor, parse_hex_colors, rgb_to_hex
+from app.schemas.palette import palette_colors, parse_hex_colors
 from app.schemas.quantize import QuantizeAlgorithm
 from app.schemas.vectorize import Stacking, TracingMode, VectorizeResponse, VectorizeStats
 from app.services.pipeline import vectorize_image
@@ -70,15 +70,7 @@ async def vectorize(
     return VectorizeResponse(
         width=result.width,
         height=result.height,
-        palette=[
-            PaletteColor(
-                index=i,
-                hex=rgb_to_hex((int(r), int(g), int(b))),
-                rgb=(int(r), int(g), int(b)),
-                coverage=round(float(result.coverage[i]), 4),
-            )
-            for i, (r, g, b) in enumerate(result.palette)
-        ],
+        palette=palette_colors(result.palette, result.coverage),
         stats=VectorizeStats(
             paths=result.path_count,
             bytes=len(result.svg.encode()),

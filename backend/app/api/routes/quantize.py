@@ -6,7 +6,7 @@ from fastapi.concurrency import run_in_threadpool
 
 from app.api.deps import check_color_count, read_upload
 from app.core.config import Settings, get_settings
-from app.schemas.palette import PaletteColor, parse_hex_colors, rgb_to_hex
+from app.schemas.palette import palette_colors, parse_hex_colors
 from app.schemas.quantize import (
     ColorCountError,
     ColorSuggestionResponse,
@@ -46,19 +46,10 @@ async def quantize(
     )
     png = await run_in_threadpool(to_indexed_png, result)
 
-    palette = [
-        PaletteColor(
-            index=i,
-            hex=rgb_to_hex((int(r), int(g), int(b))),
-            rgb=(int(r), int(g), int(b)),
-            coverage=round(float(result.coverage[i]), 4),
-        )
-        for i, (r, g, b) in enumerate(result.palette)
-    ]
     return QuantizeResponse(
         width=decoded.width,
         height=decoded.height,
-        palette=palette,
+        palette=palette_colors(result.palette, result.coverage),
         has_transparency=result.has_transparency,
         image=EncodedImage(data=base64.b64encode(png).decode("ascii")),
     )

@@ -1,6 +1,8 @@
 import json
 import re
 
+import numpy as np
+from numpy.typing import NDArray
 from pydantic import BaseModel, Field
 
 from app.core.errors import InvalidParameters
@@ -14,6 +16,22 @@ class PaletteColor(BaseModel):
     hex: str = Field(pattern=HEX_COLOR_PATTERN)
     rgb: tuple[int, int, int] | None = None
     coverage: float | None = Field(default=None, ge=0, le=1)
+
+
+def palette_colors(palette: NDArray[np.uint8], coverage: NDArray[np.float64]) -> list[PaletteColor]:
+    """Response entries for a palette (N x 3 sRGB) and its coverage fractions."""
+    entries = []
+    for index, color in enumerate(palette):
+        rgb = (int(color[0]), int(color[1]), int(color[2]))
+        entries.append(
+            PaletteColor(
+                index=index,
+                hex=rgb_to_hex(rgb),
+                rgb=rgb,
+                coverage=round(float(coverage[index]), 4),
+            )
+        )
+    return entries
 
 
 def rgb_to_hex(rgb: tuple[int, int, int]) -> str:

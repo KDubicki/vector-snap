@@ -18,11 +18,20 @@ from app.services.export_dxf import DxfOptions, export_dxf
 from app.services.export_pdf import PageSize, PdfOptions, export_pdf
 from app.services.export_stl import StlOptions, export_stl
 from app.services.filament_plan import filament_plan
-from app.services.svg_geometry import parse_svg
+from app.services.svg_geometry import VectorDocument, parse_svg
 
 router = APIRouter(prefix="/export", tags=["export"])
 
-SvgFile = Annotated[UploadFile, File(description="SVG in the VectorSnap contract")]
+
+async def uploaded_svg(
+    settings: Annotated[Settings, Depends(get_settings)],
+    svg: Annotated[UploadFile, File(description="SVG in the VectorSnap contract")],
+) -> VectorDocument:
+    """Read and parse the `svg` form field every export takes."""
+    return parse_svg(await read_upload(svg, settings))
+
+
+UploadedSvg = Annotated[VectorDocument, Depends(uploaded_svg)]
 
 
 def _attachment(content: bytes, media_type: str, extension: str) -> Response:
@@ -70,11 +79,8 @@ ModelOptions = Annotated[StlOptions, Depends(stl_options)]
     response_class=Response,
     responses={200: {"content": {"model/stl": {}}, "description": "Binary STL"}},
 )
-async def export_to_stl(
-    settings: Annotated[Settings, Depends(get_settings)], svg: SvgFile, options: ModelOptions
-) -> Response:
+async def export_to_stl(document: UploadedSvg, options: ModelOptions) -> Response:
     """Extrude every color layer into a 3D model for printing (units: millimetres)."""
-    document = parse_svg(await read_upload(svg, settings))
     content = await run_in_threadpool(export_stl, document, options)
     return _attachment(content, "model/stl", "stl")
 
@@ -84,21 +90,17 @@ async def export_to_stl(
     response_class=Response,
     responses={200: {"content": {"model/3mf": {}}, "description": "3MF package"}},
 )
-async def export_to_3mf(
-    settings: Annotated[Settings, Depends(get_settings)], svg: SvgFile, options: ModelOptions
-) -> Response:
+async def export_to_3mf(document: UploadedSvg, options: ModelOptions) -> Response:
     """Like STL, but one colored part per color in one model — for multi-color printers."""
-    document = parse_svg(await read_upload(svg, settings))
     content = await run_in_threadpool(export_3mf, document, options)
     return _attachment(content, "model/3mf", "3mf")
 
 
 @router.post("/filament-plan", response_model=FilamentPlanResponse)
 async def export_filament_plan(
-    settings: Annotated[Settings, Depends(get_settings)], svg: SvgFile, options: ModelOptions
+    document: UploadedSvg, options: ModelOptions
 ) -> FilamentPlanResponse:
     """Where to change filament when printing the STL/3MF on a single-extruder printer."""
-    document = parse_svg(await read_upload(svg, settings))
     plan = await run_in_threadpool(filament_plan, document, options)
     return FilamentPlanResponse(
         steps=[FilamentStepModel(z_mm=s.z_mm, layer=s.layer, color=s.color) for s in plan.steps],
@@ -113,13 +115,11 @@ async def export_filament_plan(
     responses={200: {"content": {"image/vnd.dxf": {}}, "description": "DXF R2010"}},
 )
 async def export_to_dxf(
-    settings: Annotated[Settings, Depends(get_settings)],
-    svg: SvgFile,
+    document: UploadedSvg,
     width_mm: Annotated[float, Form(gt=0, le=10_000, description="Drawing width")] = 100.0,
     fill: Annotated[bool, Form(description="Add solid hatch fills")] = False,
 ) -> Response:
     """Closed outlines per color layer for laser cutters, plotters and CNC (units: mm)."""
-    document = parse_svg(await read_upload(svg, settings))
     content = await run_in_threadpool(
         export_dxf, document, DxfOptions(width_mm=width_mm, fill=fill)
     )
@@ -132,14 +132,12 @@ async def export_to_dxf(
     responses={200: {"content": {"application/pdf": {}}, "description": "One-page PDF"}},
 )
 async def export_to_pdf(
-    settings: Annotated[Settings, Depends(get_settings)],
-    svg: SvgFile,
+    document: UploadedSvg,
     page: Annotated[PageSize, Form(description="fit = page fits the drawing")] = "fit",
     width_mm: Annotated[float, Form(gt=0, le=10_000, description="Drawing width (fit)")] = 100.0,
     margin_mm: Annotated[float, Form(ge=0, le=100, description="Page margin")] = 10.0,
 ) -> Response:
     """Vector PDF with exact curves for print."""
-    document = parse_svg(await read_upload(svg, settings))
     options = PdfOptions(page=page, width_mm=width_mm, margin_mm=margin_mm)
     content = await run_in_threadpool(export_pdf, document, options)
     return _attachment(content, "application/pdf", "pdf")
