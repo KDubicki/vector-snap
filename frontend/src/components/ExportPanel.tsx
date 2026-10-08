@@ -1,5 +1,5 @@
 import { Suspense, lazy, useMemo, useState } from 'react';
-import { ApiError, exportFile, getFilamentPlan } from '../api/client';
+import { errorMessage, exportFile, getFilamentPlan } from '../api/client';
 import { serializeSvg } from '../editor/export';
 import {
   EXPORT_FORMATS,
@@ -72,9 +72,7 @@ export function ExportPanel() {
     try {
       setPlan(await getFilamentPlan(serializeSvg(editor), requestOptions()));
     } catch (caught) {
-      setError(
-        caught instanceof ApiError || caught instanceof Error ? caught.message : 'Planning failed',
-      );
+      setError(errorMessage(caught, 'Planning failed'));
     } finally {
       setPlanning(false);
     }
@@ -87,9 +85,7 @@ export function ExportPanel() {
       const blob = await exportFile(format.id, serializeSvg(editor), requestOptions());
       download(blob, exportFileName(file?.name, format.extension));
     } catch (caught) {
-      setError(
-        caught instanceof ApiError || caught instanceof Error ? caught.message : 'Export failed',
-      );
+      setError(errorMessage(caught, 'Export failed'));
     } finally {
       setStatus('idle');
     }

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { ThreeMFLoader } from 'three/addons/loaders/3MFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { ApiError, exportFile } from '../api/client';
+import { errorMessage, exportFile } from '../api/client';
 import {
   FILAMENTS,
   formatMillimetres,
@@ -123,9 +123,7 @@ export default function ModelPreview({ request }: { request: PreviewRequest }) {
       })
       .catch((caught: unknown) => {
         if (controller.signal.aborted) return;
-        setError(
-          caught instanceof ApiError || caught instanceof Error ? caught.message : 'Preview failed',
-        );
+        setError(errorMessage(caught, 'Preview failed'));
         setStatus('error');
       });
 

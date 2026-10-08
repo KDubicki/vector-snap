@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   ApiError,
+  errorMessage,
   exportFile,
   getFilamentPlan,
   getLimits,
@@ -167,5 +168,12 @@ describe('api client', () => {
     expect(form.get('base_mm')).toBe('0.6');
     expect(form.get('layered')).toBe('true');
     expect(result).toEqual(plan);
+  });
+
+  it('turns errors into messages with a fallback', () => {
+    expect(errorMessage(new ApiError(422, 'INVALID_SVG', 'Bad SVG', null))).toBe('Bad SVG');
+    expect(errorMessage(new Error('offline'), 'Export failed')).toBe('offline');
+    expect(errorMessage('boom', 'Export failed')).toBe('Export failed');
+    expect(errorMessage(undefined)).toBe('Unexpected error');
   });
 });

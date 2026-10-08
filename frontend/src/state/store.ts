@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { ApiError, getLimits, quantize, suggestColors, vectorize } from '../api/client';
+import { errorMessage, getLimits, quantize, suggestColors, vectorize } from '../api/client';
 import { findShape, parseSvg, type EditorDoc } from '../editor/model';
 import { pathArea, uniteShapes, type Point } from '../editor/geometry';
 import { emptyHistory, record, redo, undo, type History } from '../editor/history';
@@ -122,12 +122,6 @@ const initialState = {
   status: 'idle' as Status,
   error: null,
 };
-
-function errorMessage(error: unknown): string {
-  if (error instanceof ApiError) return error.message;
-  if (error instanceof Error) return error.message;
-  return 'Unexpected error';
-}
 
 function isAbort(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'AbortError';

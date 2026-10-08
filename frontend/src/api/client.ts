@@ -23,6 +23,11 @@ export class ApiError extends Error {
   }
 }
 
+/** Message to show for a failed request (`ApiError` carries the backend's message). */
+export function errorMessage(error: unknown, fallback = 'Unexpected error'): string {
+  return error instanceof Error ? error.message : fallback;
+}
+
 async function toApiError(response: Response): Promise<ApiError> {
   const body = (await response.json().catch(() => null)) as ApiErrorBody | null;
   return new ApiError(

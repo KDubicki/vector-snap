@@ -1,17 +1,13 @@
 import { useMemo } from 'react';
 import { serializeSvg } from '../editor/export';
 import { shapeCount } from '../editor/model';
+import { exportFileName } from '../lib/exportFormats';
 import { useObjectUrl } from '../lib/useObjectUrl';
 import { useAppStore } from '../state/store';
 import { EditorPalettePanel } from './EditorPalettePanel';
 import { ExportPanel } from './ExportPanel';
 import { ShapeInspector } from './ShapeInspector';
 import { SvgEditor } from './SvgEditor';
-
-function svgFileName(file: File | null): string {
-  const base = file?.name.replace(/\.[^.]+$/, '') || 'vectorsnap';
-  return `${base}.svg`;
-}
 
 export function ResultStep() {
   const vectorized = useAppStore((s) => s.vectorized);
@@ -46,7 +42,7 @@ export function ResultStep() {
             Back to colors
           </button>
           {url && (
-            <a className="button primary" href={url} download={svgFileName(file)}>
+            <a className="button primary" href={url} download={exportFileName(file?.name, 'svg')}>
               {edited ? 'Download edited SVG' : 'Download SVG'}
             </a>
           )}
