@@ -1,17 +1,5 @@
 import { create } from 'zustand';
 import { errorMessage, getLimits, quantize, suggestColors, vectorize } from '../api/client';
-import { findShape, parseSvg, type EditorDoc } from '../editor/model';
-import { pathArea, uniteShapes, type Point } from '../editor/geometry';
-import { emptyHistory, record, redo, undo, type History } from '../editor/history';
-import {
-  deleteShapes,
-  mergeShapes,
-  moveShapesToGroup,
-  recolorGroup,
-  recolorShapes,
-  resetShapeColors,
-} from '../editor/operations';
-import { cutWithRegion, splitAlongLine } from '../editor/split';
 import { base64ToBlob } from '../lib/base64';
 import { finalPalette } from '../lib/color';
 import { DEFAULT_TRACING } from '../lib/tracing';
@@ -22,12 +10,20 @@ import type {
   TracingOptions,
   VectorizeResponse,
 } from '../types/api';
+import {
+  createEditorSlice,
+  initialEditorState,
+  openDocument,
+  type EditorSlice,
+} from './editorSlice';
 
 export type Step = 'upload' | 'palette' | 'result';
 export type Status = 'idle' | 'quantizing' | 'vectorizing';
 
 export const DEFAULT_COLORS = 8;
-export interface AppState {
+
+/** Conversion workflow: upload, colors and palette, tracing (docs/07-frontend.md). */
+export interface WorkflowSlice {
   step: Step;
   limits: Pick<Limits, 'min_colors' | 'max_colors' | 'max_upload_mb'>;
   file: File | null;
@@ -49,14 +45,6 @@ export interface AppState {
   overrides: Record<number, string>;
   tracing: TracingOptions;
   vectorized: VectorizeResponse | null;
-  /** Editable document built from `vectorized.svg`. */
-  editor: EditorDoc | null;
-  /** Ids of selected shapes. */
-  selection: string[];
-  /** Undo/redo snapshots of `editor`. */
-  history: History;
-  /** Neutral, non-error hint for the user (e.g. why an edit did nothing). */
-  notice: string | null;
   status: Status;
   error: string | null;
 
@@ -76,30 +64,11 @@ export interface AppState {
   resetTracing: () => void;
   runQuantize: () => Promise<void>;
   runVectorize: () => Promise<void>;
-  select: (id: string | null, additive?: boolean) => void;
-  /** Select several shapes at once (box selection); `additive` adds to the selection. */
-  selectMany: (ids: string[], additive?: boolean) => void;
-  selectAll: () => void;
-  recolorSelection: (fill: string) => void;
-  resetSelectionColor: () => void;
-  recolorGroup: (paletteIndex: number, fill: string) => void;
-  /** Split fully crossed shapes (the selection, if any) along a line in document coordinates. */
-  splitWithLine: (line: Point[]) => void;
-  /**
-   * Cut a lasso region out of the selected shapes, or — without a selection — out of the
-   * shape the lasso started on (`startId`). The inside pieces become the selection.
-   */
-  cutWithLasso: (region: Point[], startId: string | null) => void;
-  deleteSelection: () => void;
-  /** Merge the selected shapes into one taking the color/group of the largest (FR-35). */
-  mergeSelection: () => void;
-  /** Move the selected shapes into another color group. */
-  moveSelectionToGroup: (paletteIndex: number) => void;
-  undo: () => void;
-  redo: () => void;
   goTo: (step: Step) => void;
   reset: () => void;
 }
+
+export type AppState = WorkflowSlice & EditorSlice;
 
 const initialState = {
   step: 'upload' as Step,
@@ -115,36 +84,13 @@ const initialState = {
   overrides: {},
   tracing: DEFAULT_TRACING,
   vectorized: null,
-  editor: null as EditorDoc | null,
-  selection: [] as string[],
-  history: emptyHistory,
-  notice: null as string | null,
+  ...initialEditorState,
   status: 'idle' as Status,
   error: null,
 };
 
 function isAbort(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'AbortError';
-}
-
-/** Replace the editor document, recording the previous one for undo. */
-function commit(
-  state: AppState,
-  doc: EditorDoc,
-  coalesceKey: string | null = null,
-): Partial<AppState> {
-  if (!state.editor || doc === state.editor) return {};
-  return { editor: doc, history: record(state.history, state.editor, coalesceKey), notice: null };
-}
-
-/** Apply an undo/redo step, keeping only selected shapes that still exist. */
-function restore(state: AppState, doc: EditorDoc, history: History): Partial<AppState> {
-  return {
-    editor: doc,
-    history,
-    notice: null,
-    selection: state.selection.filter((id) => findShape(doc, id) !== null),
-  };
 }
 
 let pending: AbortController | null = null;
@@ -159,7 +105,8 @@ function nextSignal(): AbortSignal {
   return pending.signal;
 }
 
-export const useAppStore = create<AppState>()((set, get) => ({
+export const useAppStore = create<AppState>()((set, get, api) => ({
+  ...createEditorSlice(set, get, api),
   ...initialState,
 
   loadLimits: async () => {
@@ -289,9 +236,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
       const vectorized = await vectorize(image, palette, tracing, signal);
       set({
         vectorized,
-        editor: parseSvg(vectorized.svg),
-        selection: [],
-        history: emptyHistory,
+        ...openDocument(vectorized.svg),
         step: 'result',
         status: 'idle',
       });
@@ -300,135 +245,6 @@ export const useAppStore = create<AppState>()((set, get) => ({
       set({ status: 'idle', error: errorMessage(error) });
     }
   },
-
-  select: (id, additive = false) =>
-    set((state) => {
-      if (id === null || !state.editor || !findShape(state.editor, id)) {
-        return { selection: additive ? state.selection : [], notice: null };
-      }
-      if (!additive) return { selection: [id], notice: null };
-      return {
-        notice: null,
-        selection: state.selection.includes(id)
-          ? state.selection.filter((selected) => selected !== id)
-          : [...state.selection, id],
-      };
-    }),
-
-  selectMany: (ids, additive = false) =>
-    set((state) => {
-      if (!state.editor) return {};
-      const known = ids.filter((id) => findShape(state.editor!, id) !== null);
-      const base = additive ? state.selection : [];
-      return { selection: [...new Set([...base, ...known])], notice: null };
-    }),
-
-  selectAll: () =>
-    set((state) => ({
-      selection: state.editor
-        ? state.editor.groups.flatMap((group) => group.shapes.map((shape) => shape.id))
-        : [],
-      notice: null,
-    })),
-
-  recolorSelection: (fill) =>
-    set((state) =>
-      state.editor && state.selection.length
-        ? commit(
-            state,
-            recolorShapes(state.editor, state.selection, fill),
-            `recolor:${state.selection.join(',')}`,
-          )
-        : {},
-    ),
-
-  resetSelectionColor: () =>
-    set((state) =>
-      state.editor && state.selection.length
-        ? commit(state, resetShapeColors(state.editor, state.selection))
-        : {},
-    ),
-
-  recolorGroup: (paletteIndex, fill) =>
-    set((state) =>
-      state.editor
-        ? commit(
-            state,
-            recolorGroup(state.editor, paletteIndex, fill),
-            `recolor-group:${paletteIndex}`,
-          )
-        : {},
-    ),
-
-  splitWithLine: (line) =>
-    set((state) => {
-      if (!state.editor) return {};
-      const result = splitAlongLine(state.editor, line, state.selection);
-      if (result.split === 0) {
-        return { notice: 'Draw a line that fully crosses a shape to split it.' };
-      }
-      return { ...commit(state, result.doc), selection: result.created };
-    }),
-
-  cutWithLasso: (region, startId) =>
-    set((state) => {
-      if (!state.editor) return {};
-      const targets = state.selection.length ? state.selection : startId ? [startId] : [];
-      if (!targets.length) {
-        return { notice: 'Start the lasso on a shape, or select the shapes to cut first.' };
-      }
-      const result = cutWithRegion(state.editor, region, targets);
-      if (result.cut === 0) {
-        return { notice: 'Draw the lasso over part of the shape, not around all of it.' };
-      }
-      return { ...commit(state, result.doc), selection: result.inside };
-    }),
-
-  deleteSelection: () =>
-    set((state) =>
-      state.editor && state.selection.length
-        ? { ...commit(state, deleteShapes(state.editor, state.selection)), selection: [] }
-        : {},
-    ),
-
-  mergeSelection: () =>
-    set((state) => {
-      if (!state.editor) return {};
-      const doc = state.editor;
-      const shapes = doc.groups
-        .flatMap((group) => group.shapes)
-        .filter((shape) => state.selection.includes(shape.id));
-      if (shapes.length < 2) return { notice: 'Select at least two shapes to merge.' };
-      const largest = shapes.reduce((best, shape) =>
-        pathArea(shape.d) > pathArea(best.d) ? shape : best,
-      );
-      const merged = mergeShapes(
-        doc,
-        shapes.map((shape) => shape.id),
-        largest.id,
-        uniteShapes(shapes.map((shape) => shape.d)),
-      );
-      return { ...commit(state, merged), selection: [largest.id] };
-    }),
-
-  moveSelectionToGroup: (paletteIndex) =>
-    set((state) =>
-      state.editor && state.selection.length
-        ? commit(state, moveShapesToGroup(state.editor, state.selection, paletteIndex))
-        : {},
-    ),
-
-  undo: () =>
-    set((state) => {
-      const step = state.editor && undo(state.history, state.editor);
-      return step ? restore(state, step.doc, step.history) : {};
-    }),
-
-  redo: () =>
-    set((state) => {
-      const step = state.editor && redo(state.history, state.editor);
-      return step ? restore(state, step.doc, step.history) : {};
-    }),
 
   goTo: (step) => set({ step, error: null }),
 

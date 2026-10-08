@@ -107,11 +107,15 @@ App                         header with step indicator, error banner
 
 ## State
 
-A single Zustand store (`src/state/store.ts`) holds UI state, server results and the
-async actions:
+A single Zustand store (`useAppStore`) holds UI state, server results and the async
+actions. It is composed of two slices: the conversion workflow (`src/state/store.ts`) and
+the SVG editor (`src/state/editorSlice.ts` — document, selection, undo/redo history and
+the editing actions, see [08-svg-editor.md](08-svg-editor.md)):
 
 ```ts
-interface AppState {
+type AppState = WorkflowSlice & EditorSlice;
+
+interface WorkflowSlice {
   step: 'upload' | 'palette' | 'result';
   limits: { min_colors: number; max_colors: number; max_upload_mb: number };
   file: File | null;
@@ -125,13 +129,21 @@ interface AppState {
   overrides: Record<number, string>;         // palette index → edited hex
   tracing: TracingOptions;                   // defaults: DEFAULT_TRACING (lib/tracing.ts)
   vectorized: VectorizeResponse | null;
-  editor: EditorDoc | null;                  // editable document (docs/08)
-  selection: string[];                       // selected shape ids
   status: 'idle' | 'quantizing' | 'vectorizing';
   error: string | null;
   // actions: loadLimits, selectFile, setColors, setAlgorithm, suggestColors, lockColor,
   // unlockColor, setOverride, resetOverride, resetOverrides, setTracing, resetTracing,
   // runQuantize, runVectorize, goTo, reset
+}
+
+interface EditorSlice {
+  editor: EditorDoc | null;                  // editable document built from vectorized.svg
+  selection: string[];                       // selected shape ids
+  history: History;                          // undo/redo snapshots of `editor`
+  notice: string | null;                     // why an edit did nothing
+  // actions: select, selectMany, selectAll, recolorSelection, resetSelectionColor,
+  // recolorGroup, splitWithLine, cutWithLasso, deleteSelection, mergeSelection,
+  // moveSelectionToGroup, undo, redo
 }
 ```
 
