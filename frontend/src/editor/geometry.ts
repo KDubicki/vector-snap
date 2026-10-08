@@ -3,6 +3,7 @@
  * See docs/08-svg-editor.md#splitting-algorithms.
  */
 import paper from 'paper';
+import type { EditorDoc } from './model';
 
 export interface Point {
   x: number;
@@ -152,4 +153,12 @@ function pathData(item: paper.PathItem): string {
 /** Area of a path (absolute, holes subtracted). */
 export function pathArea(d: string): number {
   return Math.abs(toPathItem(geometryScope(), d).area);
+}
+
+/** Ids of the shapes whose area is below `maxArea` (document px²), bottom to top. */
+export function shapesSmallerThan(doc: EditorDoc, maxArea: number): string[] {
+  return doc.groups
+    .flatMap((group) => group.shapes)
+    .filter((shape) => pathArea(shape.d) < maxArea)
+    .map((shape) => shape.id);
 }

@@ -7,6 +7,7 @@ import { useAppStore } from '../state/store';
 import { EditorPalettePanel } from './EditorPalettePanel';
 import { ExportPanel } from './ExportPanel';
 import { ShapeInspector } from './ShapeInspector';
+import { SmallShapesSelector } from './SmallShapesSelector';
 import { SvgEditor } from './SvgEditor';
 
 export function ResultStep() {
@@ -36,6 +37,7 @@ export function ResultStep() {
           <dd>{vectorized.stats.duration_ms} ms</dd>
         </dl>
         <ShapeInspector />
+        <SmallShapesSelector />
         <EditorPalettePanel />
         <div className="actions">
           <button type="button" className="secondary" onClick={() => goTo('palette')}>

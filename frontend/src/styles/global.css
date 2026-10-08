@@ -881,3 +881,18 @@ select {
 .palette li.removed > code {
   text-decoration: line-through;
 }
+
+.small-shapes__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.small-shapes__row input {
+  width: 90px;
+}
+
+.small-shapes__row button {
+  margin-left: auto;
+  padding: 6px 14px;
+}

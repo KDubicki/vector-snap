@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { cutRegion, pathArea, splitShape, uniteShapes } from './geometry';
+import { parseSvg } from './model';
+import { cutRegion, pathArea, shapesSmallerThan, splitShape, uniteShapes } from './geometry';
 
 const SQUARE = 'M0,0 L10,0 L10,10 L0,10 Z';
 // 20x20 square with a 10x10 hole in the middle
@@ -110,5 +111,20 @@ describe('uniteShapes', () => {
   it('handles a single shape and no input', () => {
     expect(pathArea(uniteShapes([SQUARE]))).toBeCloseTo(100);
     expect(uniteShapes([])).toBe('');
+  });
+});
+
+describe('shapesSmallerThan', () => {
+  it('finds shapes below an area, counting holes', () => {
+    const doc = parseSvg(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">' +
+        `<g data-palette-index="0" fill="#000"><path id="square" d="${SQUARE}"/></g>` +
+        `<g data-palette-index="1" fill="#fff"><path id="frame" d="${FRAME}"/>` +
+        '<path id="speck" d="M30,30 L32,30 L32,32 L30,32 Z"/></g></svg>',
+    );
+
+    expect(shapesSmallerThan(doc, 5)).toEqual(['speck']);
+    expect(shapesSmallerThan(doc, 101)).toEqual(['square', 'speck']); // frame: 400 - 100
+    expect(shapesSmallerThan(doc, 1000)).toEqual(['square', 'frame', 'speck']);
   });
 });

@@ -86,6 +86,7 @@ Layout: left = original and quantized previews side by side, right = controls.
 - ✅ Recolor the selection (own color / back to group color) and whole color groups.
 - ✅ Knife tool: split shapes along a freehand or straight line.
 - ✅ Lasso tool: cut a freehand region out of a shape.
+- ✅ Select shapes smaller than an area (specks) to delete, recolor or move them at once.
 - ✅ Merge shapes and move them between color groups.
 - ✅ Export panel (STL, 3MF, DXF, PDF) with per-color heights and a 3D preview with print
   statistics ([13-export-formats.md](13-export-formats.md)).

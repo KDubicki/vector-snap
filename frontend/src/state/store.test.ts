@@ -320,6 +320,20 @@ describe('app store', () => {
     expect(store().selection).toEqual([]);
   });
 
+  it('selects shapes smaller than an area or explains that there are none', async () => {
+    useAppStore.setState({ quantized });
+    vi.stubGlobal('fetch', respond(vectorized));
+    await store().runVectorize();
+
+    store().selectSmallerThan(10);
+    expect(store().selection).toEqual([]);
+    expect(store().notice).toBe('No shapes are smaller than 10 px².');
+
+    store().selectSmallerThan(60); // both triangles have 50 px²
+    expect(store().selection).toEqual(['p-0-0', 'p-0-1']);
+    expect(store().notice).toBeNull();
+  });
+
   it('selects many shapes at once and everything', async () => {
     useAppStore.setState({ quantized });
     vi.stubGlobal('fetch', respond(vectorized));

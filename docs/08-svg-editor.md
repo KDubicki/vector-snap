@@ -134,6 +134,16 @@ shapes do not overlap and splitting never reveals hidden geometry underneath.
   selection on top of another group and drop own colors, so the shapes take that group's
   color (and later group recolors apply to them). Groups left empty disappear.
 
+## Selecting small shapes ✅
+
+Tracing leaves specks and slivers that are tedious to click one by one. "Select shapes
+smaller than … px²" (`SmallShapesSelector`, default 25 = a 5 × 5 px speck) selects every
+shape whose area — in document px, holes subtracted, `shapesSmallerThan()` in
+`src/editor/geometry.ts` — is below the limit. The usual actions then apply to all of
+them at once: delete, recolor, merge or move to another color group, each undoable. If
+nothing is that small, the editor shows a notice instead of clearing the selection
+silently.
+
 ## Recoloring
 
 Implemented in `src/editor/operations.ts` (pure functions, unit-tested).

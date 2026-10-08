@@ -1,6 +1,6 @@
 import type { StateCreator } from 'zustand';
 import { findShape, parseSvg, type EditorDoc } from '../editor/model';
-import { pathArea, uniteShapes, type Point } from '../editor/geometry';
+import { pathArea, shapesSmallerThan, uniteShapes, type Point } from '../editor/geometry';
 import { emptyHistory, record, redo, undo, type History } from '../editor/history';
 import {
   deleteShapes,
@@ -30,6 +30,8 @@ export interface EditorActions {
   /** Select several shapes at once (box selection); `additive` adds to the selection. */
   selectMany: (ids: string[], additive?: boolean) => void;
   selectAll: () => void;
+  /** Select every shape smaller than `maxArea` (document px²), e.g. specks to delete. */
+  selectSmallerThan: (maxArea: number) => void;
   recolorSelection: (fill: string) => void;
   resetSelectionColor: () => void;
   recolorGroup: (paletteIndex: number, fill: string) => void;
@@ -115,6 +117,16 @@ export const createEditorSlice: StateCreator<AppState, [], [], EditorSlice> = (s
         : [],
       notice: null,
     })),
+
+  selectSmallerThan: (maxArea) =>
+    set((state) => {
+      if (!state.editor) return {};
+      const selection = shapesSmallerThan(state.editor, maxArea);
+      return {
+        selection,
+        notice: selection.length ? null : `No shapes are smaller than ${maxArea} px².`,
+      };
+    }),
 
   recolorSelection: (fill) =>
     set((state) =>
