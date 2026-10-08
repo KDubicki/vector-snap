@@ -188,6 +188,11 @@ interface EditorSlice {
   backend message and a retry action.
 - Keyboard shortcuts in the editor (see [08](08-svg-editor.md#keyboard-shortcuts)).
 - Responsive down to 1024 px width (editor); upload/palette steps usable on tablets.
+- **Color theme**: follows the system (`prefers-color-scheme`) by default; the header
+  toggle forces light or dark (`data-theme` on `<html>`, plus `color-scheme` so native
+  controls match). The choice is stored in `localStorage` (`vectorsnap.theme`) and applied
+  in `main.tsx` before the first render, so it never flashes; with storage blocked the
+  toggle still works for the page (`src/lib/theme.ts`).
 - Accessible: all controls keyboard reachable, color swatches labelled with hex values,
   contrast AA.
 

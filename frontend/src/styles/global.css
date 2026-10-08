@@ -20,8 +20,9 @@
   background: var(--color-bg);
 }
 
+/* Dark palette: follows the system unless a theme is chosen (data-theme, ThemeToggle). */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --color-bg: #10131a;
     --color-surface: #1a1f2b;
     --color-border: #2c3344;
@@ -30,7 +31,24 @@
     --color-error-bg: #3a1620;
     --color-error-text: #ffb3c3;
     --checker: #252b39;
+    color-scheme: dark;
   }
+}
+
+:root[data-theme='dark'] {
+  --color-bg: #10131a;
+  --color-surface: #1a1f2b;
+  --color-border: #2c3344;
+  --color-text: #e6e9f0;
+  --color-muted: #9aa3b8;
+  --color-error-bg: #3a1620;
+  --color-error-text: #ffb3c3;
+  --checker: #252b39;
+  color-scheme: dark;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
 }
 
 * {
@@ -72,6 +90,48 @@ select {
 .app__header p {
   margin: 4px 0 0;
   color: var(--color-muted);
+}
+
+.app__header-end {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 24px;
+}
+
+.theme-toggle {
+  display: flex;
+  padding: 2px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+}
+
+.theme-toggle button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--color-muted);
+  cursor: pointer;
+}
+
+.theme-toggle button:hover {
+  color: var(--color-text);
+}
+
+.theme-toggle button[aria-checked='true'] {
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: 0 0 0 1px var(--color-border);
+}
+
+.theme-toggle button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
 }
 
 .steps {
