@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_TRACING } from '../lib/tracing';
 import type { QuantizeResponse, VectorizeResponse } from '../types/api';
-import { DEFAULT_COLORS, useAppStore } from './store';
+import { DEFAULT_COLORS, reachableSteps, useAppStore } from './store';
 
 const quantized: QuantizeResponse = {
   width: 2,
@@ -564,6 +564,24 @@ describe('app store', () => {
 
     expect(store().editor).toBeNull();
     expect(store().selection).toEqual([]);
+  });
+
+  it('only opens steps that are reachable', async () => {
+    expect(reachableSteps(store())).toEqual(['upload']);
+    store().goTo('result');
+    expect(store().step).toBe('upload');
+
+    store().selectFile(file);
+    expect(reachableSteps(store())).toEqual(['upload', 'palette']);
+
+    useAppStore.setState({ quantized });
+    vi.stubGlobal('fetch', respond(vectorized));
+    await store().runVectorize();
+    expect(reachableSteps(store())).toEqual(['upload', 'palette', 'result']);
+
+    store().goTo('upload');
+    store().goTo('result');
+    expect(store().step).toBe('result');
   });
 
   it('navigates and resets', () => {

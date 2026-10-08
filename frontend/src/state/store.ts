@@ -22,6 +22,18 @@ export type Status = 'idle' | 'quantizing' | 'vectorizing';
 
 export const DEFAULT_COLORS = 8;
 
+export const STEPS: Step[] = ['upload', 'palette', 'result'];
+
+/** Steps the user can open now: colors need an image, the SVG step a converted result. */
+export function reachableSteps(state: Pick<AppState, 'file' | 'vectorized' | 'editor'>): Step[] {
+  return STEPS.filter(
+    (step) =>
+      step === 'upload' ||
+      (step === 'palette' && state.file !== null) ||
+      (step === 'result' && state.vectorized !== null && state.editor !== null),
+  );
+}
+
 /** Conversion workflow: upload, colors and palette, tracing (docs/07-frontend.md). */
 export interface WorkflowSlice {
   step: Step;
@@ -68,6 +80,7 @@ export interface WorkflowSlice {
   resetTracing: () => void;
   runQuantize: () => Promise<void>;
   runVectorize: () => Promise<void>;
+  /** Open a step; ignored when it is not reachable yet (see `reachableSteps`). */
   goTo: (step: Step) => void;
   reset: () => void;
 }
@@ -263,7 +276,9 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
     }
   },
 
-  goTo: (step) => set({ step, error: null }),
+  goTo: (step) => {
+    if (reachableSteps(get()).includes(step)) set({ step, error: null });
+  },
 
   reset: () => {
     pending?.abort();

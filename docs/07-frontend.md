@@ -19,6 +19,11 @@ The application is a single page with a three-step wizard. Going back to the col
 keeps the palette edits; changing the color count or method re-quantizes and resets them
 (palette indices change).
 
+The step indicator in the header is the navigation: completed steps show a check mark,
+and every step that is reachable (`reachableSteps` in the store — colors once an image is
+chosen, SVG once it has been converted) is a button, so the user can jump between the
+colors and the editor without losing edits. `goTo` ignores unreachable steps.
+
 ```mermaid
 stateDiagram-v2
     [*] --> Upload
