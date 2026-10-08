@@ -1,6 +1,6 @@
 /**
- * Export formats offered in the result step. SVG is produced in the browser; all other
- * formats are converted by the backend (`POST /api/v1/export/{id}`).
+ * Export formats offered in the result step. SVG and PNG are produced in the browser; all
+ * other formats are converted by the backend (`POST /api/v1/export/{id}`).
  * See docs/13-export-formats.md.
  */
 
@@ -42,6 +42,8 @@ export interface ExportFormat {
   options: ExportOption[];
   /** Offers per-color heights (sent as `layer_heights`). */
   perColorHeights?: boolean;
+  /** Rendered in the browser instead of converted by the backend. */
+  client?: boolean;
 }
 
 /** Options shared by the 3D formats (STL, 3MF), mirroring the backend form fields. */
@@ -185,6 +187,35 @@ export const EXPORT_FORMATS: ExportFormat[] = [
         min: 0,
         max: 100,
         step: 1,
+      },
+    ],
+  },
+  {
+    id: 'png',
+    label: 'PNG',
+    extension: 'png',
+    description: 'Raster image of the edited document, rendered in your browser.',
+    client: true,
+    options: [
+      {
+        type: 'number',
+        name: 'width_px',
+        label: 'Width',
+        unit: 'px',
+        default: 2048,
+        min: 16,
+        max: 16384,
+        step: 1,
+      },
+      {
+        type: 'choice',
+        name: 'background',
+        label: 'Background',
+        default: 'transparent',
+        choices: [
+          { value: 'transparent', label: 'Transparent' },
+          { value: 'white', label: 'White' },
+        ],
       },
     ],
   },

@@ -11,6 +11,7 @@ import {
   type ColorHeight,
   type ExportValues,
 } from '../lib/exportFormats';
+import { rasterSize, svgToPng } from '../lib/raster';
 import { useAppStore } from '../state/store';
 import type { FilamentPlan } from '../types/api';
 import { ColorHeightsTable } from './ColorHeightsTable';
@@ -65,6 +66,18 @@ export function ExportPanel() {
       ? { ...current, layer_heights: layerHeightsJson(colorHeights) }
       : current;
   const invalid = Object.keys(errors).length > 0 || colorHeightsError !== null;
+  const raster =
+    format.client && !invalid
+      ? rasterSize(editor.width, editor.height, Number(current.width_px))
+      : null;
+
+  const render = (): Promise<Blob> => {
+    const svg = serializeSvg(editor);
+    if (raster) {
+      return svgToPng(svg, raster, current.background === 'white' ? '#ffffff' : null);
+    }
+    return exportFile(format.id, svg, requestOptions());
+  };
 
   const showPlan = async () => {
     setPlanning(true);
@@ -82,7 +95,7 @@ export function ExportPanel() {
     setStatus('exporting');
     setError(null);
     try {
-      const blob = await exportFile(format.id, serializeSvg(editor), requestOptions());
+      const blob = await render();
       download(blob, exportFileName(file?.name, format.extension));
     } catch (caught) {
       setError(errorMessage(caught, 'Export failed'));
@@ -172,6 +185,12 @@ export function ExportPanel() {
           );
         })}
       </div>
+      {raster && (
+        <p className="hint" role="status">
+          Output: {raster.width} × {raster.height} px
+          {raster.limited && ' (reduced to the largest image browsers can render)'}
+        </p>
+      )}
       {format.perColorHeights && (
         <ColorHeightsTable
           groups={editor.groups}

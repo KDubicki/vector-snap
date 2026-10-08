@@ -111,4 +111,15 @@ describe('per-color heights', () => {
     expect(snapToLayers(0.05, 0.2)).toBe(0.2);
     expect(snapToLayers(1, 0.12)).toBe(0.96);
   });
+
+  it('renders png in the browser with a width and background', () => {
+    const png = EXPORT_FORMATS.find((format) => format.id === 'png')!;
+
+    expect(png.client).toBe(true);
+    expect(defaultValues(png)).toEqual({ width_px: 2048, background: 'transparent' });
+    expect(validate(png, { width_px: 8, background: 'pink' })).toEqual({
+      width_px: 'Must be between 16 and 16384.',
+      background: 'Choose one of the options.',
+    });
+  });
 });

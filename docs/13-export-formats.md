@@ -8,6 +8,7 @@ of the microservice can use it too.
 | Format | Endpoint | Typical use | Status |
 |--------|----------|-------------|--------|
 | SVG | — (browser) | Web, design tools | ✅ |
+| PNG | — (browser) | Raster image at any width, transparent or white background | ✅ |
 | STL | `POST /api/v1/export/stl` | 3D printing (relief / multi-color prints) | ✅ |
 | 3MF | `POST /api/v1/export/3mf` | Multi-color / multi-material 3D printing (AMS, MMU, tool changers) | ✅ |
 | DXF | `POST /api/v1/export/dxf` | Laser cutters, vinyl plotters, CNC | ✅ |
@@ -111,6 +112,23 @@ notion of parts or colors.
   package, materials, assembly, closed indexed meshes and that the total volume equals
   the STL export with the same options.
 - A 440-shape document: 1.8 MB (STL: 8.8 MB) in ≈2 s.
+
+## PNG
+
+Rendered in the browser from the edited document (`src/lib/raster.ts`) — no request to
+the backend:
+
+| Option | Default | Meaning |
+|--------|---------|---------|
+| `width_px` | `2048` | Image width (16–16384); the height follows the aspect ratio |
+| `background` | `transparent` | `transparent` keeps removed colors and empty areas see-through; `white` fills them |
+
+- The serialized SVG is loaded into an `<img>`, drawn onto a canvas of the target size
+  (vector shapes are rasterized at full resolution, not upscaled) and encoded with
+  `canvas.toBlob('image/png')`.
+- Sizes are capped at **16.7 megapixels** (the largest canvas Safari renders): larger
+  requests are scaled down proportionally, and the panel shows the actual output size
+  before exporting.
 
 ## Filament change plan
 
@@ -225,7 +243,7 @@ For STL and 3MF, **Preview 3D** shows the model before downloading it:
   HiDPI note in [08-svg-editor.md](08-svg-editor.md#testing)); renderer, controls,
   geometries and materials are disposed on close.
 
-The result step has an **Export to other formats** panel: choose STL, 3MF, DXF or PDF, adjust
+The result step has an **Export to other formats** panel: choose STL, 3MF, DXF, PDF or PNG, adjust
 its options (number, checkbox and choice options, validated in the browser with the same
 ranges as the API; each format remembers its own values) and download the file named
 after the uploaded image (`logo.png` → `logo.stl`). The export always uses
