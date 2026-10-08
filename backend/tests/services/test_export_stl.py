@@ -303,3 +303,37 @@ def test_hanging_loop_hole_stays_open() -> None:
 def test_hanging_loop_needs_a_base_plate() -> None:
     with pytest.raises(InvalidParameters, match="needs a base plate"):
         _export(StlOptions(base_mm=0, loop_hole_mm=4), [("#000000", [FRAME])])
+
+
+def test_magnet_pocket_is_recessed_into_the_underside_of_the_base() -> None:
+    square = "M0,0 L20,0 L20,20 L0,20 Z"
+    options = StlOptions(width_mm=40, base_mm=3, magnet_mm=10, magnet_depth_mm=2)
+
+    base = _base(options, [("#000000", [square])])
+
+    pocket = np.pi * 25 * np.cos(np.pi / 128) * np.sinc(1 / 64)  # area of the 128-gon
+    assert signed_volume(base) == pytest.approx(400 * 3 - pocket * 2, rel=1e-4)
+    # the pocket is centered in the square (y flipped: 10..30 -> center (10, 10))
+    floor = base[(base[..., 2] == 2).all(axis=1)]
+    assert np.hypot(floor[..., 0] - 10, floor[..., 1] - 10).max() == pytest.approx(5, abs=1e-6)
+
+
+def test_magnet_pocket_needs_room_in_the_plate() -> None:
+    options = StlOptions(width_mm=40, base_mm=3, magnet_mm=12, magnet_depth_mm=2)
+
+    with pytest.raises(InvalidParameters, match=r"fits at most 3\.9 mm"):
+        _export(options, [("#000000", [FRAME])])  # 5 mm wide frame, widest in its corners
+
+
+def test_magnet_pocket_fits_exactly_under_the_roof() -> None:
+    square = "M0,0 L20,0 L20,20 L0,20 Z"
+    options = StlOptions(width_mm=40, base_mm=2.4, magnet_mm=5, magnet_depth_mm=2)
+
+    assert is_closed(_base(options, [("#000000", [square])]))
+
+
+def test_magnet_pocket_needs_a_roof() -> None:
+    options = StlOptions(width_mm=40, base_mm=2, magnet_mm=2, magnet_depth_mm=2)
+
+    with pytest.raises(InvalidParameters, match=r"base plate of at least 2\.4 mm"):
+        _export(options, [("#000000", [FRAME])])

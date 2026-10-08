@@ -5,8 +5,9 @@ multi-color design prints as a relief (or, with `layered=False`, all colors shar
 height). Heights can be set per color (0 leaves a color out) and the model mirrored;
 details thinner than the nozzle can be removed before extrusion, and heights can be
 rounded to whole printer layers. The base plate follows the design's outline or is a
-rectangle, rounded rectangle or circle around it; colors can be stacked in document order or
-by brightness, and a hanging loop can be added at the top of the base plate.
+rectangle, rounded rectangle or circle around it; colors can be stacked in document order
+or by brightness. A hanging loop can be added at the top of the base plate and a magnet
+pocket in its underside.
 Coordinates are converted to millimetres and the y axis is flipped (SVG y points down,
 STL z-up models are viewed from above with y up). See docs/13-export-formats.md.
 """
@@ -31,7 +32,7 @@ from shapely import (
 )
 from shapely.geometry.base import BaseGeometry
 from shapely.geometry.polygon import orient
-from shapely.ops import nearest_points
+from shapely.ops import nearest_points, polylabel
 
 from app.core.errors import InvalidParameters
 from app.services.svg_geometry import (
@@ -50,6 +51,9 @@ StackOrder = Literal["document", "light_to_dark", "dark_to_light"]
 ROUNDED_CORNER_RATIO = 0.15
 # Width of the ring around the hanging loop's hole (mm).
 LOOP_WALL_MM = 2.0
+# Minimum plastic around (and above) a magnet pocket (mm).
+MAGNET_WALL_MM = 1.0
+MAGNET_ROOF_MM = 0.4
 # Segments per quarter circle of round outlines.
 _QUAD_SEGS = 32
 
@@ -79,6 +83,9 @@ class StlOptions:
     stack_order: StackOrder = "document"
     # Hole diameter of a hanging loop on top of the base plate (keyrings, hooks); 0 = none.
     loop_hole_mm: float = 0.0
+    # Round pocket in the underside of the base plate for a magnet (diameter, depth; mm).
+    magnet_mm: float = 0.0
+    magnet_depth_mm: float = 2.0
 
 
 @dataclass(frozen=True)
@@ -90,27 +97,52 @@ class Body:
     triangles: NDArray[np.float64]  # N x 3 x 3, millimetres
 
 
-def _prism(polygon: Polygon, bottom: float, top: float) -> NDArray[np.float64]:
-    """Closed triangle mesh (N x 3 x 3) of a polygon with holes extruded from bottom to top.
+def _at(points: NDArray[np.float64], z: float) -> NDArray[np.float64]:
+    return np.concatenate([points, np.full((*points.shape[:-1], 1), z)], axis=-1)
 
-    Caps use GEOS constrained Delaunay triangulation, which is robust for polygons with
-    many holes and reuses the exact ring vertices, so caps and walls share their edges.
+
+def _cap(polygon: Polygon, z: float, *, up: bool) -> NDArray[np.float64]:
+    """Flat triangulation of a polygon with holes at height z, facing up or down.
+
+    GEOS constrained Delaunay triangulation is robust for polygons with many holes and
+    reuses the exact ring vertices, so caps and walls share their edges.
     """
-    polygon = orient(polygon, sign=1.0)  # exterior counter-clockwise, holes clockwise
     caps = get_coordinates(constrained_delaunay_triangles(polygon)).reshape(-1, 4, 2)[:, :3]
     u, v = caps[:, 1] - caps[:, 0], caps[:, 2] - caps[:, 0]
     clockwise = u[:, 0] * v[:, 1] - u[:, 1] * v[:, 0] < 0
     caps[clockwise] = caps[clockwise][:, [0, 2, 1]]
+    return _at(caps if up else caps[:, [0, 2, 1]], z)
 
-    def at(points: NDArray[np.float64], z: float) -> NDArray[np.float64]:
-        return np.concatenate([points, np.full((*points.shape[:-1], 1), z)], axis=-1)
 
-    parts = [at(caps, top), at(caps[:, [0, 2, 1]], bottom)]
-    for ring in [polygon.exterior, *polygon.interiors]:
-        start = np.asarray(ring.coords)[:-1]
-        end = np.roll(start, -1, axis=0)
-        a0, b0, a1, b1 = at(start, bottom), at(end, bottom), at(start, top), at(end, top)
-        parts += [np.stack([a0, b0, b1], axis=1), np.stack([a0, b1, a1], axis=1)]
+def _walls(ring: NDArray[np.float64], bottom: float, top: float) -> NDArray[np.float64]:
+    """Side walls of a closed ring; counter-clockwise rings face out, clockwise ones in."""
+    start = ring[:-1]
+    end = np.roll(start, -1, axis=0)
+    a0, b0, a1, b1 = _at(start, bottom), _at(end, bottom), _at(start, top), _at(end, top)
+    return np.concatenate([np.stack([a0, b0, b1], axis=1), np.stack([a0, b1, a1], axis=1)])
+
+
+def _prism(
+    polygon: Polygon, bottom: float, top: float, pocket: Polygon | None = None, depth: float = 0
+) -> NDArray[np.float64]:
+    """Closed triangle mesh (N x 3 x 3) of a polygon with holes extruded from bottom to top.
+
+    `pocket` (inside the polygon, clear of its holes) is recessed `depth` into the bottom.
+    """
+    polygon = orient(polygon, sign=1.0)  # exterior counter-clockwise, holes clockwise
+    rings = [polygon.exterior, *polygon.interiors]
+    parts = [_cap(polygon, top, up=True)]
+    parts += [_walls(np.asarray(ring.coords), bottom, top) for ring in rings]
+    if pocket is None:
+        parts.append(_cap(polygon, bottom, up=False))
+    else:
+        pocket = orient(pocket, sign=-1.0)  # a hole of the bottom face: clockwise
+        floor = Polygon(polygon.exterior, [*polygon.interiors, pocket.exterior])
+        parts += [
+            _cap(floor, bottom, up=False),
+            _walls(np.asarray(pocket.exterior.coords), bottom, bottom + depth),
+            _cap(pocket, bottom + depth, up=False),
+        ]
     return np.concatenate(parts)
 
 
@@ -185,6 +217,29 @@ def with_loop(outline: BaseGeometry, hole_mm: float) -> BaseGeometry:
     return outline.union(ring).difference(center.buffer(radius, quad_segs=_QUAD_SEGS))
 
 
+def magnet_pocket(outline: BaseGeometry, diameter_mm: float) -> Polygon | None:
+    """Round pocket for a magnet in the widest spot of the largest base polygon.
+
+    None when no magnet is requested; raises when the plate has no spot wide enough.
+    """
+    if diameter_mm <= 0:
+        return None
+    parts = polygons(outline)
+    if not parts:
+        return None
+    largest = max(parts, key=lambda part: part.area)
+    center = polylabel(largest, tolerance=0.01)
+    room = largest.boundary.distance(center)
+    radius = diameter_mm / 2
+    if room < radius + MAGNET_WALL_MM:
+        raise InvalidParameters(
+            f"No room for a {diameter_mm:g} mm magnet: the base plate fits at most "
+            f"{max(0.0, 2 * (room - MAGNET_WALL_MM)):.1f} mm.",
+            {"field": "magnet_mm"},
+        )
+    return center.buffer(radius, quad_segs=_QUAD_SEGS)
+
+
 def relative_luminance(hex_color: str) -> float:
     """WCAG relative luminance of a `#rrggbb` color: 0 (black) to 1 (white)."""
     channels = [int(hex_color[i : i + 2], 16) / 255 for i in (1, 3, 5)]
@@ -253,6 +308,12 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
         raise InvalidParameters(
             "A hanging loop needs a base plate (base_mm > 0).", {"field": "loop_hole_mm"}
         )
+    if options.magnet_mm > 0 and options.magnet_depth_mm > base - MAGNET_ROOF_MM + 1e-9:
+        raise InvalidParameters(
+            f"A {options.magnet_depth_mm:g} mm deep magnet pocket needs a base plate of at "
+            f"least {options.magnet_depth_mm + MAGNET_ROOF_MM:g} mm.",
+            {"field": "magnet_depth_mm"},
+        )
     bodies: list[Body] = []
     if base > 0:
         silhouette = printable(
@@ -260,7 +321,13 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
         )
         silhouette = base_outline(silhouette, options.base_shape, options.base_margin_mm)
         silhouette = with_loop(silhouette, options.loop_hole_mm)
-        parts = [_prism(polygon, 0.0, base) for polygon in polygons(silhouette)]
+        pocket = magnet_pocket(silhouette, options.magnet_mm)
+        parts = [
+            _prism(polygon, 0.0, base, pocket, options.magnet_depth_mm)
+            if pocket is not None and pocket.within(polygon)
+            else _prism(polygon, 0.0, base)
+            for polygon in polygons(silhouette)
+        ]
         if parts:
             bodies.append(Body("base", included[0][0].fill, np.concatenate(parts)))
     for layer, geometry, height in included:

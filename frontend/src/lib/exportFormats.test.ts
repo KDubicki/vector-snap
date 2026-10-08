@@ -23,6 +23,8 @@ describe('export formats', () => {
       layer_mm: 1,
       stack_order: 'document',
       loop_hole_mm: 0,
+      magnet_mm: 0,
+      magnet_depth_mm: 2,
       min_feature_mm: 0,
       print_layer_mm: 0,
       layered: true,
@@ -41,6 +43,8 @@ describe('export formats', () => {
         layer_mm: 1,
         stack_order: 'document',
         loop_hole_mm: 0,
+        magnet_mm: 0,
+        magnet_depth_mm: 2,
         min_feature_mm: 11,
         print_layer_mm: 0.2,
         layered: 'yes' as never,
@@ -62,6 +66,20 @@ describe('export formats', () => {
     expect(validate(stl, values)).toEqual({});
     expect(validate(stl, { ...values, base_mm: 0 })).toEqual({
       loop_hole_mm: 'A hanging loop needs a base plate.',
+    });
+  });
+
+  it('requires a base plate thick enough for the magnet pocket', () => {
+    const values = { ...defaultValues(stl), magnet_mm: 10, magnet_depth_mm: 2 };
+
+    expect(validate(stl, values)).toEqual({
+      magnet_depth_mm: 'Needs a base plate of at least 2.4 mm.',
+    });
+    expect(validate(stl, { ...values, base_mm: 2.4 })).toEqual({});
+    expect(validate(stl, { ...values, magnet_mm: 0 })).toEqual({});
+    // the base is rounded to printer layers first: 2.4 -> 2.1 with 0.7 mm layers
+    expect(validate(stl, { ...values, base_mm: 2.4, print_layer_mm: 0.7 })).toEqual({
+      magnet_depth_mm: 'Needs a base plate of at least 2.4 mm.',
     });
   });
 

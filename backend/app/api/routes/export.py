@@ -69,6 +69,12 @@ def stl_options(
     loop_hole_mm: Annotated[
         float, Form(ge=0, le=20, description="Hanging loop hole diameter on the base; 0 = none")
     ] = 0.0,
+    magnet_mm: Annotated[
+        float, Form(ge=0, le=50, description="Magnet pocket diameter under the base; 0 = none")
+    ] = 0.0,
+    magnet_depth_mm: Annotated[
+        float, Form(gt=0, le=20, description="Magnet pocket depth (below base_mm - 0.4)")
+    ] = 2.0,
 ) -> StlOptions:
     """3D model options shared by STL and 3MF."""
     return StlOptions(
@@ -84,6 +90,8 @@ def stl_options(
         base_margin_mm=base_margin_mm,
         stack_order=stack_order,
         loop_hole_mm=loop_hole_mm,
+        magnet_mm=magnet_mm,
+        magnet_depth_mm=magnet_depth_mm,
     )
 
 

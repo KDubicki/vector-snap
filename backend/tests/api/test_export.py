@@ -57,6 +57,8 @@ def test_stl_defaults(client: TestClient) -> None:
         ({"stack_order": "random"}, "VALIDATION_ERROR"),
         ({"loop_hole_mm": "21"}, "VALIDATION_ERROR"),
         ({"loop_hole_mm": "4", "base_mm": "0"}, "INVALID_PARAMETERS"),
+        ({"magnet_mm": "51"}, "VALIDATION_ERROR"),
+        ({"magnet_mm": "8", "magnet_depth_mm": "2"}, "INVALID_PARAMETERS"),  # base 1 mm
     ],
 )
 def test_rejects_invalid_options(client: TestClient, form: dict[str, str], code: str) -> None:
@@ -74,6 +76,16 @@ def test_stl_base_shape_and_margin(client: TestClient) -> None:
     assert is_balanced(triangles)
     assert (triangles[..., 0].min(), triangles[..., 0].max()) == pytest.approx((-5, 45))
     assert (triangles[..., 1].min(), triangles[..., 1].max()) == pytest.approx((-5, 25))
+
+
+def test_stl_magnet_pocket_keeps_every_part_closed(client: TestClient) -> None:
+    form = {"width_mm": "40", "base_mm": "3", "magnet_mm": "10", "magnet_depth_mm": "2"}
+
+    triangles = read_binary_stl(_post(client, "stl", form).content)
+
+    assert is_balanced(triangles)
+    assert triangles[..., 2].min() == 0
+    assert (triangles[..., 2] == 2).any()  # the pocket ceiling
 
 
 def test_rejects_invalid_svg(client: TestClient) -> None:

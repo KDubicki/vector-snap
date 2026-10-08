@@ -17,8 +17,8 @@ export interface NumberOption {
   step: number;
   /** Short explanation shown under the field. */
   hint?: string;
-  /** A value above 0 needs this other number option to be above 0 too. */
-  requires?: { name: string; message: string };
+  /** Extra rule involving other options: an error message, or `null` when valid. */
+  check?: (value: number, values: ExportValues) => string | null;
 }
 
 export interface BooleanOption {
@@ -51,6 +51,9 @@ export interface ExportFormat {
   /** Rendered in the browser instead of converted by the backend. */
   client?: boolean;
 }
+
+/** Plastic left above a magnet pocket (mm), as in the backend. */
+export const MAGNET_ROOF_MM = 0.4;
 
 /** Options shared by the 3D formats (STL, 3MF), mirroring the backend form fields. */
 const MODEL_OPTIONS: ExportOption[] = [
@@ -130,7 +133,35 @@ const MODEL_OPTIONS: ExportOption[] = [
     max: 20,
     step: 0.5,
     hint: 'Adds a loop at the top of the base plate for a keyring or hook, with a hole of this diameter (e.g. 4). 0 = no loop.',
-    requires: { name: 'base_mm', message: 'A hanging loop needs a base plate.' },
+    check: (value, values) =>
+      value > 0 && !(Number(values.base_mm) > 0) ? 'A hanging loop needs a base plate.' : null,
+  },
+  {
+    type: 'number',
+    name: 'magnet_mm',
+    label: 'Magnet pocket diameter',
+    unit: 'mm',
+    default: 0,
+    min: 0,
+    max: 50,
+    step: 0.1,
+    hint: 'Round pocket in the underside of the base plate, e.g. 10.2 for a 10 mm magnet (add ~0.2 mm clearance). 0 = none.',
+  },
+  {
+    type: 'number',
+    name: 'magnet_depth_mm',
+    label: 'Magnet pocket depth',
+    unit: 'mm',
+    default: 2,
+    min: 0.1,
+    max: 20,
+    step: 0.1,
+    check: (value, values) => {
+      const base = snapToLayers(Number(values.base_mm), Number(values.print_layer_mm ?? 0));
+      return Number(values.magnet_mm) > 0 && value > base - MAGNET_ROOF_MM + 1e-9
+        ? `Needs a base plate of at least ${Number((value + MAGNET_ROOF_MM).toFixed(2))} mm.`
+        : null;
+    },
   },
   {
     type: 'number',
@@ -291,8 +322,9 @@ export function validate(format: ExportFormat, values: ExportValues): Record<str
         errors[option.name] = 'Enter a number.';
       } else if (value < option.min || value > option.max) {
         errors[option.name] = `Must be between ${option.min} and ${option.max}.`;
-      } else if (value > 0 && option.requires && !(Number(values[option.requires.name]) > 0)) {
-        errors[option.name] = option.requires.message;
+      } else {
+        const message = option.check?.(value, values);
+        if (message) errors[option.name] = message;
       }
     } else if (option.type === 'choice') {
       if (!option.choices.some((choice) => choice.value === value)) {
