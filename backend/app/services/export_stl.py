@@ -4,7 +4,8 @@ Each color layer is extruded to its own height on top of an optional base plate,
 multi-color design prints as a relief (or, with `layered=False`, all colors share one
 height). Heights can be set per color (0 leaves a color out) and the model mirrored;
 details thinner than the nozzle can be removed before extrusion, and heights can be
-rounded to whole printer layers.
+rounded to whole printer layers. The base plate follows the design's outline or is a
+rectangle, rounded rectangle or circle around it.
 Coordinates are converted to millimetres and the y axis is flipped (SVG y points down,
 STL z-up models are viewed from above with y up). See docs/13-export-formats.md.
 """
@@ -12,14 +13,19 @@ STL z-up models are viewed from above with y up). See docs/13-export-formats.md.
 import math
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from typing import Literal
 
 import numpy as np
 from numpy.typing import NDArray
 from shapely import (
+    Point,
     Polygon,
     affinity,
+    box,
     constrained_delaunay_triangles,
     get_coordinates,
+    minimum_bounding_circle,
+    minimum_bounding_radius,
     unary_union,
 )
 from shapely.geometry.base import BaseGeometry
@@ -32,6 +38,13 @@ from app.services.svg_geometry import (
     polygons,
     to_millimetres,
 )
+
+BaseShape = Literal["outline", "rectangle", "rounded", "circle"]
+
+# Corner radius of the "rounded" base plate, relative to its shorter side.
+ROUNDED_CORNER_RATIO = 0.15
+# Segments per quarter circle of round outlines.
+_QUAD_SEGS = 32
 
 _TRIANGLE_DTYPE = np.dtype(
     [("normal", "<f4", (3,)), ("vertices", "<f4", (3, 3)), ("attribute", "<u2")]
@@ -53,6 +66,9 @@ class StlOptions:
     min_feature_mm: float = 0.0
     # Printer layer height (mm): the base and every color end on a layer boundary; 0 = off.
     print_layer_mm: float = 0.0
+    # Shape of the base plate and how far it extends beyond the design (mm).
+    base_shape: BaseShape = "outline"
+    base_margin_mm: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -114,6 +130,33 @@ def printable(geometry: BaseGeometry, min_feature_mm: float) -> BaseGeometry:
     return shrunk.buffer(radius, join_style="mitre").intersection(geometry)
 
 
+def base_outline(silhouette: BaseGeometry, shape: BaseShape, margin_mm: float) -> BaseGeometry:
+    """Footprint of the base plate around the design's `silhouette` (millimetres).
+
+    `outline` follows the design (grown by the margin with round joins, like a sticker
+    border); the other shapes enclose the whole design plus the margin, filling gaps and
+    transparent areas.
+    """
+    if silhouette.is_empty:
+        return silhouette
+    if shape == "outline":
+        return silhouette.buffer(margin_mm, quad_segs=_QUAD_SEGS) if margin_mm > 0 else silhouette
+    if shape == "circle":
+        center = minimum_bounding_circle(silhouette).centroid
+        # The polygon circumscribes the true circle, so no point of the design sticks out.
+        radius = (minimum_bounding_radius(silhouette) + margin_mm) / math.cos(
+            math.pi / (4 * _QUAD_SEGS)
+        )
+        return Point(center.x, center.y).buffer(radius, quad_segs=_QUAD_SEGS)
+    minx, miny, maxx, maxy = silhouette.bounds
+    rectangle = box(minx - margin_mm, miny - margin_mm, maxx + margin_mm, maxy + margin_mm)
+    if shape == "rectangle":
+        return rectangle
+    # Concentric with a corner of the design's bounding box, so the margin stays even.
+    radius = ROUNDED_CORNER_RATIO * min(maxx - minx, maxy - miny) + margin_mm
+    return rectangle.buffer(-radius, join_style="mitre").buffer(radius, quad_segs=_QUAD_SEGS)
+
+
 def snap_to_layers(height: float, print_layer_mm: float) -> float:
     """Round a positive height to whole printer layers, keeping at least one layer.
 
@@ -166,6 +209,7 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
         silhouette = printable(
             unary_union([geometry for _, geometry, _ in included]), options.min_feature_mm
         )
+        silhouette = base_outline(silhouette, options.base_shape, options.base_margin_mm)
         parts = [_prism(polygon, 0.0, base) for polygon in polygons(silhouette)]
         if parts:
             bodies.append(Body("base", included[0][0].fill, np.concatenate(parts)))

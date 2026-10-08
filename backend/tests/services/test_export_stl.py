@@ -174,3 +174,52 @@ def test_snapping_keeps_at_least_one_layer() -> None:
 )
 def test_snap_to_layers(height: float, layer: float, expected: float) -> None:
     assert snap_to_layers(height, layer) == pytest.approx(expected)
+
+
+def _base(options: StlOptions, groups: list[tuple[str, list[str]]]) -> np.ndarray:
+    bodies = build_bodies(parse_svg(contract_svg(40, 20, groups)), options)
+    assert bodies[0].name == "base"
+    assert is_closed(bodies[0].triangles)
+    return bodies[0].triangles
+
+
+def test_rectangle_base_covers_the_design_and_the_margin() -> None:
+    options = StlOptions(width_mm=40, base_mm=1, base_shape="rectangle", base_margin_mm=2)
+
+    base = _base(options, [("#000000", [FRAME]), ("#ff0000", [DOT])])
+
+    # design spans x 0..40, y 0..20 (with a gap between frame and dot and a hole)
+    assert (base[..., 0].min(), base[..., 0].max()) == pytest.approx((-2, 42))
+    assert (base[..., 1].min(), base[..., 1].max()) == pytest.approx((-2, 22))
+    assert signed_volume(base) == pytest.approx(44 * 24)
+
+
+def test_outline_base_grows_by_the_margin() -> None:
+    square = "M0,0 L10,0 L10,10 L0,10 Z"
+    options = StlOptions(width_mm=40, base_mm=1, base_margin_mm=1)
+
+    base = _base(options, [("#000000", [square])])
+
+    # 10x10 square grown by 1 mm with round corners: 100 + 4 x 10 + pi
+    assert signed_volume(base) == pytest.approx(140 + np.pi, rel=1e-3)
+
+
+def test_rounded_base_has_round_corners() -> None:
+    options = StlOptions(width_mm=40, base_mm=1, base_shape="rounded")
+
+    base = _base(options, [("#000000", [FRAME]), ("#ff0000", [DOT])])
+
+    # 40x20 rectangle with corner radius 0.15 x 20 = 3 mm
+    assert signed_volume(base) == pytest.approx(800 - (4 - np.pi) * 9, rel=1e-3)
+    assert (base[..., 0].min(), base[..., 0].max()) == pytest.approx((0, 40))
+
+
+def test_circle_base_encloses_the_whole_design() -> None:
+    options = StlOptions(width_mm=40, base_mm=1, base_shape="circle", base_margin_mm=1)
+
+    base = _base(options, [("#000000", [FRAME]), ("#ff0000", [DOT])])
+
+    # smallest circle around the 40x20 design: center (20, 10), radius sqrt(500)
+    radius = float(np.hypot(base[..., 0] - 20, base[..., 1] - 10).max())
+    assert radius == pytest.approx(np.sqrt(500) + 1, rel=1e-3)
+    assert signed_volume(base) == pytest.approx(np.pi * radius**2, rel=1e-3)

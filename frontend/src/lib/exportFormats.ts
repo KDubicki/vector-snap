@@ -30,6 +30,8 @@ export interface ChoiceOption {
   label: string;
   default: string;
   choices: { value: string; label: string }[];
+  /** Short explanation shown under the field. */
+  hint?: string;
 }
 
 export type ExportOption = NumberOption | BooleanOption | ChoiceOption;
@@ -67,6 +69,30 @@ const MODEL_OPTIONS: ExportOption[] = [
     min: 0,
     max: 100,
     step: 0.2,
+  },
+  {
+    type: 'choice',
+    name: 'base_shape',
+    label: 'Base plate shape',
+    default: 'outline',
+    choices: [
+      { value: 'outline', label: 'Follow the design' },
+      { value: 'rectangle', label: 'Rectangle' },
+      { value: 'rounded', label: 'Rounded rectangle' },
+      { value: 'circle', label: 'Circle' },
+    ],
+    hint: 'Rectangle, rounded and circle plates fill gaps and transparent areas (signs, coasters, badges).',
+  },
+  {
+    type: 'number',
+    name: 'base_margin_mm',
+    label: 'Base plate margin',
+    unit: 'mm',
+    default: 0,
+    min: 0,
+    max: 100,
+    step: 1,
+    hint: 'How far the base plate extends beyond the design — a border around it.',
   },
   {
     type: 'number',

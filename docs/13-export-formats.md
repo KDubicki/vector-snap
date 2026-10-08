@@ -44,6 +44,8 @@ curl -F svg=@logo.svg -F width_mm=120 -F base_mm=1.5 -F layer_mm=0.8 \
 |--------|---------|---------|
 | `width_mm` | `100` | Model width; height follows the aspect ratio |
 | `base_mm` | `1.0` | Base plate under all shapes (`0` = no base) |
+| `base_shape` | `outline` | Base plate footprint: `outline` (follows the design), `rectangle`, `rounded` (rectangle with round corners) or `circle` (smallest circle around the design) |
+| `base_margin_mm` | `0` | How far the base plate extends beyond the design (0–100) — a border around it |
 | `layer_mm` | `1.0` | Extrusion height per color layer |
 | `layered` | `true` | `true`: layer *n* (bottom to top) is *n × layer_mm* high (relief, easy color changes by height); `false`: all layers share one height |
 | `layer_heights` | `{}` | JSON object `{"<paletteIndex>": mm}` overriding the height above the base per color (0 < h ≤ 100); **`0` leaves a color out** (e.g. print a logo without its background). Colors not listed follow `layer_mm` / `layered` |
@@ -74,8 +76,15 @@ Model construction:
   a layer the slicer actually prints, instead of being rounded by the slicer. E.g. with
   0.2 mm layers a 0.5 mm color becomes 0.6 mm. The slicer's first-layer height is
   assumed equal to the layer height.
-- The base plate is the union of the **included** layers, so transparent areas,
-  deleted shapes and colors left out with height 0 stay open. Leaving out every color is
+- The base plate (`base_shape=outline`) is the union of the **included** layers, so
+  transparent areas, deleted shapes and colors left out with height 0 stay open.
+- **Base plate shape**: with a margin, `outline` grows the design's outline with round
+  joins (a sticker-like border; gaps narrower than twice the margin close).
+  `rectangle`, `rounded` and `circle` enclose the whole design — the bounding box, the
+  same with corners rounded concentrically (radius 15 % of the shorter side plus the
+  margin), or the smallest enclosing circle — plus the margin, filling gaps and
+  transparent areas: signs, coasters, badges. The circle is a 128-gon circumscribing the
+  true circle, so no part of the design sticks out. Leaving out every color is
   `422 INVALID_PARAMETERS`.
 - The model is built as **bodies** (base plate, one per color) — the STL contains them
   all; the same bodies feed other 3D formats.
@@ -94,8 +103,9 @@ curl -F svg=@logo.svg -F base_mm=1 -F layer_heights='{"0": 0}' \
      http://localhost:8000/api/v1/export/3mf -o logo.3mf
 ```
 
-Same options and the same bodies as STL (`width_mm`, `base_mm`, `layer_mm`, `layered`,
-`layer_heights`, `mirror`, `min_feature_mm`, `print_layer_mm`), but packaged so a slicer keeps the colors apart — STL has no
+Same options and the same bodies as STL (`width_mm`, `base_mm`, `base_shape`,
+`base_margin_mm`, `layer_mm`, `layered`, `layer_heights`, `mirror`, `min_feature_mm`,
+`print_layer_mm`), but packaged so a slicer keeps the colors apart — STL has no
 notion of parts or colors.
 
 - [3MF core specification](https://3mf.io/specification/) package: `[Content_Types].xml`,

@@ -17,6 +17,8 @@ describe('export formats', () => {
     expect(defaultValues(stl)).toEqual({
       width_mm: 100,
       base_mm: 1,
+      base_shape: 'outline',
+      base_margin_mm: 0,
       layer_mm: 1,
       min_feature_mm: 0,
       print_layer_mm: 0,
@@ -31,6 +33,8 @@ describe('export formats', () => {
       validate(stl, {
         width_mm: 0,
         base_mm: Number.NaN,
+        base_shape: 'star',
+        base_margin_mm: -1,
         layer_mm: 1,
         min_feature_mm: 11,
         print_layer_mm: 0.2,
@@ -40,6 +44,8 @@ describe('export formats', () => {
     ).toEqual({
       width_mm: 'Must be between 1 and 10000.',
       base_mm: 'Enter a number.',
+      base_shape: 'Choose one of the options.',
+      base_margin_mm: 'Must be between 0 and 100.',
       min_feature_mm: 'Must be between 0 and 10.',
       layered: 'Invalid value.',
     });

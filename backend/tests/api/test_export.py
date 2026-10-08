@@ -52,6 +52,8 @@ def test_stl_defaults(client: TestClient) -> None:
         ({"layer_mm": "-1"}, "VALIDATION_ERROR"),
         ({"min_feature_mm": "-0.1"}, "VALIDATION_ERROR"),
         ({"print_layer_mm": "2"}, "VALIDATION_ERROR"),
+        ({"base_shape": "star"}, "VALIDATION_ERROR"),
+        ({"base_margin_mm": "-1"}, "VALIDATION_ERROR"),
     ],
 )
 def test_rejects_invalid_options(client: TestClient, form: dict[str, str], code: str) -> None:
@@ -59,6 +61,16 @@ def test_rejects_invalid_options(client: TestClient, form: dict[str, str], code:
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == code
+
+
+def test_stl_base_shape_and_margin(client: TestClient) -> None:
+    form = {"width_mm": "40", "base_mm": "1", "base_shape": "rectangle", "base_margin_mm": "5"}
+
+    triangles = read_binary_stl(_post(client, "stl", form).content)
+
+    assert is_balanced(triangles)
+    assert (triangles[..., 0].min(), triangles[..., 0].max()) == pytest.approx((-5, 45))
+    assert (triangles[..., 1].min(), triangles[..., 1].max()) == pytest.approx((-5, 25))
 
 
 def test_rejects_invalid_svg(client: TestClient) -> None:

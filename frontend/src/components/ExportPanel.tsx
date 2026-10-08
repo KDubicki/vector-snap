@@ -173,9 +173,7 @@ export function ExportPanel() {
                   onChange={(event) => update(option.name, event.target.valueAsNumber)}
                 />
               )}
-              {option.type === 'number' && option.hint && (
-                <span className="hint">{option.hint}</span>
-              )}
+              {option.hint && <span className="hint">{option.hint}</span>}
               {errors[option.name] && (
                 <span id={errorId} className="field-error">
                   {errors[option.name]}
