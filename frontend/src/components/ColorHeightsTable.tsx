@@ -1,5 +1,10 @@
 import type { ColorGroup } from '../editor/model';
-import { autoLayerHeight, type ColorHeight, type ExportValues } from '../lib/exportFormats';
+import {
+  autoLayerHeight,
+  stackPositions,
+  type ColorHeight,
+  type ExportValues,
+} from '../lib/exportFormats';
 
 interface ColorHeightsTableProps {
   groups: ColorGroup[];
@@ -17,11 +22,15 @@ export function ColorHeightsTable({
   error,
   onChange,
 }: ColorHeightsTableProps) {
+  const positions = stackPositions(
+    groups.map((group) => group.fill),
+    values.stack_order,
+  );
   return (
     <fieldset className="color-heights">
       <legend>Height per color (above the base)</legend>
       <ul>
-        {groups.map((group, position) => {
+        {groups.map((group, index) => {
           const setting = heights.find((h) => h.paletteIndex === group.paletteIndex);
           const included = setting?.included ?? true;
           const id = `color-height-${group.paletteIndex}`;
@@ -44,7 +53,7 @@ export function ColorHeightsTable({
                 max={100}
                 step={0.2}
                 disabled={!included}
-                placeholder={`auto ${autoLayerHeight(position, values)}`}
+                placeholder={`auto ${autoLayerHeight(positions[index], values)}`}
                 value={setting?.height ?? ''}
                 onChange={(event) =>
                   onChange(group.paletteIndex, {

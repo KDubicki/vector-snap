@@ -4,6 +4,8 @@
  * See docs/13-export-formats.md.
  */
 
+import { isHexColor, relativeLuminance } from './color';
+
 export interface NumberOption {
   type: 'number';
   name: string;
@@ -103,6 +105,18 @@ const MODEL_OPTIONS: ExportOption[] = [
     min: 0.1,
     max: 100,
     step: 0.2,
+  },
+  {
+    type: 'choice',
+    name: 'stack_order',
+    label: 'Color order (bottom to top)',
+    default: 'document',
+    choices: [
+      { value: 'document', label: 'As in the design' },
+      { value: 'light_to_dark', label: 'Light to dark' },
+      { value: 'dark_to_light', label: 'Dark to light' },
+    ],
+    hint: 'Which colors are stacked higher; the bottom color also prints the base plate.',
   },
   {
     type: 'number',
@@ -296,6 +310,21 @@ export function snapToLayers(height: number, printLayer: number): number {
   if (!(printLayer > 0) || !(height > 0)) return height;
   const layers = Math.max(1, Math.floor(height / printLayer + 0.5 + 1e-9));
   return Number((layers * printLayer).toFixed(6));
+}
+
+/**
+ * Stack position (bottom = 0) of each color for `stack_order`, mirroring the backend:
+ * by brightness, equally bright colors keep the document order.
+ */
+export function stackPositions(fills: string[], order: unknown): number[] {
+  if (order !== 'light_to_dark' && order !== 'dark_to_light') return fills.map((_, i) => i);
+  const sign = order === 'dark_to_light' ? 1 : -1;
+  const ranked = fills
+    .map((fill, index) => ({ index, key: sign * (isHexColor(fill) ? relativeLuminance(fill) : 0) }))
+    .sort((a, b) => a.key - b.key);
+  const positions: number[] = [];
+  ranked.forEach(({ index }, position) => (positions[index] = position));
+  return positions;
 }
 
 /** Automatic height of the layer at `position` (bottom = 0), mirroring the backend rule. */

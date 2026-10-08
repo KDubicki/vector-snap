@@ -54,6 +54,7 @@ def test_stl_defaults(client: TestClient) -> None:
         ({"print_layer_mm": "2"}, "VALIDATION_ERROR"),
         ({"base_shape": "star"}, "VALIDATION_ERROR"),
         ({"base_margin_mm": "-1"}, "VALIDATION_ERROR"),
+        ({"stack_order": "random"}, "VALIDATION_ERROR"),
     ],
 )
 def test_rejects_invalid_options(client: TestClient, form: dict[str, str], code: str) -> None:
@@ -189,6 +190,13 @@ def test_filament_plan(client: TestClient) -> None:
         "conflicts": [],
         "height_mm": 2.6,
     }
+
+
+def test_filament_plan_follows_the_stack_order(client: TestClient) -> None:
+    response = _post(client, "filament-plan", {"base_mm": "0.6", "stack_order": "light_to_dark"})
+
+    # red is lighter than black, so it is printed first (base) and black on top
+    assert [step["color"] for step in response.json()["steps"]] == ["#ff0000", "#000000"]
 
 
 def test_filament_plan_rejects_invalid_svg(client: TestClient) -> None:

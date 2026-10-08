@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { finalPalette, hexToRgb, isHexColor, rgbToHex } from './color';
+import { finalPalette, hexToRgb, isHexColor, relativeLuminance, rgbToHex } from './color';
 
 describe('color helpers', () => {
   it('converts between hex and rgb', () => {
@@ -20,5 +20,11 @@ describe('color helpers', () => {
     ];
 
     expect(finalPalette(palette, { 1: '#0000FF' })).toEqual(['#ff0000', '#0000ff']);
+  });
+
+  it('computes the relative luminance like the backend', () => {
+    expect(relativeLuminance('#000000')).toBe(0);
+    expect(relativeLuminance('#ffffff')).toBeCloseTo(1);
+    expect(relativeLuminance('#00ff00')).toBeGreaterThan(relativeLuminance('#ff0000'));
   });
 });

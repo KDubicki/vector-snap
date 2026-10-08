@@ -2,7 +2,15 @@ import numpy as np
 import pytest
 
 from app.core.errors import InvalidParameters
-from app.services.export_stl import StlOptions, build_bodies, export_stl, snap_to_layers
+from app.services.export_stl import (
+    StackOrder,
+    StlOptions,
+    build_bodies,
+    export_stl,
+    relative_luminance,
+    snap_to_layers,
+    stack_layers,
+)
 from app.services.svg_geometry import parse_svg
 from tests.vectors import contract_svg, is_closed, read_binary_stl, signed_volume
 
@@ -223,3 +231,46 @@ def test_circle_base_encloses_the_whole_design() -> None:
     radius = float(np.hypot(base[..., 0] - 20, base[..., 1] - 10).max())
     assert radius == pytest.approx(np.sqrt(500) + 1, rel=1e-3)
     assert signed_volume(base) == pytest.approx(np.pi * radius**2, rel=1e-3)
+
+
+GRAYS = [("#808080", [FRAME]), ("#ffffff", [DOT]), ("#000000", ["M22,0 L28,0 L28,6 L22,6 Z"])]
+
+
+@pytest.mark.parametrize(
+    ("order", "expected"),
+    [
+        ("document", ["color-0", "color-1", "color-2"]),
+        ("light_to_dark", ["color-1", "color-0", "color-2"]),
+        ("dark_to_light", ["color-2", "color-0", "color-1"]),
+    ],
+)
+def test_stack_order_sets_which_colors_are_higher(order: StackOrder, expected: list[str]) -> None:
+    document = parse_svg(contract_svg(40, 20, GRAYS))
+
+    bodies = build_bodies(document, StlOptions(base_mm=0, layer_mm=1, stack_order=order))
+
+    tops = {body.name: float(body.triangles[..., 2].max()) for body in bodies}
+    assert [body.name for body in bodies] == expected
+    assert [tops[name] for name in expected] == [1, 2, 3]
+
+
+def test_brightness_order_puts_the_base_in_the_bottom_color() -> None:
+    document = parse_svg(contract_svg(40, 20, GRAYS))
+
+    bodies = build_bodies(document, StlOptions(base_mm=1, stack_order="light_to_dark"))
+
+    assert (bodies[0].name, bodies[0].color) == ("base", "#ffffff")
+
+
+def test_relative_luminance() -> None:
+    assert relative_luminance("#000000") == 0
+    assert relative_luminance("#ffffff") == pytest.approx(1)
+    assert relative_luminance("#00ff00") > relative_luminance("#ff0000")
+
+
+def test_equally_bright_colors_keep_the_document_order() -> None:
+    assert stack_layers(["a", "b", "c"], ["#ff0000", "#000000", "#ff0000"], "light_to_dark") == [
+        "a",
+        "c",
+        "b",
+    ]

@@ -3,6 +3,7 @@ import {
   EXPORT_FORMATS,
   autoLayerHeight,
   snapToLayers,
+  stackPositions,
   defaultValues,
   exportFileName,
   layerHeightsJson,
@@ -20,6 +21,7 @@ describe('export formats', () => {
       base_shape: 'outline',
       base_margin_mm: 0,
       layer_mm: 1,
+      stack_order: 'document',
       min_feature_mm: 0,
       print_layer_mm: 0,
       layered: true,
@@ -36,6 +38,7 @@ describe('export formats', () => {
         base_shape: 'star',
         base_margin_mm: -1,
         layer_mm: 1,
+        stack_order: 'document',
         min_feature_mm: 11,
         print_layer_mm: 0.2,
         layered: 'yes' as never,
@@ -86,6 +89,14 @@ describe('per-color heights', () => {
     expect(autoLayerHeight(2, { layer_mm: 0.5, layered: true })).toBe(1.5);
     expect(autoLayerHeight(2, { layer_mm: 0.5, layered: false })).toBe(0.5);
     expect(autoLayerHeight(2, { layer_mm: 0.5, layered: true, print_layer_mm: 0.2 })).toBe(1.6);
+  });
+
+  it('orders colors by brightness like the backend', () => {
+    const fills = ['#808080', '#ffffff', '#000000', '#808080'];
+
+    expect(stackPositions(fills, 'document')).toEqual([0, 1, 2, 3]);
+    expect(stackPositions(fills, 'light_to_dark')).toEqual([1, 0, 3, 2]);
+    expect(stackPositions(fills, 'dark_to_light')).toEqual([1, 3, 0, 2]);
   });
 
   it('sends only excluded colors and explicit heights', () => {

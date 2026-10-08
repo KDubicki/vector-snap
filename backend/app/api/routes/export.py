@@ -16,7 +16,7 @@ from app.schemas.export import (
 from app.services.export_3mf import export_3mf
 from app.services.export_dxf import DxfOptions, export_dxf
 from app.services.export_pdf import PageSize, PdfOptions, export_pdf
-from app.services.export_stl import BaseShape, StlOptions, export_stl
+from app.services.export_stl import BaseShape, StackOrder, StlOptions, export_stl
 from app.services.filament_plan import filament_plan
 from app.services.svg_geometry import VectorDocument, parse_svg
 
@@ -63,6 +63,9 @@ def stl_options(
     base_margin_mm: Annotated[
         float, Form(ge=0, le=100, description="How far the base plate extends beyond the design")
     ] = 0.0,
+    stack_order: Annotated[
+        StackOrder, Form(description="Bottom-to-top color order: document or by brightness")
+    ] = "document",
 ) -> StlOptions:
     """3D model options shared by STL and 3MF."""
     return StlOptions(
@@ -76,6 +79,7 @@ def stl_options(
         print_layer_mm=print_layer_mm,
         base_shape=base_shape,
         base_margin_mm=base_margin_mm,
+        stack_order=stack_order,
     )
 
 

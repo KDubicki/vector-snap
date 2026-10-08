@@ -5,7 +5,8 @@ multi-color design prints as a relief (or, with `layered=False`, all colors shar
 height). Heights can be set per color (0 leaves a color out) and the model mirrored;
 details thinner than the nozzle can be removed before extrusion, and heights can be
 rounded to whole printer layers. The base plate follows the design's outline or is a
-rectangle, rounded rectangle or circle around it.
+rectangle, rounded rectangle or circle around it; colors can be stacked in document order or
+by brightness.
 Coordinates are converted to millimetres and the y axis is flipped (SVG y points down,
 STL z-up models are viewed from above with y up). See docs/13-export-formats.md.
 """
@@ -40,6 +41,9 @@ from app.services.svg_geometry import (
 )
 
 BaseShape = Literal["outline", "rectangle", "rounded", "circle"]
+# Bottom-to-top order of the color layers: as in the SVG (largest coverage at the bottom)
+# or by brightness.
+StackOrder = Literal["document", "light_to_dark", "dark_to_light"]
 
 # Corner radius of the "rounded" base plate, relative to its shorter side.
 ROUNDED_CORNER_RATIO = 0.15
@@ -69,6 +73,7 @@ class StlOptions:
     # Shape of the base plate and how far it extends beyond the design (mm).
     base_shape: BaseShape = "outline"
     base_margin_mm: float = 0.0
+    stack_order: StackOrder = "document"
 
 
 @dataclass(frozen=True)
@@ -157,6 +162,22 @@ def base_outline(silhouette: BaseGeometry, shape: BaseShape, margin_mm: float) -
     return rectangle.buffer(-radius, join_style="mitre").buffer(radius, quad_segs=_QUAD_SEGS)
 
 
+def relative_luminance(hex_color: str) -> float:
+    """WCAG relative luminance of a `#rrggbb` color: 0 (black) to 1 (white)."""
+    channels = [int(hex_color[i : i + 2], 16) / 255 for i in (1, 3, 5)]
+    r, g, b = (c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in channels)
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def stack_layers[T](layers: list[T], fills: list[str], order: StackOrder) -> list[T]:
+    """`layers` bottom to top in `order`; equally bright colors keep the document order."""
+    if order == "document":
+        return layers
+    sign = 1 if order == "dark_to_light" else -1
+    ranked = sorted(range(len(layers)), key=lambda i: sign * relative_luminance(fills[i]))
+    return [layers[i] for i in ranked]
+
+
 def snap_to_layers(height: float, print_layer_mm: float) -> float:
     """Round a positive height to whole printer layers, keeping at least one layer.
 
@@ -194,6 +215,7 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
             (layer, affinity.scale(geometry, xfact=-1, yfact=1, origin=(width / 2, 0)))
             for layer, geometry in layers
         ]
+    layers = stack_layers(layers, [layer.fill for layer, _ in layers], options.stack_order)
 
     included = [
         (layer, geometry, layer_height(position, layer.palette_index, options))

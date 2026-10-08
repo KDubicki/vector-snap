@@ -17,6 +17,15 @@ export function rgbToHex([r, g, b]: Rgb): string {
   return `#${[r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('')}`;
 }
 
+/** WCAG relative luminance of a hex color: 0 (black) to 1 (white). */
+export function relativeLuminance(hex: string): number {
+  const [r, g, b] = hexToRgb(hex).map((value) => {
+    const c = value / 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
 /** Final palette (one hex per index) after applying the user's overrides. */
 export function finalPalette(palette: PaletteColor[], overrides: Record<number, string>): string[] {
   return palette.map((color) => (overrides[color.index] ?? color.hex).toLowerCase());

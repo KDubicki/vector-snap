@@ -49,6 +49,7 @@ curl -F svg=@logo.svg -F width_mm=120 -F base_mm=1.5 -F layer_mm=0.8 \
 | `layer_mm` | `1.0` | Extrusion height per color layer |
 | `layered` | `true` | `true`: layer *n* (bottom to top) is *n × layer_mm* high (relief, easy color changes by height); `false`: all layers share one height |
 | `layer_heights` | `{}` | JSON object `{"<paletteIndex>": mm}` overriding the height above the base per color (0 < h ≤ 100); **`0` leaves a color out** (e.g. print a logo without its background). Colors not listed follow `layer_mm` / `layered` |
+| `stack_order` | `document` | Bottom-to-top order of the colors for automatic heights: `document` (as in the SVG — largest coverage at the bottom), `light_to_dark` or `dark_to_light` |
 | `mirror` | `false` | Mirror horizontally — for stamps or printing the top face down on the bed |
 | `print_layer_mm` | `0` | Printer layer height (≤ 1 mm): the base and every color are rounded to whole layers, so each color ends exactly on a layer boundary; `0` keeps the exact heights |
 | `min_feature_mm` | `0` | Remove every part narrower than this before extrusion — set it to the nozzle width (e.g. `0.4`); `0` keeps everything |
@@ -70,6 +71,11 @@ Model construction:
   stringy blobs, while the remaining shapes keep their exact outline and sharp corners.
   The base plate is filtered the same way. If nothing is left, the export is
   `422 INVALID_PARAMETERS`.
+- **Stack order** (`stack_order`): with `light_to_dark` / `dark_to_light` the colors are
+  ranked by WCAG relative luminance (equally bright colors keep the document order)
+  before automatic heights are assigned, so e.g. dark outlines and text end up on top
+  of a light background — the usual order for filament swaps. The bottom color also
+  prints the base plate. Explicit `layer_heights` are not affected.
 - **Layer snapping** (`print_layer_mm`): the base thickness and every color height
   (automatic or explicit) are rounded half-up to whole printer layers, keeping at least
   one layer, so the top of each color — where a filament change has to happen — falls on
@@ -104,7 +110,7 @@ curl -F svg=@logo.svg -F base_mm=1 -F layer_heights='{"0": 0}' \
 ```
 
 Same options and the same bodies as STL (`width_mm`, `base_mm`, `base_shape`,
-`base_margin_mm`, `layer_mm`, `layered`, `layer_heights`, `mirror`, `min_feature_mm`,
+`base_margin_mm`, `stack_order`, `layer_mm`, `layered`, `layer_heights`, `mirror`, `min_feature_mm`,
 `print_layer_mm`), but packaged so a slicer keeps the colors apart — STL has no
 notion of parts or colors.
 
@@ -224,7 +230,7 @@ curl -F svg=@logo.svg -F page=a4 -F margin_mm=15 \
 ## Frontend
 
 For STL and 3MF the panel also lists every color with an *include* checkbox and a height field
-(empty = automatic, shown as placeholder, already rounded to the printer layer height
+(empty = automatic, shown as placeholder — following the chosen color order and already rounded to the printer layer height
 when one is set); this becomes `layer_heights`. Leaving out
 every color disables the export with an explanation.
 
