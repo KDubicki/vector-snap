@@ -36,7 +36,13 @@ Status legend: ✅ implemented · 🔜 planned (see [Roadmap](11-roadmap.md)).
 
 ### Step 1 — Upload ✅
 
-- Drop zone, file picker and paste from clipboard; only JPEG/PNG are accepted.
+- Drop zone, file picker and paste from clipboard; only JPEG/PNG are accepted. The zone
+  highlights while a file is dragged over it ("Release to upload"); the file input is
+  visually hidden inside a styled "Choose image" button and stays keyboard reachable.
+- Accepted formats and the upload limit (`max_upload_mb`) are shown under the button.
+- **Try a sample**: loads the bundled `public/sample.png` (a flat-color logo with
+  anti-aliased edges, `src/lib/sample.ts`) as if it had been chosen, so the whole
+  workflow can be tried without a file.
 - File size is checked against `GET /api/v1/limits` (loaded on startup, defaults used if
   unavailable); the backend remains authoritative — its error message is shown inline.
 

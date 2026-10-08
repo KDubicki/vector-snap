@@ -13,6 +13,7 @@ const STEPS: { id: Step; label: string }[] = [
 export function App() {
   const step = useAppStore((s) => s.step);
   const error = useAppStore((s) => s.error);
+  const maxUploadMb = useAppStore((s) => s.limits.max_upload_mb);
   const { loadLimits, selectFile } = useAppStore.getState();
 
   useEffect(() => {
@@ -44,6 +45,7 @@ export function App() {
 
       {step === 'upload' && (
         <ImageUpload
+          maxUploadMb={maxUploadMb}
           onSelect={selectFile}
           onReject={(message) => useAppStore.setState({ error: message })}
         />

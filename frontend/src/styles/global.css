@@ -128,19 +128,75 @@ select {
   border-radius: var(--radius);
   background: var(--color-surface);
   text-align: center;
-  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background-color 0.15s;
+}
+
+.upload strong {
+  font-size: 1.15rem;
 }
 
 .upload span {
   color: var(--color-muted);
 }
 
-.upload--dragging {
-  border-color: var(--color-accent);
+.upload__icon {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 4px;
+  color: var(--color-muted);
+  transition:
+    color 0.15s,
+    transform 0.15s;
 }
 
-.upload input {
+.upload--dragging {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
+}
+
+.upload--dragging .upload__icon {
+  color: var(--color-accent);
+  transform: translateY(-4px);
+}
+
+.upload__choose {
+  position: relative;
+  margin-top: 12px;
+  padding-inline: 24px;
+}
+
+.upload__choose:focus-within {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
+.upload .hint {
+  font-size: 0.85rem;
+}
+
+.upload .link {
   margin-top: 8px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  border: 0;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .upload,
+  .upload__icon {
+    transition: none;
+  }
 }
 
 .workspace {
