@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { serializeSvg } from '../editor/export';
 import { shapeCount } from '../editor/model';
 import { exportFileName } from '../lib/exportFormats';
 import { useObjectUrl } from '../lib/useObjectUrl';
 import { useAppStore } from '../state/store';
+import { CompareView } from './CompareView';
 import { EditorPalettePanel } from './EditorPalettePanel';
 import { ExportPanel } from './ExportPanel';
 import { ShapeInspector } from './ShapeInspector';
@@ -21,12 +22,39 @@ export function ResultStep() {
   const svg = useMemo(() => (editor ? serializeSvg(editor) : null), [editor]);
   const blob = useMemo(() => (svg ? new Blob([svg], { type: 'image/svg+xml' }) : null), [svg]);
   const url = useObjectUrl(blob);
+  const originalUrl = useObjectUrl(file);
+  const [view, setView] = useState<'edit' | 'compare'>('edit');
 
   if (!vectorized || !editor || !blob) return null;
 
   return (
     <section className="workspace">
-      <SvgEditor />
+      <div className="result-main">
+        <div className="segmented result-view" role="radiogroup" aria-label="View">
+          {(['edit', 'compare'] as const).map((value) => (
+            <button
+              key={value}
+              type="button"
+              role="radio"
+              aria-checked={view === value}
+              className={view === value ? 'active' : ''}
+              onClick={() => setView(value)}
+            >
+              {value === 'edit' ? 'Edit' : 'Compare with original'}
+            </button>
+          ))}
+        </div>
+        {view === 'compare' && url && originalUrl ? (
+          <CompareView
+            originalUrl={originalUrl}
+            resultUrl={url}
+            width={editor.width}
+            height={editor.height}
+          />
+        ) : (
+          <SvgEditor />
+        )}
+      </div>
       <aside className="panel">
         <dl className="stats">
           <dt>Shapes</dt>

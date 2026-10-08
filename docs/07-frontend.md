@@ -102,6 +102,10 @@ Layout: left = original and quantized previews side by side, right = controls.
 - ✅ Export panel (STL, 3MF, DXF, PDF) with per-color heights and a 3D preview with print
   statistics ([13-export-formats.md](13-export-formats.md)).
 - ✅ Delete shapes, undo/redo every edit (toolbar and keyboard).
+- ✅ **Compare with original**: a view switch above the editor shows the original upload
+  and the current (edited) SVG on top of each other, split by a divider that follows the
+  pointer (drag) or a range slider (keyboard). The stage keeps the image's aspect ratio,
+  so the divider position is relative to the image; switching back remounts the editor.
 - ✅ Shape count, file size, tracing time, back to colors, new image.
 - ✅ Download exports the **edited** document in the SVG contract; shape count and file
   size reflect the edits.
