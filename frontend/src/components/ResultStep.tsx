@@ -5,6 +5,8 @@ import { exportFileName } from '../lib/exportFormats';
 import { useObjectUrl } from '../lib/useObjectUrl';
 import { useAppStore } from '../state/store';
 import { CompareView } from './CompareView';
+import { useConfirm } from './useConfirm';
+import { useDiscardGuard } from './useDiscardGuard';
 import { EditorPalettePanel } from './EditorPalettePanel';
 import { ExportPanel } from './ExportPanel';
 import { ShapeInspector } from './ShapeInspector';
@@ -16,7 +18,9 @@ export function ResultStep() {
   const editor = useAppStore((s) => s.editor);
   const edited = useAppStore((s) => s.history.past.length > 0);
   const file = useAppStore((s) => s.file);
-  const { goTo, reset } = useAppStore.getState();
+  const { goTo, reset, markSaved } = useAppStore.getState();
+  const { confirm, dialog } = useConfirm();
+  const guard = useDiscardGuard(confirm);
 
   // The download always reflects the edited document (FR-39).
   const svg = useMemo(() => (editor ? serializeSvg(editor) : null), [editor]);
@@ -72,15 +76,25 @@ export function ResultStep() {
             Back to colors
           </button>
           {url && (
-            <a className="button primary" href={url} download={exportFileName(file?.name, 'svg')}>
+            <a
+              className="button primary"
+              href={url}
+              download={exportFileName(file?.name, 'svg')}
+              onClick={markSaved}
+            >
               {edited ? 'Download edited SVG' : 'Download SVG'}
             </a>
           )}
         </div>
         <ExportPanel />
-        <button type="button" className="link" onClick={reset}>
+        <button
+          type="button"
+          className="link"
+          onClick={() => void guard(reset, 'Starting with a new image replaces the SVG.')}
+        >
           Start with a new image
         </button>
+        {dialog}
       </aside>
     </section>
   );

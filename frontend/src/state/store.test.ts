@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_TRACING } from '../lib/tracing';
 import type { QuantizeResponse, VectorizeResponse } from '../types/api';
+import { hasUnsavedEdits } from './editorSlice';
 import { DEFAULT_COLORS, reachableSteps, useAppStore } from './store';
 
 const quantized: QuantizeResponse = {
@@ -520,6 +521,34 @@ describe('app store', () => {
 
     store().redo(); // nothing left
     expect(store().editor?.groups[0].shapes).toHaveLength(1);
+  });
+
+  it('tracks edits that have not been downloaded', async () => {
+    useAppStore.setState({ quantized });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(() => respond(vectorized)()),
+    );
+    await store().runVectorize();
+    expect(hasUnsavedEdits(store())).toBe(false);
+
+    store().select('p-0-0');
+    store().deleteSelection();
+    expect(hasUnsavedEdits(store())).toBe(true);
+
+    store().markSaved();
+    expect(hasUnsavedEdits(store())).toBe(false);
+
+    store().undo(); // back to the converted document: nothing to lose
+    expect(hasUnsavedEdits(store())).toBe(false);
+    store().redo(); // the downloaded version again
+    expect(hasUnsavedEdits(store())).toBe(false);
+
+    store().select('p-0-1');
+    store().deleteSelection();
+    expect(hasUnsavedEdits(store())).toBe(true);
+    await store().runVectorize(); // a new conversion starts clean
+    expect(hasUnsavedEdits(store())).toBe(false);
   });
 
   it('merges rapid recolors of the same target into one undo step', async () => {

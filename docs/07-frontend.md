@@ -107,6 +107,12 @@ Layout: left = original and quantized previews side by side, right = controls.
   pointer (drag) or a range slider (keyboard). The stage keeps the image's aspect ratio,
   so the divider position is relative to the image; switching back remounts the editor.
 - ✅ Shape count, file size, tracing time, back to colors, new image.
+- ✅ **Unsaved edits are protected**: the document counts as unsaved when it was edited
+  since it was converted or last downloaded as SVG (`hasUnsavedEdits`; undoing back to the
+  converted or downloaded version counts as saved). Starting with a new image, choosing a
+  new file or converting again then asks in a modal dialog ("Keep editing" has focus, so
+  Enter and Escape never discard), and closing or reloading the tab triggers the
+  browser's leave-page warning.
 - ✅ Download exports the **edited** document in the SVG contract; shape count and file
   size reflect the edits.
 

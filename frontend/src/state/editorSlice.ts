@@ -23,6 +23,8 @@ export interface EditorState {
   history: History;
   /** Neutral, non-error hint for the user (e.g. why an edit did nothing). */
   notice: string | null;
+  /** Document last downloaded as SVG; edits after it are unsaved. */
+  savedDoc: EditorDoc | null;
 }
 
 export interface EditorActions {
@@ -49,6 +51,8 @@ export interface EditorActions {
   moveSelectionToGroup: (paletteIndex: number) => void;
   undo: () => void;
   redo: () => void;
+  /** Record that the current document was downloaded, so it has no unsaved edits. */
+  markSaved: () => void;
 }
 
 export type EditorSlice = EditorState & EditorActions;
@@ -58,11 +62,19 @@ export const initialEditorState: EditorState = {
   selection: [],
   history: emptyHistory,
   notice: null,
+  savedDoc: null,
 };
 
+/** True when the document was edited since it was converted or last downloaded. */
+export function hasUnsavedEdits(state: Pick<EditorState, 'editor' | 'history' | 'savedDoc'>) {
+  return state.editor !== null && state.history.past.length > 0 && state.editor !== state.savedDoc;
+}
+
 /** Editor state for a newly vectorized SVG: nothing selected, no history. */
-export function openDocument(svg: string): Pick<EditorState, 'editor' | 'selection' | 'history'> {
-  return { editor: parseSvg(svg), selection: [], history: emptyHistory };
+export function openDocument(
+  svg: string,
+): Pick<EditorState, 'editor' | 'selection' | 'history' | 'savedDoc'> {
+  return { editor: parseSvg(svg), selection: [], history: emptyHistory, savedDoc: null };
 }
 
 /** Replace the editor document, recording the previous one for undo. */
@@ -226,4 +238,6 @@ export const createEditorSlice: StateCreator<AppState, [], [], EditorSlice> = (s
       const step = state.editor && redo(state.history, state.editor);
       return step ? restore(state, step.doc, step.history) : {};
     }),
+
+  markSaved: () => set((state) => ({ savedDoc: state.editor })),
 });

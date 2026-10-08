@@ -7,6 +7,8 @@ import { LockedColors } from './LockedColors';
 import { PaletteEditor } from './PaletteEditor';
 import { QuantizedPreview } from './QuantizedPreview';
 import { TracingOptionsPanel } from './TracingOptionsPanel';
+import { useConfirm } from './useConfirm';
+import { useDiscardGuard } from './useDiscardGuard';
 
 const QUANTIZE_DEBOUNCE_MS = 400;
 
@@ -24,6 +26,8 @@ export function PaletteStep() {
   const tracing = useAppStore((s) => s.tracing);
   const status = useAppStore((s) => s.status);
   const actions = useAppStore.getState();
+  const { confirm, dialog } = useConfirm();
+  const guard = useDiscardGuard(confirm);
 
   const sourceUrl = useObjectUrl(file);
   const canLock = locked.length < colors;
@@ -124,18 +128,28 @@ export function PaletteStep() {
           onReset={actions.resetTracing}
         />
         <div className="actions">
-          <button type="button" className="secondary" onClick={actions.reset}>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => void guard(actions.reset, 'Starting with a new image replaces the SVG.')}
+          >
             New image
           </button>
           <button
             type="button"
             className="primary"
             disabled={!quantized || status !== 'idle'}
-            onClick={() => void actions.runVectorize()}
+            onClick={() =>
+              void guard(
+                () => void actions.runVectorize(),
+                'Converting again creates a new SVG from these colors.',
+              )
+            }
           >
             {status === 'vectorizing' ? 'Converting…' : 'Convert to SVG'}
           </button>
         </div>
+        {dialog}
       </aside>
     </section>
   );

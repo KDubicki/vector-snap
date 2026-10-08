@@ -4,6 +4,9 @@ import { ImageUpload } from './components/ImageUpload';
 import { PaletteStep } from './components/PaletteStep';
 import { ResultStep } from './components/ResultStep';
 import { ThemeToggle } from './components/ThemeToggle';
+import { useConfirm } from './components/useConfirm';
+import { useDiscardGuard } from './components/useDiscardGuard';
+import { hasUnsavedEdits } from './state/editorSlice';
 import { STEPS, reachableSteps, useAppStore, type Step } from './state/store';
 
 const STEP_LABELS: Record<Step, string> = { upload: 'Upload', palette: 'Colors', result: 'SVG' };
@@ -28,11 +31,22 @@ export function App() {
   const error = useAppStore((s) => s.error);
   const maxUploadMb = useAppStore((s) => s.limits.max_upload_mb);
   const reachable = useAppStore(useShallow(reachableSteps));
+  const unsaved = useAppStore(hasUnsavedEdits);
   const { loadLimits, selectFile, goTo } = useAppStore.getState();
+  const { confirm, dialog } = useConfirm();
+  const guard = useDiscardGuard(confirm);
 
   useEffect(() => {
     void loadLimits();
   }, [loadLimits]);
+
+  // Closing or reloading the tab would lose edits that were not downloaded.
+  useEffect(() => {
+    if (!unsaved) return;
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [unsaved]);
 
   return (
     <main className="app">
@@ -84,12 +98,13 @@ export function App() {
       {step === 'upload' && (
         <ImageUpload
           maxUploadMb={maxUploadMb}
-          onSelect={selectFile}
+          onSelect={(file) => void guard(() => selectFile(file), 'A new image replaces the SVG.')}
           onReject={(message) => useAppStore.setState({ error: message })}
         />
       )}
       {step === 'palette' && <PaletteStep />}
       {step === 'result' && <ResultStep />}
+      {dialog}
     </main>
   );
 }
