@@ -14,7 +14,12 @@ from app.schemas.quantize import (
     QuantizeAlgorithm,
     QuantizeResponse,
 )
-from app.services.pipeline import quantize_image, suggest_colors, to_indexed_png
+from app.services.pipeline import (
+    background_index,
+    quantize_image,
+    suggest_colors,
+    to_indexed_png,
+)
 from app.services.quantization import SUGGEST_TARGET_DELTA_E
 
 router = APIRouter(tags=["processing"])
@@ -51,6 +56,7 @@ async def quantize(
         height=decoded.height,
         palette=palette_colors(result.palette, result.coverage),
         has_transparency=result.has_transparency,
+        background_index=background_index(result.labels),
         image=EncodedImage(data=base64.b64encode(png).decode("ascii")),
     )
 

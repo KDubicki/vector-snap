@@ -55,3 +55,18 @@ def parse_hex_colors(raw: str, field: str) -> list[tuple[int, int, int]]:
             f'`{field}` must be a JSON array of hex colors like "#ff0000".', {"field": field}
         )
     return [hex_to_rgb(v) for v in values]
+
+
+def parse_palette_indices(raw: str, field: str) -> list[int]:
+    """Parse a JSON array of palette indices sent as a multipart form field."""
+    try:
+        values = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise InvalidParameters(f"`{field}` must be a JSON array.", {"field": field}) from exc
+    if not isinstance(values, list) or not all(
+        isinstance(v, int) and not isinstance(v, bool) and v >= 0 for v in values
+    ):
+        raise InvalidParameters(
+            f"`{field}` must be a JSON array of palette indices like [0, 2].", {"field": field}
+        )
+    return sorted(set(values))

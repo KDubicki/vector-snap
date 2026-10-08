@@ -21,6 +21,9 @@ class QuantizeResponse(BaseModel):
     height: int
     palette: list[PaletteColor]
     has_transparency: bool
+    background_index: int | None = Field(
+        default=None, description="Palette index dominating the image border (background)"
+    )
     image: EncodedImage
 
 

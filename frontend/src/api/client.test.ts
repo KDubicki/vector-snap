@@ -92,6 +92,17 @@ describe('api client', () => {
     expect(form.get('palette')).toBe('["#000000","#ffffff"]');
     expect(form.get('mode')).toBe('polygon');
     expect(form.get('filter_speckle')).toBe('2');
+    expect(form.has('transparent')).toBe(false);
+  });
+
+  it('sends removed colors as a JSON array of palette indices', async () => {
+    const fetchMock = mockFetch(jsonResponse({ svg: '<svg/>' }));
+
+    await vectorize(new Blob(['png']), ['#000000', '#ffffff'], { transparent: [1] });
+
+    const form = (fetchMock.mock.calls[0] as [string, RequestInit])[1].body as FormData;
+    expect(form.get('transparent')).toBe('[1]');
+    expect(form.has('undefined')).toBe(false);
   });
 
   it('exports an svg with options and returns the file', async () => {

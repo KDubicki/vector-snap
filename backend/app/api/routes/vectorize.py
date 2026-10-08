@@ -5,7 +5,7 @@ from fastapi.concurrency import run_in_threadpool
 
 from app.api.deps import check_color_count, read_upload
 from app.core.config import Settings, get_settings
-from app.schemas.palette import palette_colors, parse_hex_colors
+from app.schemas.palette import palette_colors, parse_hex_colors, parse_palette_indices
 from app.schemas.quantize import QuantizeAlgorithm
 from app.schemas.vectorize import Stacking, TracingMode, VectorizeResponse, VectorizeStats
 from app.services.pipeline import vectorize_image
@@ -40,11 +40,15 @@ async def vectorize(
     splice_threshold: Annotated[int, Form(ge=0, le=180)] = 45,
     path_precision: Annotated[int, Form(ge=0, le=8)] = 2,
     stacking: Annotated[Stacking, Form()] = Stacking.CUTOUT,
+    transparent: Annotated[
+        str, Form(description="JSON array of palette indices to leave out, e.g. [0]")
+    ] = "[]",
 ) -> VectorizeResponse | Response:
     data = await read_upload(image, settings)
     if colors is not None:
         check_color_count(colors, settings)
     palette_override = parse_hex_colors(palette, "palette") if palette is not None else None
+    transparent_indices = parse_palette_indices(transparent, "transparent")
 
     result = await run_in_threadpool(
         vectorize_image,
@@ -62,6 +66,7 @@ async def vectorize(
         palette_override=palette_override,
         colors=colors,
         algorithm=algorithm.value,
+        transparent=transparent_indices,
     )
 
     if _wants_svg(request):

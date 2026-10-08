@@ -38,6 +38,7 @@
 - [x] Palette merge, algorithm choice, locked colors (FR-14…FR-16)
 - [x] Advanced tracing options UI (FR-24)
 - [x] Automatic color count suggestion (`POST /suggest-colors`, ΔE target + elbow)
+- [x] Background removal: border-color detection, colors left out of tracing (`transparent`)
 - [ ] docker-compose.dev.yml, Playwright E2E tests in CI
 - [ ] Release workflow: changelog, version tags, image publishing to a registry
 
@@ -47,7 +48,6 @@
   large images and batch processing.
 - Server-side SVG operations (`/svg/recolor`, `/svg/split`) so other services can edit
   SVGs without a browser.
-- Background removal before tracing.
 - More export options: EPS, per-layer STL heights, lithophane.
 - Generated TypeScript client from OpenAPI.
 - Kubernetes manifests / Helm chart.

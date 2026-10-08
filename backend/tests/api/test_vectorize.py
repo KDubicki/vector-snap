@@ -94,10 +94,32 @@ def test_returns_raw_svg_when_requested(client: TestClient) -> None:
 
 @pytest.mark.parametrize(
     "form",
-    [{"colors": "100"}, {"colors": "4", "palette": "nope"}, {"colors": "4", "mode": "bezier"}],
+    [
+        {"colors": "100"},
+        {"colors": "4", "palette": "nope"},
+        {"colors": "4", "mode": "bezier"},
+        {"colors": "4", "transparent": "[-1]"},
+        {"colors": "4", "transparent": '["0"]'},
+        {"colors": "4", "transparent": "[true]"},
+        {"colors": "4", "transparent": "[9]"},
+        {"colors": "4", "transparent": "[0, 1, 2, 3]"},
+    ],
 )
 def test_rejects_invalid_parameters(client: TestClient, form: dict[str, str]) -> None:
     response = _post(client, encode(noisy()), form)
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] in {"INVALID_PARAMETERS", "VALIDATION_ERROR"}
+
+
+def test_leaves_transparent_colors_out(client: TestClient) -> None:
+    form = {"palette": '["#ff0000", "#00a000", "#0000ff"]', "transparent": "[0]"}
+
+    response = _post(client, _quantized_png(client), form)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert _fills(body["svg"]) == ["#00a000", "#0000ff"]
+    # The palette keeps every entry so indices stay stable; the removed one covers nothing.
+    assert [c["hex"] for c in body["palette"]] == ["#ff0000", "#00a000", "#0000ff"]
+    assert body["palette"][0]["coverage"] == 0

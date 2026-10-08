@@ -21,6 +21,14 @@ describe('recolorPixels', () => {
     expect(result).not.toBe(source);
   });
 
+  it('makes removed colors transparent', () => {
+    const source = pixels(255, 0, 0, 255, 0, 255, 0, 255);
+
+    const result = recolorPixels(source, ['#ff0000', '#00ff00'], [null, '#0000ff']);
+
+    expect(Array.from(result)).toEqual([255, 0, 0, 0, 0, 0, 255, 255]);
+  });
+
   it('falls back to the original color when the target is missing', () => {
     const result = recolorPixels(pixels(255, 0, 0, 255), ['#ff0000'], []);
 

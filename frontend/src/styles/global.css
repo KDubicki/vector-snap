@@ -301,7 +301,7 @@ select {
 
 .palette li {
   display: grid;
-  grid-template-columns: 36px 72px 1fr auto auto;
+  grid-template-columns: 36px 72px 1fr auto auto auto;
   align-items: center;
   gap: 8px;
 }
@@ -865,4 +865,19 @@ select {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.field__links {
+  display: inline-flex;
+  gap: 12px;
+}
+
+.palette li.removed > input[type='color'],
+.palette li.removed > code,
+.palette li.removed > .coverage {
+  opacity: 0.4;
+}
+
+.palette li.removed > code {
+  text-decoration: line-through;
 }

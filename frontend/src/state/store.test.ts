@@ -214,6 +214,34 @@ describe('app store', () => {
     expect(store().suggesting).toBe(true);
   });
 
+  it('leaves colors out, keeping at least one, and sends them to vectorize', async () => {
+    useAppStore.setState({ quantized });
+
+    store().toggleTransparent(1);
+    store().toggleTransparent(0); // would remove the last visible color
+    expect(store().transparent).toEqual([1]);
+
+    const fetchMock = respond(vectorized);
+    vi.stubGlobal('fetch', fetchMock);
+    await store().runVectorize();
+
+    const form = (fetchMock.mock.calls[0] as [string, RequestInit])[1].body as FormData;
+    expect(form.get('transparent')).toBe('[1]');
+
+    store().toggleTransparent(1);
+    expect(store().transparent).toEqual([]);
+  });
+
+  it('drops removed colors when the palette is quantized again', async () => {
+    store().selectFile(file);
+    useAppStore.setState({ transparent: [0] });
+    vi.stubGlobal('fetch', respond(quantized));
+
+    await store().runQuantize();
+
+    expect(store().transparent).toEqual([]);
+  });
+
   it('manages palette overrides', () => {
     store().setOverride(1, '#ABCDEF');
     store().setOverride(2, '#000000');

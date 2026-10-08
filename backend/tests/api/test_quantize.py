@@ -104,3 +104,11 @@ def test_suggest_colors_rejects_unsupported_files(client: TestClient) -> None:
     )
 
     assert response.status_code == 415
+
+
+def test_quantize_suggests_the_border_color_as_background(client: TestClient) -> None:
+    flat = _post(client, encode(stripes()), colors="4").json()
+    blocks = _post(client, encode(noisy()), colors="4").json()
+
+    assert flat["background_index"] == 0  # red covers most of the border
+    assert blocks["background_index"] is None  # four colors share the border equally

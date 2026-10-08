@@ -6,7 +6,8 @@ import type { EncodedImage } from '../types/api';
 interface QuantizedPreviewProps {
   image: EncodedImage;
   originalPalette: string[];
-  targetPalette: string[];
+  /** Final color per palette index; `null` = removed (shown transparent). */
+  targetPalette: (string | null)[];
 }
 
 /** Shows the quantized image, recolored client-side whenever the palette changes. */

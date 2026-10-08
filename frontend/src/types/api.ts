@@ -37,6 +37,8 @@ export interface QuantizeResponse {
   height: number;
   palette: PaletteColor[];
   has_transparency: boolean;
+  /** Palette index dominating the image border (a likely background), if any. */
+  background_index?: number | null;
   image: EncodedImage;
 }
 

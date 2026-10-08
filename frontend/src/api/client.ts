@@ -110,14 +110,16 @@ export function suggestColors(image: Blob, signal?: AbortSignal): Promise<ColorS
 export function vectorize(
   indexedImage: Blob,
   palette: string[],
-  options: Partial<TracingOptions>,
+  options: Partial<TracingOptions> & { transparent?: number[] },
   signal?: AbortSignal,
 ): Promise<VectorizeResponse> {
+  const { transparent, ...tracing } = options;
   const form = new FormData();
   form.append('image', indexedImage);
   form.append('palette', JSON.stringify(palette));
-  for (const [key, value] of Object.entries(options)) {
+  for (const [key, value] of Object.entries(tracing)) {
     form.append(key, String(value));
   }
+  if (transparent?.length) form.append('transparent', JSON.stringify(transparent));
   return request<VectorizeResponse>('/vectorize', { method: 'POST', body: form, signal });
 }

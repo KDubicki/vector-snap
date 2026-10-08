@@ -72,6 +72,22 @@ def suggest_colors(
     return suggest_color_count(image, min_colors=min_colors, max_colors=max_colors)
 
 
+# A border color counts as background when it covers at least this share of the border.
+BACKGROUND_BORDER_SHARE = 0.5
+
+
+def background_index(labels: NDArray[np.uint8]) -> int | None:
+    """Palette index that dominates the image border (a likely background), if any.
+
+    Transparent border pixels count against every color, so images whose background is
+    already transparent get no suggestion.
+    """
+    border = np.concatenate([labels[0], labels[-1], labels[1:-1, 0], labels[1:-1, -1]])
+    counts = np.bincount(border[border != TRANSPARENT_LABEL], minlength=1)
+    index = int(counts.argmax())
+    return index if counts[index] >= BACKGROUND_BORDER_SHARE * len(border) else None
+
+
 def to_indexed_png(result: QuantizationResult) -> bytes:
     """Encode a quantization result; transparent pixels get the index after the palette."""
     if not result.has_transparency:
@@ -91,11 +107,14 @@ def vectorize_image(
     palette_override: list[tuple[int, int, int]] | None = None,
     colors: int | None = None,
     algorithm: Algorithm = "kmeans",
+    transparent: list[int] | None = None,
 ) -> VectorizeResult:
     """Trace an image to SVG.
 
     With `colors` the image is quantized first (one-shot mode); otherwise it must be an
-    indexed PNG, e.g. the one returned by `/quantize` (indexed mode).
+    indexed PNG, e.g. the one returned by `/quantize` (indexed mode). Palette indices in
+    `transparent` are left out (e.g. a removed background); the palette keeps them, so
+    indices stay stable.
     """
     started = time.perf_counter()
     if colors is not None:
@@ -120,6 +139,18 @@ def vectorize_image(
                 {"field": "palette", "expected": len(palette)},
             )
         palette = np.array(palette_override, dtype=np.uint8).reshape(-1, 3)
+
+    if transparent:
+        if max(transparent) >= len(palette):
+            raise InvalidParameters(
+                f"`transparent` indices must be below {len(palette)}.",
+                {"field": "transparent", "palette_size": len(palette)},
+            )
+        labels = np.where(np.isin(labels, transparent), TRANSPARENT_LABEL, labels).astype(np.uint8)
+        if (labels == TRANSPARENT_LABEL).all():
+            raise InvalidParameters(
+                "Nothing to trace: every color is transparent.", {"field": "transparent"}
+            )
 
     height, width = labels.shape
     document = build_svg(

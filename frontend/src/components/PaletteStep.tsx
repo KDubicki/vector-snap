@@ -20,6 +20,7 @@ export function PaletteStep() {
   const suggestedColors = useAppStore((s) => s.suggestedColors);
   const suggesting = useAppStore((s) => s.suggesting);
   const overrides = useAppStore((s) => s.overrides);
+  const transparent = useAppStore((s) => s.transparent);
   const tracing = useAppStore((s) => s.tracing);
   const status = useAppStore((s) => s.status);
   const actions = useAppStore.getState();
@@ -35,8 +36,13 @@ export function PaletteStep() {
 
   const originalPalette = useMemo(() => quantized?.palette.map((c) => c.hex) ?? [], [quantized]);
   const targetPalette = useMemo(
-    () => (quantized ? finalPalette(quantized.palette, overrides) : []),
-    [quantized, overrides],
+    () =>
+      quantized
+        ? finalPalette(quantized.palette, overrides).map((hex, index) =>
+            transparent.includes(index) ? null : hex,
+          )
+        : [],
+    [quantized, overrides, transparent],
   );
 
   return (
@@ -98,6 +104,9 @@ export function PaletteStep() {
             canLock={canLock}
             onLock={actions.lockColor}
             onUnlock={actions.unlockColor}
+            transparent={transparent}
+            backgroundIndex={quantized.background_index ?? null}
+            onToggleTransparent={actions.toggleTransparent}
             onChange={actions.setOverride}
             onReset={actions.resetOverride}
             onResetAll={actions.resetOverrides}
