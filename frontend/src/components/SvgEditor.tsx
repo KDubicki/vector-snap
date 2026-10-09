@@ -335,61 +335,66 @@ export function SvgEditor() {
   return (
     <div className="editor">
       <div className="editor__toolbar" role="toolbar" aria-label="Editor tools">
-        {TOOLS.map((item) => (
+        {/* Groups wrap as a whole on narrow screens, never splitting e.g. Undo from Redo. */}
+        <div className="editor__group" role="group" aria-label="Tool">
+          {TOOLS.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              aria-pressed={tool === item.id}
+              onClick={() => setTool(item.id)}
+              title={item.title}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+        <div className="editor__group" role="group" aria-label="Edit">
           <button
-            key={item.id}
             type="button"
-            aria-pressed={tool === item.id}
-            onClick={() => setTool(item.id)}
-            title={item.title}
+            onClick={() => useAppStore.getState().undo()}
+            disabled={!canUndo}
+            title="Undo (Ctrl/Cmd+Z)"
           >
-            {item.label}
+            Undo
           </button>
-        ))}
-        <span className="editor__separator" />
-        <button
-          type="button"
-          onClick={() => useAppStore.getState().undo()}
-          disabled={!canUndo}
-          title="Undo (Ctrl/Cmd+Z)"
-        >
-          Undo
-        </button>
-        <button
-          type="button"
-          onClick={() => useAppStore.getState().redo()}
-          disabled={!canRedo}
-          title="Redo (Ctrl/Cmd+Shift+Z)"
-        >
-          Redo
-        </button>
-        <button
-          type="button"
-          onClick={() => useAppStore.getState().deleteSelection()}
-          disabled={selection.length === 0}
-          title="Delete selected shapes (Delete)"
-        >
-          Delete
-        </button>
-        <button
-          type="button"
-          onClick={() => useAppStore.getState().mergeSelection()}
-          disabled={selection.length < 2}
-          title="Merge selected shapes into one (M)"
-        >
-          Merge
-        </button>
-        <span className="editor__separator" />
-        <button type="button" onClick={() => zoomBy(1 / WHEEL_ZOOM_STEP)} aria-label="Zoom out">
-          −
-        </button>
-        <output aria-label="Zoom level">{Math.round(zoom * 100)}%</output>
-        <button type="button" onClick={() => zoomBy(WHEEL_ZOOM_STEP)} aria-label="Zoom in">
-          +
-        </button>
-        <button type="button" onClick={fit}>
-          Fit
-        </button>
+          <button
+            type="button"
+            onClick={() => useAppStore.getState().redo()}
+            disabled={!canRedo}
+            title="Redo (Ctrl/Cmd+Shift+Z)"
+          >
+            Redo
+          </button>
+          <button
+            type="button"
+            onClick={() => useAppStore.getState().deleteSelection()}
+            disabled={selection.length === 0}
+            title="Delete selected shapes (Delete)"
+          >
+            Delete
+          </button>
+          <button
+            type="button"
+            onClick={() => useAppStore.getState().mergeSelection()}
+            disabled={selection.length < 2}
+            title="Merge selected shapes into one (M)"
+          >
+            Merge
+          </button>
+        </div>
+        <div className="editor__group" role="group" aria-label="Zoom">
+          <button type="button" onClick={() => zoomBy(1 / WHEEL_ZOOM_STEP)} aria-label="Zoom out">
+            −
+          </button>
+          <output aria-label="Zoom level">{Math.round(zoom * 100)}%</output>
+          <button type="button" onClick={() => zoomBy(WHEEL_ZOOM_STEP)} aria-label="Zoom in">
+            +
+          </button>
+          <button type="button" onClick={fit}>
+            Fit
+          </button>
+        </div>
         <span className="hint">{TOOLS.find((item) => item.id === tool)?.hint}</span>
       </div>
       {notice && (

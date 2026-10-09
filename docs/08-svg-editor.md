@@ -59,6 +59,11 @@ Status: ✅ implemented · 🔜 planned.
 | Delete | `Del` / `Backspace` / toolbar | Remove selected shapes; groups left empty disappear. | ✅ |
 | Undo / Redo | `Ctrl/Cmd+Z` / `Ctrl/Cmd+Shift+Z`, `Ctrl+Y` / toolbar | History navigation (see [Undo / redo](#undo--redo-)). | ✅ |
 
+The toolbar has three button groups — tools, edit (undo, redo, delete, merge) and zoom —
+that wrap as a whole on narrow screens (dividers only on wide layouts), so related
+buttons stay together. On phones (≤ 600 px) the canvas is `min(60vh, 90vw)` tall
+instead of `min(70vh, 720px)`, leaving less empty space around the drawing.
+
 ## Testing
 
 **Canvas sizing:** layout size comes from the `.editor__viewport` wrapper, which a

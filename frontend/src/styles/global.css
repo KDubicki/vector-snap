@@ -752,7 +752,7 @@ select {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 8px 10px;
 }
 
 .editor__toolbar button {
@@ -782,6 +782,7 @@ select {
 .editor__viewport {
   position: relative;
   height: min(70vh, 720px);
+
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   overflow: hidden;
@@ -843,11 +844,30 @@ select {
   margin-left: auto;
 }
 
-.editor__separator {
-  width: 1px;
-  height: 24px;
-  margin: 0 4px;
-  background: var(--color-border);
+.editor__group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.editor__group + .editor__group {
+  padding-left: 10px;
+  border-left: 1px solid var(--color-border);
+}
+
+@media (max-width: 900px) {
+  /* Groups may wrap onto their own rows: a divider would dangle at a row start. */
+  .editor__group + .editor__group {
+    padding-left: 0;
+    border-left: 0;
+  }
+}
+
+@media (max-width: 600px) {
+  /* A phone-tall viewport left most of the screen as empty checkerboard. */
+  .editor__viewport {
+    height: min(60vh, 90vw);
+  }
 }
 
 .editor__canvas--knife {
