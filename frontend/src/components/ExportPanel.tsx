@@ -1,5 +1,5 @@
 import { Suspense, lazy, useMemo, useState } from 'react';
-import { errorMessage, exportFile, getFilamentPlan } from '../api/client';
+import { errorMessage, exportFile, exportLithophane, getFilamentPlan } from '../api/client';
 import { serializeSvg } from '../editor/export';
 import {
   EXPORT_FORMATS,
@@ -76,8 +76,25 @@ export function ExportPanel() {
     if (raster) {
       return svgToPng(svg, raster, current.background === 'white' ? '#ffffff' : null);
     }
+    if (format.source === 'image') {
+      if (!file) throw new Error('The original image is no longer available.');
+      return exportLithophane(file, current);
+    }
     return exportFile(format.id, svg, requestOptions());
   };
+
+  // STL/3MF preview the colored 3MF; a lithophane previews its own STL.
+  const previewRequest = (): PreviewRequest | null => {
+    if (format.source === 'image') {
+      if (!file) return null;
+      const options = current;
+      return { kind: 'stl', load: (signal) => exportLithophane(file, options, signal) };
+    }
+    const svg = serializeSvg(editor);
+    const options = requestOptions();
+    return { kind: '3mf', load: (signal) => exportFile('3mf', svg, options, signal) };
+  };
+  const canPreview = format.perColorHeights || (format.source === 'image' && file !== null);
 
   const showPlan = async () => {
     setPlanning(true);
@@ -118,6 +135,8 @@ export function ExportPanel() {
             onClick={() => {
               setFormatId(item.id);
               setPlan(null);
+              // A lithophane is a different model: drop a preview of the colored one.
+              if (item.source !== format.source) setPreview(null);
             }}
           >
             {item.label}
@@ -210,12 +229,12 @@ export function ExportPanel() {
         </p>
       )}
       <div className="actions">
-        {format.perColorHeights && (
+        {canPreview && (
           <button
             type="button"
             className="secondary"
             disabled={invalid}
-            onClick={() => setPreview({ svg: serializeSvg(editor), options: requestOptions() })}
+            onClick={() => setPreview(previewRequest())}
           >
             {preview ? 'Update 3D preview' : 'Preview 3D'}
           </button>
@@ -240,7 +259,7 @@ export function ExportPanel() {
         </button>
       )}
       {plan && format.perColorHeights && <FilamentPlanView plan={plan} />}
-      {preview && format.perColorHeights && (
+      {preview && canPreview && (
         <Suspense fallback={<p className="hint">Loading 3D viewer…</p>}>
           <ModelPreview request={preview} />
         </Suspense>

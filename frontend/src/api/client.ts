@@ -61,6 +61,24 @@ export async function exportFile(
   return response.blob();
 }
 
+/** Lithophane STL built from the original image (`POST /export/lithophane`). */
+export async function exportLithophane(
+  image: Blob,
+  options: Record<string, string | number | boolean>,
+  signal?: AbortSignal,
+): Promise<Blob> {
+  const form = new FormData();
+  form.append('image', image);
+  for (const [key, value] of Object.entries(options)) form.append(key, String(value));
+  const response = await fetch(`${BASE_URL}/v1/export/lithophane`, {
+    method: 'POST',
+    body: form,
+    signal,
+  });
+  if (!response.ok) throw await toApiError(response);
+  return response.blob();
+}
+
 function exportForm(svg: string, options: Record<string, string | number | boolean>): FormData {
   const form = new FormData();
   form.append('svg', new Blob([svg], { type: 'image/svg+xml' }), 'document.svg');

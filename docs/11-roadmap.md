@@ -48,6 +48,7 @@
   large images and batch processing.
 - Server-side SVG operations (`/svg/recolor`, `/svg/split`) so other services can edit
   SVGs without a browser.
-- More export options: EPS, per-layer STL heights, lithophane.
+- More export options: EPS. (Per-layer STL heights and lithophanes are done, see
+  [13-export-formats.md](13-export-formats.md).)
 - Generated TypeScript client from OpenAPI.
 - Kubernetes manifests / Helm chart.

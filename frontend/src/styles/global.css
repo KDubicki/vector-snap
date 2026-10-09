@@ -895,6 +895,9 @@ select {
 }
 
 .export .segmented {
+  /* Six formats do not fit one row of the side panel: two rows of three. */
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   margin-top: 8px;
 }
 

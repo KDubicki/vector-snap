@@ -147,7 +147,7 @@ def _prism(
     return np.concatenate(parts)
 
 
-def _write_binary_stl(triangles: list[NDArray[np.float64]]) -> bytes:
+def write_binary_stl(triangles: list[NDArray[np.float64]]) -> bytes:
     vertices = np.concatenate(triangles) if triangles else np.zeros((0, 3, 3))
     data = np.zeros(len(vertices), dtype=_TRIANGLE_DTYPE)
     if len(vertices):
@@ -354,4 +354,4 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
 
 def export_stl(document: VectorDocument, options: StlOptions) -> bytes:
     """Extrude every color layer and return a binary STL (units: millimetres)."""
-    return _write_binary_stl([body.triangles for body in build_bodies(document, options)])
+    return write_binary_stl([body.triangles for body in build_bodies(document, options)])

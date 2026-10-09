@@ -18,6 +18,8 @@ from app.services.export_dxf import DxfOptions, export_dxf
 from app.services.export_pdf import PageSize, PdfOptions, export_pdf
 from app.services.export_stl import BaseShape, StackOrder, StlOptions, export_stl
 from app.services.filament_plan import filament_plan
+from app.services.image_io import decode_image
+from app.services.lithophane import LithophaneOptions, export_lithophane
 from app.services.svg_geometry import VectorDocument, parse_svg
 
 router = APIRouter(prefix="/export", tags=["export"])
@@ -131,6 +133,42 @@ async def export_filament_plan(
         conflicts=[FilamentConflictModel(z_mm=c.z_mm, colors=c.colors) for c in plan.conflicts],
         height_mm=plan.height_mm,
     )
+
+
+@router.post(
+    "/lithophane",
+    response_class=Response,
+    responses={200: {"content": {"model/stl": {}}, "description": "Binary STL"}},
+)
+async def export_to_lithophane(
+    settings: Annotated[Settings, Depends(get_settings)],
+    image: Annotated[UploadFile, File(description="JPEG or PNG image (the original upload)")],
+    width_mm: Annotated[float, Form(gt=0, le=1000, description="Image width")] = 100.0,
+    min_thickness_mm: Annotated[
+        float, Form(ge=0.2, le=10, description="Thickness of the brightest areas")
+    ] = 0.8,
+    max_thickness_mm: Annotated[
+        float, Form(gt=0.2, le=20, description="Thickness of the darkest areas and the frame")
+    ] = 3.0,
+    resolution_mm: Annotated[float, Form(ge=0.05, le=5, description="Grid spacing (detail)")] = 0.2,
+    frame_mm: Annotated[
+        float, Form(ge=0, le=50, description="Solid border around the image")
+    ] = 0.0,
+    invert: Annotated[bool, Form(description="Bright areas thick (relief)")] = False,
+) -> Response:
+    """Thin plate whose thickness follows the image brightness; shows the photo backlit."""
+    data = await read_upload(image, settings)
+    options = LithophaneOptions(
+        width_mm=width_mm,
+        min_thickness_mm=min_thickness_mm,
+        max_thickness_mm=max_thickness_mm,
+        resolution_mm=resolution_mm,
+        frame_mm=frame_mm,
+        invert=invert,
+    )
+    decoded = await run_in_threadpool(decode_image, data, settings.max_image_dimension)
+    content = await run_in_threadpool(export_lithophane, decoded, options)
+    return _attachment(content, "model/stl", "stl")
 
 
 @router.post(

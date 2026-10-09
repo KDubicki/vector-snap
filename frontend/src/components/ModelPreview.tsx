@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { ThreeMFLoader } from 'three/addons/loaders/3MFLoader.js';
+import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { errorMessage, exportFile } from '../api/client';
+import { errorMessage } from '../api/client';
 import {
   FILAMENTS,
   formatMillimetres,
@@ -11,9 +12,21 @@ import {
   type Filament,
 } from '../lib/meshStats';
 
+/** A model to show: 3MF keeps the color parts, STL (lithophane) is one plain part. */
 export interface PreviewRequest {
-  svg: string;
-  options: Record<string, string | number | boolean>;
+  kind: '3mf' | 'stl';
+  load: (signal: AbortSignal) => Promise<Blob>;
+}
+
+/** Light, slightly warm plastic: the usual white filament for lithophanes. */
+const STL_COLOR = 0xf1ede4;
+
+function parseModel(kind: PreviewRequest['kind'], buffer: ArrayBuffer): THREE.Group {
+  if (kind === '3mf') return new ThreeMFLoader().parse(buffer);
+  const material = new THREE.MeshStandardMaterial({ color: STL_COLOR, roughness: 0.8 });
+  const group = new THREE.Group();
+  group.add(new THREE.Mesh(new STLLoader().parse(buffer), material));
+  return group;
 }
 
 interface ModelStats {
@@ -53,8 +66,8 @@ function dispose(object: THREE.Object3D): void {
 }
 
 /**
- * Interactive 3D preview of the model the backend exports (loaded as 3MF so each color
- * part keeps its color), with size, volume and filament estimate. Loaded lazily.
+ * Interactive 3D preview of the model the backend exports (3MF so each color part keeps
+ * its color, or a lithophane STL), with size, volume and filament estimate. Loaded lazily.
  */
 export default function ModelPreview({ request }: { request: PreviewRequest }) {
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -97,14 +110,15 @@ export default function ModelPreview({ request }: { request: PreviewRequest }) {
     });
 
     let model: THREE.Group | null = null;
-    exportFile('3mf', request.svg, request.options, controller.signal)
+    request
+      .load(controller.signal)
       .then((blob) => blob.arrayBuffer())
       .then((buffer) => {
         if (controller.signal.aborted) return;
-        model = new ThreeMFLoader().parse(buffer);
+        model = parseModel(request.kind, buffer);
         setStats(measure(model));
 
-        // 3MF is z-up, three.js is y-up: lay the model on the build plate.
+        // 3MF and STL are z-up, three.js is y-up: lay the model on the build plate.
         model.rotation.x = -Math.PI / 2;
         model.updateMatrixWorld(true);
         const box = new THREE.Box3().setFromObject(model);

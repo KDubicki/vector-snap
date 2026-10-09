@@ -50,6 +50,8 @@ export interface ExportFormat {
   perColorHeights?: boolean;
   /** Rendered in the browser instead of converted by the backend. */
   client?: boolean;
+  /** Built by the backend from the original uploaded image instead of the SVG. */
+  source?: 'image';
 }
 
 /** Plastic left above a magnet pocket (mm), as in the backend. */
@@ -216,6 +218,78 @@ export const EXPORT_FORMATS: ExportFormat[] = [
       'Multi-color 3D model — one colored part per color in one model, ready for AMS/MMU printers.',
     options: MODEL_OPTIONS,
     perColorHeights: true,
+  },
+  {
+    id: 'lithophane',
+    label: 'Lithophane',
+    extension: 'lithophane.stl',
+    description:
+      'Photo plate that shows the original image (not the SVG) when lit from behind: dark areas print thick, bright areas thin. Print upright in white with 100% infill.',
+    source: 'image',
+    options: [
+      {
+        type: 'number',
+        name: 'width_mm',
+        label: 'Width',
+        unit: 'mm',
+        default: 100,
+        min: 1,
+        max: 1000,
+        step: 1,
+      },
+      {
+        type: 'number',
+        name: 'min_thickness_mm',
+        label: 'Thinnest (brightest areas)',
+        unit: 'mm',
+        default: 0.8,
+        min: 0.2,
+        max: 10,
+        step: 0.1,
+      },
+      {
+        type: 'number',
+        name: 'max_thickness_mm',
+        label: 'Thickest (darkest areas)',
+        unit: 'mm',
+        default: 3,
+        min: 0.3,
+        max: 20,
+        step: 0.1,
+        check: (value, values) =>
+          value > Number(values.min_thickness_mm)
+            ? null
+            : 'Must be thicker than the thinnest areas.',
+      },
+      {
+        type: 'number',
+        name: 'resolution_mm',
+        label: 'Detail (grid spacing)',
+        unit: 'mm',
+        default: 0.2,
+        min: 0.05,
+        max: 5,
+        step: 0.05,
+        hint: 'About half the nozzle width keeps all detail; smaller values make much larger files.',
+      },
+      {
+        type: 'number',
+        name: 'frame_mm',
+        label: 'Frame',
+        unit: 'mm',
+        default: 0,
+        min: 0,
+        max: 50,
+        step: 1,
+        hint: 'Solid border at full thickness, so the plate stands and does not warp. 0 = none.',
+      },
+      {
+        type: 'boolean',
+        name: 'invert',
+        label: 'Invert (bright areas thick, e.g. a relief)',
+        default: false,
+      },
+    ],
   },
   {
     id: 'dxf',

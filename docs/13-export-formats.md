@@ -11,13 +11,15 @@ of the microservice can use it too.
 | PNG | — (browser) | Raster image at any width, transparent or white background | ✅ |
 | STL | `POST /api/v1/export/stl` | 3D printing (relief / multi-color prints) | ✅ |
 | 3MF | `POST /api/v1/export/3mf` | Multi-color / multi-material 3D printing (AMS, MMU, tool changers) | ✅ |
+| Lithophane (STL) | `POST /api/v1/export/lithophane` | Backlit photo plate made from the **original image** | ✅ |
 | DXF | `POST /api/v1/export/dxf` | Laser cutters, vinyl plotters, CNC | ✅ |
 | PDF | `POST /api/v1/export/pdf` | Print, documents | ✅ |
 | Filament plan | `POST /api/v1/export/filament-plan` | Filament changes for multi-color prints on one extruder (JSON) | ✅ |
 
-All endpoints take `multipart/form-data` with an `svg` file in the
+All endpoints except the lithophane take `multipart/form-data` with an `svg` file in the
 [SVG output contract](05-api-specification.md#svg-output-contract) plus format options,
-and return the file as an attachment. Invalid SVG → `422 INVALID_SVG`.
+and return the file as an attachment. Invalid SVG → `422 INVALID_SVG`. The lithophane
+takes the uploaded JPEG/PNG as `image` instead.
 
 ## Shared geometry (`app/services/svg_geometry.py`)
 
@@ -149,6 +151,31 @@ notion of parts or colors.
   the STL export with the same options.
 - A 440-shape document: 1.8 MB (STL: 8.8 MB) in ≈2 s.
 
+## Lithophane
+
+`app/services/lithophane.py`. A thin plate whose thickness follows the **brightness of
+the original image** (not the SVG — photos keep every shade): held against a light,
+thick dark areas let less light through, so the photo appears.
+
+- The image (transparent pixels composited over white, so they print thin) is converted
+  to Rec. 709 luma and resampled bilinearly to a grid with `resolution_mm` spacing,
+  `width_mm` wide; rows follow the aspect ratio.
+- Thickness = `max_thickness_mm` − (max − min) × brightness: black → `max_thickness_mm`
+  (default 3), white → `min_thickness_mm` (default 0.8). `invert` swaps it (bright areas
+  thick), which turns the plate into a relief.
+- `frame_mm` adds a solid border at full thickness around the image, so the plate is
+  stiffer and stands upright.
+- Mesh: the height grid is the top surface (two triangles per cell), side walls follow
+  the border and the flat bottom (z = 0) is a fan around its center, so the mesh is
+  closed and oriented (tests check every edge is shared by exactly two triangles in
+  opposite directions and that volumes match). Binary STL, millimetres, flat side down.
+- The grid is limited to 1,000,000 points (~100 MB STL); larger requests get
+  `422 INVALID_PARAMETERS` with `field: resolution_mm`. `max_thickness_mm` ≤
+  `min_thickness_mm` → `422` with `field: max_thickness_mm`.
+- The default 100 mm at 0.2 mm on a 4:3 photo: ≈188k points, ≈19 MB, well under a second.
+- Print it upright (or flat, relief up) in white filament with 100% infill; view it lit
+  from behind.
+
 ## PNG
 
 Rendered in the browser from the edited document (`src/lib/raster.ts`) — no request to
@@ -261,9 +288,17 @@ starting color, every change with its layer and height, conflicts, and a **Copy*
 for the plain-text version. Changing any option hides the plan so it never shows stale
 heights.
 
+### Lithophane
+
+Uses the image from the upload step (the request sends `file`, not the SVG); the export
+is saved as `<name>.lithophane.stl`. The thickness check (thickest > thinnest) runs in
+the browser; the grid-size limit is left to the backend, which knows the image size.
+
 ### 3D preview
 
-For STL and 3MF, **Preview 3D** shows the model before downloading it:
+For STL, 3MF and the lithophane, **Preview 3D** shows the model before downloading it
+(the lithophane loads its STL with `STLLoader`, as one plain part in white; switching
+between the lithophane and the colored formats closes the other preview):
 
 - It loads exactly what the backend exports — the **3MF** for the current options — with
   three.js' `3MFLoader`, so every part has its color and per-color heights, excluded

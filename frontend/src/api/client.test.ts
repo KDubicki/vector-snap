@@ -3,6 +3,7 @@ import {
   ApiError,
   errorMessage,
   exportFile,
+  exportLithophane,
   getFilamentPlan,
   getLimits,
   quantize,
@@ -126,6 +127,35 @@ describe('api client', () => {
     expect(form.get('width_mm')).toBe('50');
     expect(form.get('layered')).toBe('true');
     expect(await blob.text()).toBe('solid');
+  });
+
+  it('sends the original image for a lithophane', async () => {
+    const fetchMock = mockFetch(new Response(new Blob(['solid']), { status: 200 }));
+    const image = new Blob(['png'], { type: 'image/png' });
+
+    const blob = await exportLithophane(image, { width_mm: 80, invert: false });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const form = init.body as FormData;
+    expect(url).toBe('/api/v1/export/lithophane');
+    expect(await (form.get('image') as Blob).text()).toBe('png');
+    expect(form.get('width_mm')).toBe('80');
+    expect(form.get('invert')).toBe('false');
+    expect(await blob.text()).toBe('solid');
+  });
+
+  it('maps lithophane errors to ApiError', async () => {
+    mockFetch(
+      jsonResponse(
+        { error: { code: 'INVALID_PARAMETERS', message: 'Too big', details: {} }, request_id: 'r' },
+        422,
+      ),
+    );
+
+    await expect(exportLithophane(new Blob(['x']), {})).rejects.toMatchObject({
+      code: 'INVALID_PARAMETERS',
+      message: 'Too big',
+    });
   });
 
   it('maps export errors to ApiError', async () => {

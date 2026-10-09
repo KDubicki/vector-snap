@@ -6,6 +6,7 @@ import pytest
 from ezdxf.filemanagement import read as read_dxf
 from fastapi.testclient import TestClient
 
+from tests.images import encode, stripes
 from tests.vectors import contract_svg, is_balanced, is_closed, read_binary_stl, signed_volume
 
 SVG = contract_svg(
@@ -218,3 +219,40 @@ def test_filament_plan_rejects_invalid_svg(client: TestClient) -> None:
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "INVALID_SVG"
+
+
+def _post_image(client: TestClient, form: dict[str, str]) -> httpx.Response:
+    response: httpx.Response = client.post(
+        "/api/v1/export/lithophane",
+        files={"image": ("photo.png", encode(stripes()), "image/png")},
+        data=form,
+    )
+    return response
+
+
+def test_exports_a_lithophane_from_the_image(client: TestClient) -> None:
+    response = _post_image(client, {"width_mm": "50", "resolution_mm": "0.5", "frame_mm": "2"})
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "model/stl"
+    triangles = read_binary_stl(response.content)
+    assert is_closed(triangles)
+    assert signed_volume(triangles) > 0
+    size = triangles.reshape(-1, 3).max(axis=0) - triangles.reshape(-1, 3).min(axis=0)
+    assert size[0] == pytest.approx(54)
+
+
+@pytest.mark.parametrize(
+    ("form", "field"),
+    [
+        ({"min_thickness_mm": "3", "max_thickness_mm": "2"}, "max_thickness_mm"),
+        ({"width_mm": "1000", "resolution_mm": "0.05"}, "resolution_mm"),
+    ],
+)
+def test_lithophane_rejects_invalid_options(
+    client: TestClient, form: dict[str, str], field: str
+) -> None:
+    response = _post_image(client, form)
+
+    assert response.status_code == 422
+    assert response.json()["error"]["details"]["field"] == field

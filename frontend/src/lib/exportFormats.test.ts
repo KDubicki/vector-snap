@@ -91,6 +91,26 @@ describe('export formats', () => {
     expect(threeMf.perColorHeights).toBe(true);
   });
 
+  it('offers a lithophane built from the original image', () => {
+    const lithophane = EXPORT_FORMATS.find((format) => format.id === 'lithophane')!;
+    const values = defaultValues(lithophane);
+
+    expect(lithophane.source).toBe('image');
+    expect(exportFileName('photo.jpg', lithophane.extension)).toBe('photo.lithophane.stl');
+    expect(values).toEqual({
+      width_mm: 100,
+      min_thickness_mm: 0.8,
+      max_thickness_mm: 3,
+      resolution_mm: 0.2,
+      frame_mm: 0,
+      invert: false,
+    });
+    expect(validate(lithophane, values)).toEqual({});
+    expect(validate(lithophane, { ...values, min_thickness_mm: 3 })).toEqual({
+      max_thickness_mm: 'Must be thicker than the thinnest areas.',
+    });
+  });
+
   it('offers DXF with width and fill options', () => {
     const dxf = EXPORT_FORMATS.find((format) => format.id === 'dxf')!;
 
