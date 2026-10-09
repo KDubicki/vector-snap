@@ -276,6 +276,13 @@ curl -F svg=@logo.svg -F page=a4 -F margin_mm=15 \
 
 ## Frontend
 
+Common options are always shown; less common ones sit in collapsed sections (for STL and
+3MF: **Base plate extras** — shape, margin, loop, magnet — and **Print tuning** — color
+order, detail removal, layer snapping; `section` in `src/lib/exportFormats.ts`). A
+collapsed section's header shows how many of its options differ from the defaults
+("2 changed") or, when one is invalid, "1 to fix" in the error color, so a disabled
+Export button is never left unexplained.
+
 For STL and 3MF the panel also lists every color with an *include* checkbox and a height field
 (empty = automatic, shown as placeholder — following the chosen color order and already rounded to the printer layer height
 when one is set); this becomes `layer_heights`. Leaving out

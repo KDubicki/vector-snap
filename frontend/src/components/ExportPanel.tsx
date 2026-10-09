@@ -1,14 +1,17 @@
-import { Suspense, lazy, useMemo, useState } from 'react';
+import { Fragment, Suspense, lazy, useMemo, useState } from 'react';
 import { errorMessage, exportFile, exportLithophane, getFilamentPlan } from '../api/client';
 import { serializeSvg } from '../editor/export';
 import {
   EXPORT_FORMATS,
+  changedCount,
   defaultValues,
   exportFileName,
   layerHeightsJson,
+  optionSections,
   validate,
   validateColorHeights,
   type ColorHeight,
+  type ExportOption,
   type ExportValues,
 } from '../lib/exportFormats';
 import { rasterSize, svgToPng } from '../lib/raster';
@@ -30,6 +33,14 @@ function download(blob: Blob, fileName: string): void {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+/** Summary of a collapsed option section: invalid options first, else changed ones. */
+function SectionBadge({ invalid, changed }: { invalid: number; changed: number }) {
+  if (invalid > 0) {
+    return <span className="options__changed options__changed--invalid">{invalid} to fix</span>;
+  }
+  return changed > 0 ? <span className="options__changed">{changed} changed</span> : null;
+}
+
 /** Convert the edited document to other formats via the backend (STL, …). */
 export function ExportPanel() {
   const editor = useAppStore((s) => s.editor);
@@ -46,6 +57,7 @@ export function ExportPanel() {
   // Cleared whenever an option changes, so a shown plan always matches the options.
   const [plan, setPlan] = useState<FilamentPlan | null>(null);
   const [planning, setPlanning] = useState(false);
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
 
   if (!editor) return null;
 
@@ -121,6 +133,63 @@ export function ExportPanel() {
     }
   };
 
+  const renderOption = (option: ExportOption) => {
+    const id = `export-${format.id}-${option.name}`;
+    const errorId = `${id}-error`;
+    if (option.type === 'boolean') {
+      return (
+        <div key={option.name} className="checkbox">
+          <input
+            id={id}
+            type="checkbox"
+            checked={Boolean(current[option.name])}
+            onChange={(event) => update(option.name, event.target.checked)}
+          />
+          <label htmlFor={id}>{option.label}</label>
+        </div>
+      );
+    }
+    return (
+      <div key={option.name} className="option">
+        <label htmlFor={id}>
+          {option.label}
+          {option.type === 'number' && option.unit ? ` (${option.unit})` : ''}
+        </label>
+        {option.type === 'choice' ? (
+          <select
+            id={id}
+            value={String(current[option.name])}
+            onChange={(event) => update(option.name, event.target.value)}
+          >
+            {option.choices.map((choice) => (
+              <option key={choice.value} value={choice.value}>
+                {choice.label}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <input
+            id={id}
+            type="number"
+            min={option.min}
+            max={option.max}
+            step={option.step}
+            value={Number.isFinite(current[option.name]) ? Number(current[option.name]) : ''}
+            aria-invalid={Boolean(errors[option.name])}
+            aria-describedby={errors[option.name] ? errorId : undefined}
+            onChange={(event) => update(option.name, event.target.valueAsNumber)}
+          />
+        )}
+        {option.hint && <span className="hint">{option.hint}</span>}
+        {errors[option.name] && (
+          <span id={errorId} className="field-error">
+            {errors[option.name]}
+          </span>
+        )}
+      </div>
+    );
+  };
+
   return (
     <details className="field export">
       <summary>Export to other formats</summary>
@@ -145,62 +214,30 @@ export function ExportPanel() {
       </div>
       <p className="hint">{format.description}</p>
       <div className="options">
-        {format.options.map((option) => {
-          const id = `export-${format.id}-${option.name}`;
-          const errorId = `${id}-error`;
-          if (option.type === 'boolean') {
-            return (
-              <div key={option.name} className="checkbox">
-                <input
-                  id={id}
-                  type="checkbox"
-                  checked={Boolean(current[option.name])}
-                  onChange={(event) => update(option.name, event.target.checked)}
+        {optionSections(format).map((section) =>
+          section.name === null ? (
+            <Fragment key="main">{section.options.map(renderOption)}</Fragment>
+          ) : (
+            <details
+              key={section.name}
+              className="options__advanced"
+              open={openSections[section.name] ?? false}
+              onToggle={(event) => {
+                const { open } = event.currentTarget;
+                setOpenSections((all) => ({ ...all, [section.name!]: open }));
+              }}
+            >
+              <summary>
+                {section.name}
+                <SectionBadge
+                  invalid={section.options.filter((option) => errors[option.name]).length}
+                  changed={changedCount(section.options, current)}
                 />
-                <label htmlFor={id}>{option.label}</label>
-              </div>
-            );
-          }
-          return (
-            <div key={option.name} className="option">
-              <label htmlFor={id}>
-                {option.label}
-                {option.type === 'number' && option.unit ? ` (${option.unit})` : ''}
-              </label>
-              {option.type === 'choice' ? (
-                <select
-                  id={id}
-                  value={String(current[option.name])}
-                  onChange={(event) => update(option.name, event.target.value)}
-                >
-                  {option.choices.map((choice) => (
-                    <option key={choice.value} value={choice.value}>
-                      {choice.label}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  id={id}
-                  type="number"
-                  min={option.min}
-                  max={option.max}
-                  step={option.step}
-                  value={Number.isFinite(current[option.name]) ? Number(current[option.name]) : ''}
-                  aria-invalid={Boolean(errors[option.name])}
-                  aria-describedby={errors[option.name] ? errorId : undefined}
-                  onChange={(event) => update(option.name, event.target.valueAsNumber)}
-                />
-              )}
-              {option.hint && <span className="hint">{option.hint}</span>}
-              {errors[option.name] && (
-                <span id={errorId} className="field-error">
-                  {errors[option.name]}
-                </span>
-              )}
-            </div>
-          );
-        })}
+              </summary>
+              <div className="options">{section.options.map(renderOption)}</div>
+            </details>
+          ),
+        )}
       </div>
       {raster && (
         <p className="hint" role="status">

@@ -19,6 +19,7 @@ export interface NumberOption {
   hint?: string;
   /** Extra rule involving other options: an error message, or `null` when valid. */
   check?: (value: number, values: ExportValues) => string | null;
+  section?: string;
 }
 
 export interface BooleanOption {
@@ -26,6 +27,7 @@ export interface BooleanOption {
   name: string;
   label: string;
   default: boolean;
+  section?: string;
 }
 
 export interface ChoiceOption {
@@ -36,6 +38,7 @@ export interface ChoiceOption {
   choices: { value: string; label: string }[];
   /** Short explanation shown under the field. */
   hint?: string;
+  section?: string;
 }
 
 export type ExportOption = NumberOption | BooleanOption | ChoiceOption;
@@ -56,6 +59,11 @@ export interface ExportFormat {
 
 /** Plastic left above a magnet pocket (mm), as in the backend. */
 export const MAGNET_ROOF_MM = 0.4;
+
+/** Collapsed groups of the less common 3D options (the rest is always shown):
+ * shape, margin, loop and magnet; color order, detail removal and layer snapping. */
+const BASE_EXTRAS = 'Base plate extras';
+const PRINT_TUNING = 'Print tuning';
 
 /** Options shared by the 3D formats (STL, 3MF), mirroring the backend form fields. */
 const MODEL_OPTIONS: ExportOption[] = [
@@ -82,6 +90,7 @@ const MODEL_OPTIONS: ExportOption[] = [
   {
     type: 'choice',
     name: 'base_shape',
+    section: BASE_EXTRAS,
     label: 'Base plate shape',
     default: 'outline',
     choices: [
@@ -95,6 +104,7 @@ const MODEL_OPTIONS: ExportOption[] = [
   {
     type: 'number',
     name: 'base_margin_mm',
+    section: BASE_EXTRAS,
     label: 'Base plate margin',
     unit: 'mm',
     default: 0,
@@ -116,6 +126,7 @@ const MODEL_OPTIONS: ExportOption[] = [
   {
     type: 'choice',
     name: 'stack_order',
+    section: PRINT_TUNING,
     label: 'Color order (bottom to top)',
     default: 'document',
     choices: [
@@ -128,6 +139,7 @@ const MODEL_OPTIONS: ExportOption[] = [
   {
     type: 'number',
     name: 'loop_hole_mm',
+    section: BASE_EXTRAS,
     label: 'Hanging loop hole',
     unit: 'mm',
     default: 0,
@@ -141,6 +153,7 @@ const MODEL_OPTIONS: ExportOption[] = [
   {
     type: 'number',
     name: 'magnet_mm',
+    section: BASE_EXTRAS,
     label: 'Magnet pocket diameter',
     unit: 'mm',
     default: 0,
@@ -152,6 +165,7 @@ const MODEL_OPTIONS: ExportOption[] = [
   {
     type: 'number',
     name: 'magnet_depth_mm',
+    section: BASE_EXTRAS,
     label: 'Magnet pocket depth',
     unit: 'mm',
     default: 2,
@@ -168,6 +182,7 @@ const MODEL_OPTIONS: ExportOption[] = [
   {
     type: 'number',
     name: 'min_feature_mm',
+    section: PRINT_TUNING,
     label: 'Remove details thinner than',
     unit: 'mm',
     default: 0,
@@ -179,6 +194,7 @@ const MODEL_OPTIONS: ExportOption[] = [
   {
     type: 'number',
     name: 'print_layer_mm',
+    section: PRINT_TUNING,
     label: 'Printer layer height',
     unit: 'mm',
     default: 0,
@@ -384,6 +400,32 @@ export type ExportValues = Record<string, number | boolean | string>;
 
 export function defaultValues(format: ExportFormat): ExportValues {
   return Object.fromEntries(format.options.map((option) => [option.name, option.default]));
+}
+
+export interface OptionSection {
+  /** `null` for the options that are always shown. */
+  name: string | null;
+  options: ExportOption[];
+}
+
+/** Options grouped by section: the unsectioned ones first, then sections in order. */
+export function optionSections(format: ExportFormat): OptionSection[] {
+  const sections: OptionSection[] = [{ name: null, options: [] }];
+  for (const option of format.options) {
+    const name = option.section ?? null;
+    let section = sections.find((item) => item.name === name);
+    if (!section) {
+      section = { name, options: [] };
+      sections.push(section);
+    }
+    section.options.push(option);
+  }
+  return sections.filter((section) => section.options.length > 0);
+}
+
+/** How many of `options` differ from their defaults (shown on collapsed sections). */
+export function changedCount(options: ExportOption[], values: ExportValues): number {
+  return options.filter((option) => values[option.name] !== option.default).length;
 }
 
 /** Validate option values; returns an error message per invalid option name. */

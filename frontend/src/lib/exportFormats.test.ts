@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   EXPORT_FORMATS,
+  changedCount,
+  optionSections,
   autoLayerHeight,
   snapToLayers,
   stackPositions,
@@ -109,6 +111,40 @@ describe('export formats', () => {
     expect(validate(lithophane, { ...values, min_thickness_mm: 3 })).toEqual({
       max_thickness_mm: 'Must be thicker than the thinnest areas.',
     });
+  });
+
+  it('shows the common 3D options first and groups the rest', () => {
+    const sections = optionSections(stl);
+
+    expect(sections.map((section) => section.name)).toEqual([
+      null,
+      'Base plate extras',
+      'Print tuning',
+    ]);
+    expect(sections[0].options.map((option) => option.name)).toEqual([
+      'width_mm',
+      'base_mm',
+      'layer_mm',
+      'layered',
+      'mirror',
+    ]);
+    expect(sections.flatMap((section) => section.options)).toHaveLength(stl.options.length);
+  });
+
+  it('keeps formats without sections in one group', () => {
+    const pdf = EXPORT_FORMATS.find((format) => format.id === 'pdf')!;
+
+    expect(optionSections(pdf)).toEqual([{ name: null, options: pdf.options }]);
+  });
+
+  it('counts options changed from their defaults', () => {
+    const [, extras] = optionSections(stl);
+    const values = defaultValues(stl);
+
+    expect(changedCount(extras.options, values)).toBe(0);
+    expect(changedCount(extras.options, { ...values, magnet_mm: 10, base_shape: 'circle' })).toBe(
+      2,
+    );
   });
 
   it('offers DXF with width and fill options', () => {
