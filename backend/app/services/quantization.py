@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 import numpy as np
 from numpy.typing import NDArray
-from PIL import Image
+from PIL import Image, ImageFilter
 from sklearn.cluster import KMeans, MiniBatchKMeans
 
 from app.services.image_io import TRANSPARENT_LABEL, DecodedImage
@@ -18,8 +18,12 @@ __all__ = [
     "QuantizationResult",
     "quantize_kmeans",
     "quantize_median_cut",
+    "smooth_regions",
     "suggest_color_count",
 ]
+
+# `smooth_regions` strength n uses a (2n + 1) x (2n + 1) majority window.
+MAX_SMOOTH = 3
 
 # Color count suggestion: a mean error (CIE76 ΔE) at or below this is hard to tell apart
 # from the original; above `_SUGGEST_MAX_COLORS` the gain rarely justifies the extra paths.
@@ -232,6 +236,37 @@ def quantize_median_cut(
     unique, inverse = np.unique(_pack(opaque), return_inverse=True)
     unique_labels = _nearest(srgb_to_lab(_unpack(unique)), centers)
     return _finalize(image, unique_labels[inverse.reshape(-1)], palette)
+
+
+def smooth_regions(result: QuantizationResult, strength: int) -> QuantizationResult:
+    """Replace every opaque pixel with the most common color around it (majority filter).
+
+    Removes specks and noise and evens out jagged color edges, so photos and scans trace
+    into fewer, cleaner shapes (thin, printable-sized details survive only at low
+    strength). Transparency is left unchanged; colors that disappear are dropped and the
+    palette is re-sorted by coverage.
+    """
+    if strength <= 0:
+        return result
+    size = 2 * min(strength, MAX_SMOOTH) + 1
+    filtered = np.asarray(
+        Image.fromarray(result.labels, mode="L").filter(ImageFilter.ModeFilter(size))
+    )
+    opaque = result.labels != TRANSPARENT_LABEL
+    # A majority of transparent neighbours must not erase an opaque pixel.
+    keep = opaque & (filtered != TRANSPARENT_LABEL)
+    labels = np.where(keep, filtered, result.labels)
+
+    counts = np.bincount(labels[opaque], minlength=len(result.palette))
+    order = [int(i) for i in np.argsort(-counts, kind="stable") if counts[i] > 0]
+    remap = np.full(256, TRANSPARENT_LABEL, dtype=np.uint8)
+    remap[order] = np.arange(len(order), dtype=np.uint8)
+    sorted_counts = counts[order].astype(np.float64)
+    return QuantizationResult(
+        labels=remap[labels],
+        palette=result.palette[order],
+        coverage=sorted_counts / sorted_counts.sum(),
+    )
 
 
 def suggest_color_count(

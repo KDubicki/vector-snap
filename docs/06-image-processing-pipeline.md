@@ -83,7 +83,14 @@ Full `KMeans` is used instead of `MiniBatchKMeans` here: on the small sample it 
 ### Post-quantization cleanup
 
 - **Dithering is always disabled** — dithered noise produces thousands of tiny paths.
-- Optional **mode filter** (3×3 majority) to remove isolated pixels before tracing.
+- Optional **region smoothing** (`smooth` = 1–3, `smooth_regions`): a majority (mode)
+  filter with a (2n+1)×(2n+1) window replaces every opaque pixel with the most common
+  label around it (Pillow `ModeFilter`; values seen only once or twice never win).
+  Removes specks and evens out jagged edges from photos, scans and JPEG artefacts, so
+  tracing produces fewer, cleaner shapes — and 3D layers without unprintable crumbs.
+  Transparency is never changed: a transparent majority does not erase opaque pixels.
+  Colors that disappear are dropped and the palette is re-sorted. Cost: ~1 s per
+  4 MP, independent of the strength.
 - Remove empty clusters (can happen with k-means on low-variety images); palette size may
   therefore be smaller than requested — the response reflects the actual size.
 - Sort palette by coverage (descending) and remap labels accordingly.

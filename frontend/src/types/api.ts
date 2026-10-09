@@ -30,6 +30,8 @@ export interface QuantizeParams {
   algorithm?: QuantizeAlgorithm;
   /** Hex colors that must appear exactly in the palette (FR-16). */
   locked_colors?: string[];
+  /** Clean up noisy color regions: 0 = off, 1-3 = stronger (majority filter). */
+  smooth?: number;
 }
 
 export interface QuantizeResponse {

@@ -20,7 +20,7 @@ from app.services.pipeline import (
     suggest_colors,
     to_indexed_png,
 )
-from app.services.quantization import SUGGEST_TARGET_DELTA_E
+from app.services.quantization import MAX_SMOOTH, SUGGEST_TARGET_DELTA_E
 
 router = APIRouter(tags=["processing"])
 
@@ -34,6 +34,14 @@ async def quantize(
     locked_colors: Annotated[str, Form(description="JSON array of hex colors")] = "[]",
     max_working_size: Annotated[int, Form(ge=64)] = 1024,
     seed: Annotated[int, Form()] = 0,
+    smooth: Annotated[
+        int,
+        Form(
+            ge=0,
+            le=MAX_SMOOTH,
+            description="Clean up noisy color regions: 0 = off, 1-3 = majority window size",
+        ),
+    ] = 0,
 ) -> QuantizeResponse:
     data = await read_upload(image, settings)
     check_color_count(colors, settings)
@@ -48,6 +56,7 @@ async def quantize(
         locked_colors=locked,
         max_working_size=max_working_size,
         seed=seed,
+        smooth=smooth,
     )
     png = await run_in_threadpool(to_indexed_png, result)
 

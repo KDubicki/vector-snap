@@ -23,6 +23,7 @@ from app.services.quantization import (
     QuantizationResult,
     quantize_kmeans,
     quantize_median_cut,
+    smooth_regions,
     suggest_color_count,
 )
 from app.services.svg_postprocess import build_svg
@@ -51,18 +52,21 @@ def quantize_image(
     locked_colors: list[tuple[int, int, int]] | None = None,
     max_working_size: int = 1024,
     seed: int = 0,
+    smooth: int = 0,
 ) -> tuple[DecodedImage, QuantizationResult]:
+    """Decode and quantize an image; `smooth` > 0 then cleans up noisy color regions."""
     image = decode_image(data, max_dimension)
     if algorithm == "median_cut":
-        return image, quantize_median_cut(image, colors, locked_colors=locked_colors)
-    result = quantize_kmeans(
-        image,
-        colors,
-        locked_colors=locked_colors,
-        max_working_size=max_working_size,
-        seed=seed,
-    )
-    return image, result
+        result = quantize_median_cut(image, colors, locked_colors=locked_colors)
+    else:
+        result = quantize_kmeans(
+            image,
+            colors,
+            locked_colors=locked_colors,
+            max_working_size=max_working_size,
+            seed=seed,
+        )
+    return image, smooth_regions(result, smooth)
 
 
 def suggest_colors(

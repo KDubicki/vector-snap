@@ -64,6 +64,9 @@ Layout: left = original and quantized previews side by side, right = controls.
   it" link once the count is changed. Runs with its own `AbortController`, so it never
   cancels a quantization in flight.
 - **Method**: perceptual (k-means) / fast (median cut).
+- **Smooth regions**: Off / Light / Medium / Strong, sent as `smooth` 0–3 (default
+  Light). Removes specks and jagged edges, which matters most for photos and 3D prints;
+  changing it re-quantizes like the other parameters.
 - **Remove colors / background**: the eye toggle on a palette row leaves that color out
   of the SVG (sent as `transparent`); the preview shows it as transparent over a
   checkerboard. "Remove background" appears when `/quantize` reports a

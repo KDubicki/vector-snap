@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_TRACING } from '../lib/tracing';
 import type { QuantizeResponse, VectorizeResponse } from '../types/api';
 import { hasUnsavedEdits } from './editorSlice';
-import { DEFAULT_COLORS, reachableSteps, useAppStore } from './store';
+import { DEFAULT_COLORS, DEFAULT_SMOOTH, reachableSteps, useAppStore } from './store';
 
 const quantized: QuantizeResponse = {
   width: 2,
@@ -95,6 +95,20 @@ describe('app store', () => {
     store().setColors(4);
     await store().runQuantize();
     expect(store().overrides).toEqual({});
+  });
+
+  it('sends the smoothing strength and re-quantizes when it changes', async () => {
+    store().selectFile(file);
+    const fetchMock = respond(quantized);
+    vi.stubGlobal('fetch', fetchMock);
+    await store().runQuantize();
+
+    store().setSmooth(3);
+    await store().runQuantize();
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const forms = fetchMock.mock.calls.map(([, init]) => (init as RequestInit).body as FormData);
+    expect(forms.map((form) => form.get('smooth'))).toEqual([String(DEFAULT_SMOOTH), '3']);
   });
 
   it('locks colors up to the palette size and re-quantizes with them', async () => {
@@ -617,6 +631,7 @@ describe('app store', () => {
     store().selectFile(file);
     store().setColors(12);
     store().setAlgorithm('median_cut');
+    store().setSmooth(0);
     store().goTo('upload');
     expect(store().step).toBe('upload');
 
@@ -624,5 +639,6 @@ describe('app store', () => {
     expect(store().file).toBeNull();
     expect(store().colors).toBe(DEFAULT_COLORS);
     expect(store().algorithm).toBe('kmeans');
+    expect(store().smooth).toBe(DEFAULT_SMOOTH);
   });
 });

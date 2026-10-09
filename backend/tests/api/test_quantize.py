@@ -2,6 +2,7 @@ import base64
 import io
 
 import httpx
+import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
@@ -51,6 +52,38 @@ def test_quantize_keeps_locked_colors(client: TestClient, algorithm: str) -> Non
 
     assert response.status_code == 200
     assert "#123456" in [c["hex"] for c in response.json()["palette"]]
+
+
+def _speckled() -> Image.Image:
+    """Red and blue halves sprinkled with single pixels of the other color."""
+    rng = np.random.default_rng(0)
+    pixels = np.zeros((40, 40, 3), dtype=np.uint8)
+    pixels[:, :20] = (220, 0, 0)
+    pixels[:, 20:] = (0, 0, 220)
+    specks = rng.random((40, 40)) < 0.05
+    pixels[specks] = 220 - pixels[specks]
+    return Image.fromarray(pixels, mode="RGB")
+
+
+def test_quantize_smooths_noisy_regions(client: TestClient) -> None:
+    rough = _post(client, encode(_speckled()), colors="2")
+    smooth = _post(client, encode(_speckled()), colors="2", smooth="1")
+
+    assert smooth.status_code == 200
+
+    def edges(response: httpx.Response) -> int:
+        png = Image.open(io.BytesIO(base64.b64decode(response.json()["image"]["data"])))
+        labels = np.asarray(png)
+        return int((labels[:, 1:] != labels[:, :-1]).sum() + (labels[1:] != labels[:-1]).sum())
+
+    assert edges(smooth) < edges(rough) / 3
+
+
+@pytest.mark.parametrize("smooth", ["-1", "4"])
+def test_quantize_rejects_invalid_smoothing(client: TestClient, smooth: str) -> None:
+    response = _post(client, encode(noisy()), colors="4", smooth=smooth)
+
+    assert response.status_code == 422
 
 
 @pytest.mark.parametrize("colors", ["1", "65"])

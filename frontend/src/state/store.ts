@@ -21,6 +21,8 @@ export type Step = 'upload' | 'palette' | 'result';
 export type Status = 'idle' | 'quantizing' | 'vectorizing';
 
 export const DEFAULT_COLORS = 8;
+/** Light smoothing removes specks without rounding off real details. */
+export const DEFAULT_SMOOTH = 1;
 
 export const STEPS: Step[] = ['upload', 'palette', 'result'];
 
@@ -41,12 +43,15 @@ export interface WorkflowSlice {
   file: File | null;
   colors: number;
   algorithm: QuantizeAlgorithm;
+  /** Strength of the region cleanup after quantization (0 = off). */
+  smooth: number;
   quantized: QuantizeResponse | null;
   /** Parameters that produced `quantized`; avoids re-quantizing (and losing edits) needlessly. */
   quantizedFor: {
     file: File;
     colors: number;
     algorithm: QuantizeAlgorithm;
+    smooth: number;
     locked: string[];
   } | null;
   /** Color count suggested for `file` by the backend, once requested. */
@@ -66,6 +71,7 @@ export interface WorkflowSlice {
   selectFile: (file: File) => void;
   setColors: (colors: number) => void;
   setAlgorithm: (algorithm: QuantizeAlgorithm) => void;
+  setSmooth: (smooth: number) => void;
   /** Ask the backend for a good color count for the current file and apply it. */
   suggestColors: () => Promise<void>;
   /** Lock a color into the palette; ignored when it is locked already or no slot is free. */
@@ -93,6 +99,7 @@ const initialState = {
   file: null,
   colors: DEFAULT_COLORS,
   algorithm: 'kmeans' as QuantizeAlgorithm,
+  smooth: DEFAULT_SMOOTH,
   quantized: null,
   quantizedFor: null,
   suggestedColors: null as number | null,
@@ -162,6 +169,7 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
 
   setColors: (colors) => set((state) => ({ colors: Math.max(colors, state.locked.length) })),
   setAlgorithm: (algorithm) => set({ algorithm }),
+  setSmooth: (smooth) => set({ smooth }),
 
   suggestColors: async () => {
     const { file } = get();
@@ -226,12 +234,13 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
   resetTracing: () => set({ tracing: DEFAULT_TRACING }),
 
   runQuantize: async () => {
-    const { file, colors, algorithm, locked, quantizedFor } = get();
+    const { file, colors, algorithm, smooth, locked, quantizedFor } = get();
     if (!file) return;
     if (
       quantizedFor?.file === file &&
       quantizedFor.colors === colors &&
       quantizedFor.algorithm === algorithm &&
+      quantizedFor.smooth === smooth &&
       quantizedFor.locked === locked
     ) {
       return;
@@ -239,11 +248,15 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
     const signal = nextSignal();
     set({ status: 'quantizing', error: null });
     try {
-      const quantized = await quantize(file, { colors, algorithm, locked_colors: locked }, signal);
+      const quantized = await quantize(
+        file,
+        { colors, algorithm, smooth, locked_colors: locked },
+        signal,
+      );
       // Overrides refer to palette indices of the previous result, so they are dropped.
       set({
         quantized,
-        quantizedFor: { file, colors, algorithm, locked },
+        quantizedFor: { file, colors, algorithm, smooth, locked },
         overrides: {},
         transparent: [],
         vectorized: null,

@@ -10,6 +10,7 @@ from app.services.quantization import (
     QuantizationResult,
     quantize_kmeans,
     quantize_median_cut,
+    smooth_regions,
     srgb_to_lab,
     suggest_color_count,
 )
@@ -182,3 +183,49 @@ def test_suggestion_never_exceeds_the_maximum() -> None:
     suggestion = suggest_color_count(image, min_colors=2, max_colors=3)
 
     assert suggestion.colors in (2, 3)
+
+
+def _labels_result(labels: list[list[int]], colors: int) -> QuantizationResult:
+    array = np.array(labels, dtype=np.uint8)
+    palette = np.array([[i * 40, 0, 0] for i in range(colors)], dtype=np.uint8)
+    counts = np.bincount(array[array != TRANSPARENT_LABEL], minlength=colors)
+    return QuantizationResult(labels=array, palette=palette, coverage=counts / counts.sum())
+
+
+def test_smoothing_removes_specks_and_drops_vanished_colors() -> None:
+    labels = np.zeros((9, 9), dtype=np.uint8)
+    labels[:, 5:] = 1
+    labels[2, 2] = 2  # a lone speck inside color 0
+    result = smooth_regions(_labels_result(labels.tolist(), 3), 1)
+
+    assert len(result.palette) == 2
+    assert (result.labels[:, :5] == 0).all()
+    assert (result.labels[:, 5:] == 1).all()
+    assert result.coverage == pytest.approx([5 / 9, 4 / 9])
+
+
+def test_smoothing_re_sorts_the_palette_by_coverage() -> None:
+    labels = np.ones((6, 6), dtype=np.uint8)
+    labels[:, :2] = 0  # palette index 0 covers less than index 1
+    result = smooth_regions(_labels_result(labels.tolist(), 2), 1)
+
+    assert result.palette.tolist() == [[40, 0, 0], [0, 0, 0]]
+    assert result.coverage == pytest.approx([2 / 3, 1 / 3])
+    assert (result.labels[:, :2] == 1).all()
+
+
+def test_smoothing_keeps_transparency() -> None:
+    t = TRANSPARENT_LABEL
+    labels = [[t, t, t, t], [t, 0, 0, 0], [t, 0, 1, 0], [t, 0, 0, 0]]
+    result = smooth_regions(_labels_result(labels, 2), 1)
+
+    assert (result.labels == TRANSPARENT_LABEL).tolist() == (
+        np.array(labels) == TRANSPARENT_LABEL
+    ).tolist()
+    assert result.palette.tolist() == [[0, 0, 0]]
+
+
+def test_smoothing_off_returns_the_result_unchanged() -> None:
+    original = _labels_result([[0, 1], [1, 0]], 2)
+
+    assert smooth_regions(original, 0) is original

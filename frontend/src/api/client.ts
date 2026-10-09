@@ -97,6 +97,7 @@ export function quantize(
   if (params.locked_colors?.length) {
     form.append('locked_colors', JSON.stringify(params.locked_colors));
   }
+  if (params.smooth !== undefined) form.append('smooth', String(params.smooth));
   return request<QuantizeResponse>('/quantize', { method: 'POST', body: form, signal });
 }
 

@@ -12,10 +12,18 @@ import { useDiscardGuard } from './useDiscardGuard';
 
 const QUANTIZE_DEBOUNCE_MS = 400;
 
+const SMOOTH_LEVELS = [
+  { value: 0, label: 'Off' },
+  { value: 1, label: 'Light' },
+  { value: 2, label: 'Medium' },
+  { value: 3, label: 'Strong' },
+];
+
 export function PaletteStep() {
   const file = useAppStore((s) => s.file);
   const colors = useAppStore((s) => s.colors);
   const algorithm = useAppStore((s) => s.algorithm);
+  const smooth = useAppStore((s) => s.smooth);
   const limits = useAppStore((s) => s.limits);
   const quantized = useAppStore((s) => s.quantized);
   const locked = useAppStore((s) => s.locked);
@@ -36,7 +44,7 @@ export function PaletteStep() {
     if (!file) return;
     const timer = setTimeout(() => void useAppStore.getState().runQuantize(), QUANTIZE_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [file, colors, algorithm, locked]);
+  }, [file, colors, algorithm, smooth, locked]);
 
   const originalPalette = useMemo(() => quantized?.palette.map((c) => c.hex) ?? [], [quantized]);
   const targetPalette = useMemo(
@@ -99,6 +107,27 @@ export function PaletteStep() {
               </button>
             ))}
           </div>
+        </div>
+        <div className="field">
+          <span>Smooth regions</span>
+          <div className="segmented" role="radiogroup" aria-label="Smooth regions">
+            {SMOOTH_LEVELS.map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={smooth === value}
+                className={smooth === value ? 'active' : ''}
+                onClick={() => actions.setSmooth(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <span className="hint">
+            Removes specks and evens out jagged edges, so photos and scans become clean shapes for
+            3D printing and cutting.
+          </span>
         </div>
         {quantized && (
           <PaletteEditor
