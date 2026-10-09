@@ -26,6 +26,7 @@ from shapely import (
     box,
     constrained_delaunay_triangles,
     get_coordinates,
+    make_valid,
     minimum_bounding_circle,
     minimum_bounding_radius,
     unary_union,
@@ -281,6 +282,12 @@ def layer_height(position: int, palette_index: int, options: StlOptions) -> floa
     return snap_to_layers(height, options.print_layer_mm)
 
 
+def _repaired(geometry: BaseGeometry) -> BaseGeometry:
+    """Valid geometry: scaling rounds coordinates, which can make nearly touching rings
+    (e.g. chains of sliver holes) cross; GEOS cannot triangulate such polygons."""
+    return geometry if geometry.is_valid else make_valid(geometry)
+
+
 def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
     """Base plate (under the included colors) and one extruded body per color layer."""
     layers = [
@@ -293,6 +300,7 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
             (layer, affinity.scale(geometry, xfact=-1, yfact=1, origin=(width / 2, 0)))
             for layer, geometry in layers
         ]
+    layers = [(layer, _repaired(geometry)) for layer, geometry in layers]
     layers = stack_layers(layers, [layer.fill for layer, _ in layers], options.stack_order)
 
     included = [

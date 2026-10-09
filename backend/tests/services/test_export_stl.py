@@ -12,7 +12,7 @@ from app.services.export_stl import (
     stack_layers,
 )
 from app.services.svg_geometry import parse_svg
-from tests.vectors import contract_svg, is_closed, read_binary_stl, signed_volume
+from tests.vectors import contract_svg, is_balanced, is_closed, read_binary_stl, signed_volume
 
 FRAME = "M0,0 L20,0 L20,20 L0,20 Z M5,5 L5,15 L15,15 L15,5 Z"  # 20x20 with a 10x10 hole
 DOT = "M30,0 L40,0 L40,10 L30,10 Z"
@@ -337,3 +337,28 @@ def test_magnet_pocket_needs_a_roof() -> None:
 
     with pytest.raises(InvalidParameters, match=r"base plate of at least 2\.4 mm"):
         _export(options, [("#000000", [FRAME])])
+
+
+# A traced region with a chain of sliver holes touching at their corners: valid in
+# document px, but scaling to millimetres rounds two rings into crossing each other.
+SLIVER_HOLES = (
+    "M92.82853223593983,77.65706447187915 L92.82853223593983,81.65706447187915 "
+    "L96.82853223593983,81.65706447187915 L96.82853223593983,77.65706447187915 Z "
+    "M94.29766803840874,78.59533607681755 L94.0,78.0 L94.4522176497485,78.90443529949702 Z "
+    "M94.70370370370372,79.40740740740742 L94.82853223593965,79.6570644718793 "
+    "L94.4522176497485,78.90443529949702 Z "
+    "M94.9122085048011,79.82441700960219 L94.92912665752172,79.85825331504343 "
+    "L94.82853223593965,79.6570644718793 Z "
+    "M94.99862825788752,79.99725651577504 L94.96296296296295,79.92592592592592 "
+    "L94.92912665752172,79.85825331504343 Z"
+)
+
+
+@pytest.mark.parametrize("mirror", [False, True])
+def test_geometry_made_invalid_by_scaling_is_repaired(mirror: bool) -> None:
+    svg = contract_svg(512, 320, [("#dc273b", [SLIVER_HOLES])])
+    triangles = read_binary_stl(export_stl(parse_svg(svg), StlOptions(mirror=mirror)))
+
+    assert is_balanced(triangles)
+    # a 4 x 4 px square at 100/512 mm per px, 1 mm base + 1 mm layer, minus tiny slivers
+    assert signed_volume(triangles) == pytest.approx((4 * 100 / 512) ** 2 * 2, rel=0.01)

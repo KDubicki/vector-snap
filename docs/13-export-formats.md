@@ -68,6 +68,10 @@ Model construction:
   triangulation (`shapely.constrained_delaunay_triangles`, robust for polygons with
   dozens of holes) and walls from every ring edge. Caps and walls share the exact ring
   vertices, so every body is watertight with outward normals.
+- Scaling to millimetres (and mirroring) rounds coordinates, which can make nearly
+  touching rings — e.g. a chain of sliver holes meeting at their corners, common in
+  traced photos — cross each other. Such layers are repaired with `make_valid` before
+  extrusion; GEOS cannot triangulate self-intersecting polygons.
 - **Printability** (`min_feature_mm`): a morphological opening per layer — shrink by
   half the width, grow back with mitred joins, clip to the original — removes lines,
   slivers and specks narrower than the nozzle, which slicers would drop or print as
