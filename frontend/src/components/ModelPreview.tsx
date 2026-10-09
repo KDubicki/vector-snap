@@ -4,6 +4,7 @@ import { ThreeMFLoader } from 'three/addons/loaders/3MFLoader.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { errorMessage } from '../api/client';
+import { formatElapsed, useElapsedSeconds } from '../lib/elapsed';
 import {
   FILAMENTS,
   formatMillimetres,
@@ -69,12 +70,20 @@ function dispose(object: THREE.Object3D): void {
  * Interactive 3D preview of the model the backend exports (3MF so each color part keeps
  * its color, or a lithophane STL), with size, volume and filament estimate. Loaded lazily.
  */
-export default function ModelPreview({ request }: { request: PreviewRequest }) {
+export default function ModelPreview({
+  request,
+  onCancel,
+}: {
+  request: PreviewRequest;
+  /** Closes the preview; unmounting aborts the request. */
+  onCancel: () => void;
+}) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const [stats, setStats] = useState<ModelStats | null>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [error, setError] = useState<string | null>(null);
   const [filament, setFilament] = useState<Filament>('PLA');
+  const elapsed = formatElapsed(useElapsedSeconds(status === 'loading'));
 
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -155,7 +164,19 @@ export default function ModelPreview({ request }: { request: PreviewRequest }) {
   return (
     <div className="model-preview">
       <div ref={viewportRef} className="model-preview__viewport" aria-label="3D preview">
-        {status === 'loading' && <span className="model-preview__status">Building model…</span>}
+        {status === 'loading' && (
+          <div className="model-preview__status" role="status">
+            <span>
+              Building model…{elapsed && ` ${elapsed}`}
+              {elapsed && (
+                <span className="hint">Large or detailed designs can take a minute.</span>
+              )}
+            </span>
+            <button type="button" className="secondary" onClick={onCancel}>
+              Cancel
+            </button>
+          </div>
+        )}
         {status === 'error' && (
           <span className="model-preview__status field-error" role="alert">
             {error}

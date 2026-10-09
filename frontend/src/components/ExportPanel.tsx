@@ -1,4 +1,4 @@
-import { Fragment, Suspense, lazy, useMemo, useState } from 'react';
+import { Fragment, Suspense, lazy, useMemo, useRef, useState } from 'react';
 import { errorMessage, exportFile, exportLithophane, getFilamentPlan } from '../api/client';
 import { serializeSvg } from '../editor/export';
 import {
@@ -14,6 +14,7 @@ import {
   type ExportOption,
   type ExportValues,
 } from '../lib/exportFormats';
+import { formatElapsed, useElapsedSeconds } from '../lib/elapsed';
 import { rasterSize, svgToPng } from '../lib/raster';
 import { useAppStore } from '../state/store';
 import type { FilamentPlan } from '../types/api';
@@ -58,6 +59,8 @@ export function ExportPanel() {
   const [plan, setPlan] = useState<FilamentPlan | null>(null);
   const [planning, setPlanning] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+  const exportController = useRef<AbortController | null>(null);
+  const elapsed = formatElapsed(useElapsedSeconds(status === 'exporting'));
 
   if (!editor) return null;
 
@@ -83,16 +86,16 @@ export function ExportPanel() {
       ? rasterSize(editor.width, editor.height, Number(current.width_px))
       : null;
 
-  const render = (): Promise<Blob> => {
+  const render = (signal: AbortSignal): Promise<Blob> => {
     const svg = serializeSvg(editor);
     if (raster) {
       return svgToPng(svg, raster, current.background === 'white' ? '#ffffff' : null);
     }
     if (format.source === 'image') {
       if (!file) throw new Error('The original image is no longer available.');
-      return exportLithophane(file, current);
+      return exportLithophane(file, current, signal);
     }
-    return exportFile(format.id, svg, requestOptions());
+    return exportFile(format.id, svg, requestOptions(), signal);
   };
 
   // STL/3MF preview the colored 3MF; a lithophane previews its own STL.
@@ -121,14 +124,18 @@ export function ExportPanel() {
   };
 
   const run = async () => {
+    const controller = new AbortController();
+    exportController.current = controller;
     setStatus('exporting');
     setError(null);
     try {
-      const blob = await render();
-      download(blob, exportFileName(file?.name, format.extension));
+      const blob = await render(controller.signal);
+      // PNG renders in the browser and ignores the signal: drop it if cancelled meanwhile.
+      if (!controller.signal.aborted) download(blob, exportFileName(file?.name, format.extension));
     } catch (caught) {
-      setError(errorMessage(caught, 'Export failed'));
+      if (!controller.signal.aborted) setError(errorMessage(caught, 'Export failed'));
     } finally {
+      exportController.current = null;
       setStatus('idle');
     }
   };
@@ -285,6 +292,15 @@ export function ExportPanel() {
           {status === 'exporting' ? 'Exporting…' : `Export ${format.label}`}
         </button>
       </div>
+      {status === 'exporting' && (
+        <p className="hint export__progress" role="status">
+          <span className="spinner" aria-hidden="true" />
+          Building the {format.label} file{elapsed && ` · ${elapsed}`}
+          <button type="button" className="link" onClick={() => exportController.current?.abort()}>
+            Cancel
+          </button>
+        </p>
+      )}
       {format.perColorHeights && (
         <button
           type="button"
@@ -298,7 +314,7 @@ export function ExportPanel() {
       {plan && format.perColorHeights && <FilamentPlanView plan={plan} />}
       {preview && canPreview && (
         <Suspense fallback={<p className="hint">Loading 3D viewer…</p>}>
-          <ModelPreview request={preview} />
+          <ModelPreview request={preview} onCancel={() => setPreview(null)} />
         </Suspense>
       )}
     </details>

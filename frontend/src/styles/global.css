@@ -1042,10 +1042,29 @@ select {
 
 .model-preview__status {
   position: absolute;
+  /* The canvas is appended after it: stay on top so Cancel can be clicked. */
+  z-index: 1;
   inset: 0;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px;
   color: var(--color-muted);
+  text-align: center;
+}
+
+.model-preview__status > span {
+  display: grid;
+  gap: 4px;
+}
+
+.export__progress {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }
 
 .model-preview__stats dd {

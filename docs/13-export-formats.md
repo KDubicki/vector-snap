@@ -283,6 +283,13 @@ collapsed section's header shows how many of its options differ from the default
 ("2 changed") or, when one is invalid, "1 to fix" in the error color, so a disabled
 Export button is never left unexplained.
 
+Long exports show progress: below the buttons a status line ("Building the STL file ·
+12 s", the time appears after 2 s so quick exports never flicker) with **Cancel**, which
+aborts the request (`AbortController`); nothing is downloaded and no error is shown. The
+3D preview does the same while it loads ("Building model… 12 s", a note that detailed
+designs can take a minute, **Cancel** closes the preview). `src/lib/elapsed.ts` formats
+the time.
+
 For STL and 3MF the panel also lists every color with an *include* checkbox and a height field
 (empty = automatic, shown as placeholder — following the chosen color order and already rounded to the printer layer height
 when one is set); this becomes `layer_heights`. Leaving out
