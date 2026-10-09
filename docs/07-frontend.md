@@ -53,7 +53,10 @@ Status legend: ✅ implemented · 🔜 planned (see [Roadmap](11-roadmap.md)).
 
 ### Step 2 — Colors & palette ✅
 
-Layout: left = original and quantized previews side by side, right = controls.
+Layout: left = original and quantized previews side by side, right = controls. On wide
+windows (≥ 1100 × 640 px) the previews — and the editor in the result step — are
+`position: sticky`, so they stay in view while the long control panel scrolls (palette,
+tracing and export options). Narrower windows stack everything and scroll normally.
 
 - **Color count**: slider + numeric input (`min_colors`…`max_colors`, default 8).
   Changing it triggers `POST /quantize`, debounced 400 ms; a newer request aborts the

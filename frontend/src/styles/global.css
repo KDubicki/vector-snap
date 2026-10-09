@@ -299,6 +299,16 @@ select {
   }
 }
 
+/* The side panel grows long (palette, export options): keep the previews and the editor
+   in view while it scrolls. Only where they sit side by side and fit the window. */
+@media (min-width: 1100px) and (min-height: 640px) {
+  .workspace > .previews,
+  .workspace > .result-main {
+    position: sticky;
+    top: 16px;
+  }
+}
+
 .previews {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
