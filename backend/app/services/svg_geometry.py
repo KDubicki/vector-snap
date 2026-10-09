@@ -162,17 +162,19 @@ def polygons(geometry: BaseGeometry) -> list[Polygon]:
 SIMPLIFY_TOLERANCE = 0.05
 
 
-def layer_geometries(document: VectorDocument) -> list[BaseGeometry]:
-    """United, simplified geometry of every layer (bottom to top), in document px.
+def shapes_geometry(shapes: list[VectorShape]) -> BaseGeometry:
+    """United, simplified geometry of some shapes, in document px.
 
-    Adjacent shapes of one color merge, so exports have no internal walls or double cuts.
+    Adjacent shapes merge, so exports have no internal walls or double cuts.
     """
-    return [
-        unary_union([to_polygon(flatten(shape.d)) for shape in layer.shapes]).simplify(
-            SIMPLIFY_TOLERANCE
-        )
-        for layer in document.layers
-    ]
+    return unary_union([to_polygon(flatten(shape.d)) for shape in shapes]).simplify(
+        SIMPLIFY_TOLERANCE
+    )
+
+
+def layer_geometries(document: VectorDocument) -> list[BaseGeometry]:
+    """United, simplified geometry of every layer (bottom to top), in document px."""
+    return [shapes_geometry(layer.shapes) for layer in document.layers]
 
 
 def to_millimetres(

@@ -155,6 +155,24 @@ def test_stl_rejects_invalid_layer_heights(client: TestClient, heights: str) -> 
     assert response.json()["error"]["code"] == "INVALID_PARAMETERS"
 
 
+@pytest.mark.parametrize("heights", ["[1]", '{"p-0-0": -1}', '{"p-0-0": "2"}', "nope"])
+def test_stl_rejects_invalid_shape_heights(client: TestClient, heights: str) -> None:
+    response = _post(client, "stl", {"shape_heights": heights})
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "INVALID_PARAMETERS"
+
+
+def test_3mf_gives_raised_shapes_their_own_part(client: TestClient) -> None:
+    response = _post(client, "3mf", {"shape_heights": '{"p-1-0": 3}'})
+
+    assert response.status_code == 200
+    with zipfile.ZipFile(io.BytesIO(response.content)) as package:
+        model = package.read("3D/3dmodel.model").decode()
+    assert 'name="color-1-3mm"' in model
+    assert 'name="color-1"' not in model  # its only shape is raised
+
+
 def test_stl_with_every_color_left_out(client: TestClient) -> None:
     response = _post(client, "stl", {"layer_heights": '{"0": 0, "1": 0}'})
 

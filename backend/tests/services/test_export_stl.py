@@ -3,6 +3,7 @@ import pytest
 
 from app.core.errors import InvalidParameters
 from app.services.export_stl import (
+    Body,
     StackOrder,
     StlOptions,
     build_bodies,
@@ -11,7 +12,7 @@ from app.services.export_stl import (
     snap_to_layers,
     stack_layers,
 )
-from app.services.svg_geometry import parse_svg
+from app.services.svg_geometry import VectorDocument, parse_svg
 from tests.vectors import contract_svg, is_closed, read_binary_stl, signed_volume
 
 FRAME = "M0,0 L20,0 L20,20 L0,20 Z M5,5 L5,15 L15,15 L15,5 Z"  # 20x20 with a 10x10 hole
@@ -385,3 +386,52 @@ def test_geometry_without_pinch_points_stays_exact() -> None:
     triangles = _export(StlOptions(width_mm=40, base_mm=0, layer_mm=2), [("#000000", [FRAME])])
 
     assert signed_volume(triangles) == pytest.approx(300 * 2, rel=1e-9)
+
+
+SQUARE_A = "M0,0 L10,0 L10,10 L0,10 Z"
+SQUARE_B = "M20,0 L30,0 L30,10 L20,10 Z"  # p-0-1: a separate element of the same color
+
+
+def _two_squares() -> VectorDocument:
+    return parse_svg(contract_svg(40, 20, [("#000000", [SQUARE_A, SQUARE_B])]))
+
+
+def _tops(bodies: list[Body]) -> dict[str, float]:
+    return {body.name: float(body.triangles[..., 2].max()) for body in bodies}
+
+
+def test_shape_heights_raise_single_elements_above_their_color() -> None:
+    options = StlOptions(width_mm=40, base_mm=1, layer_mm=0.6, shape_heights={"p-0-1": 2.4})
+    bodies = build_bodies(_two_squares(), options)
+
+    assert _tops(bodies) == pytest.approx({"base": 1, "color-0": 1.6, "color-0-2.4mm": 3.4})
+    assert [body.color for body in bodies] == ["#000000"] * 3
+    assert all(is_closed(body.triangles) for body in bodies)
+    raised = bodies[2].triangles
+    assert signed_volume(raised) == pytest.approx(10 * 10 * 2.4)  # only the raised square
+
+
+def test_shape_heights_snap_to_printer_layers_and_zero_leaves_a_shape_out() -> None:
+    options = StlOptions(width_mm=40, base_mm=0, shape_heights={"p-0-1": 0.5}, print_layer_mm=0.2)
+    assert "color-0-0.6mm" in _tops(build_bodies(_two_squares(), options))
+
+    omitted = build_bodies(_two_squares(), StlOptions(width_mm=40, shape_heights={"p-0-1": 0}))
+    assert [body.name for body in omitted] == ["base", "color-0"]
+    assert signed_volume(omitted[1].triangles) == pytest.approx(10 * 10 * 1)
+
+
+def test_shape_heights_equal_to_the_color_or_unknown_ids_change_nothing() -> None:
+    plain = build_bodies(_two_squares(), StlOptions(width_mm=40))
+    same = build_bodies(_two_squares(), StlOptions(width_mm=40, shape_heights={"p-0-1": 1}))
+    unknown = build_bodies(_two_squares(), StlOptions(width_mm=40, shape_heights={"x": 5}))
+
+    assert [b.name for b in same] == [b.name for b in unknown] == [b.name for b in plain]
+
+
+def test_a_shape_can_keep_its_height_when_its_color_is_left_out() -> None:
+    options = StlOptions(width_mm=40, base_mm=1, layer_heights={0: 0}, shape_heights={"p-0-0": 2})
+    bodies = build_bodies(_two_squares(), options)
+
+    assert _tops(bodies) == pytest.approx({"base": 1, "color-0-2mm": 3})
+    # the base plate only covers the included element
+    assert signed_volume(bodies[0].triangles) == pytest.approx(10 * 10 * 1)

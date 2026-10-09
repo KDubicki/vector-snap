@@ -12,6 +12,7 @@ from app.schemas.export import (
     FilamentPlanResponse,
     FilamentStepModel,
     parse_layer_heights,
+    parse_shape_heights,
 )
 from app.services.export_3mf import export_3mf
 from app.services.export_dxf import DxfOptions, export_dxf
@@ -52,6 +53,10 @@ def stl_options(
     layer_heights: Annotated[
         str, Form(description='Per-color height, e.g. {"0": 0, "2": 3.5}; 0 omits a color')
     ] = "{}",
+    shape_heights: Annotated[
+        str,
+        Form(description='Per-shape height, e.g. {"p-2-0": 3}; overrides its color, 0 omits'),
+    ] = "{}",
     mirror: Annotated[bool, Form(description="Mirror horizontally (stamps)")] = False,
     min_feature_mm: Annotated[
         float, Form(ge=0, le=10, description="Remove parts narrower than this (nozzle width)")
@@ -85,6 +90,7 @@ def stl_options(
         layer_mm=layer_mm,
         layered=layered,
         layer_heights=parse_layer_heights(layer_heights),
+        shape_heights=parse_shape_heights(shape_heights),
         mirror=mirror,
         min_feature_mm=min_feature_mm,
         print_layer_mm=print_layer_mm,

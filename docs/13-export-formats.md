@@ -51,6 +51,7 @@ curl -F svg=@logo.svg -F width_mm=120 -F base_mm=1.5 -F layer_mm=0.8 \
 | `layer_mm` | `1.0` | Extrusion height per color layer |
 | `layered` | `true` | `true`: layer *n* (bottom to top) is *n × layer_mm* high (relief, easy color changes by height); `false`: all layers share one height |
 | `layer_heights` | `{}` | JSON object `{"<paletteIndex>": mm}` overriding the height above the base per color (0 < h ≤ 100); **`0` leaves a color out** (e.g. print a logo without its background). Colors not listed follow `layer_mm` / `layered` |
+| `shape_heights` | `{}` | JSON object `{"<shape id>": mm}` (ids from the SVG, e.g. `p-2-0`) giving **single elements** their own height above the base, overriding their color — raised details on a flat multi-color print. `0` leaves the shape out, unknown ids are ignored, heights snap to `print_layer_mm` |
 | `stack_order` | `document` | Bottom-to-top order of the colors for automatic heights: `document` (as in the SVG — largest coverage at the bottom), `light_to_dark` or `dark_to_light` |
 | `loop_hole_mm` | `0` | Hanging loop on top of the base plate with a hole of this diameter (0–20 mm) — keyrings, ornaments, hooks; needs `base_mm > 0`. `0` = no loop |
 | `magnet_mm` | `0` | Round pocket in the underside of the base plate for a magnet (0–50 mm diameter; add ≈0.2 mm clearance, e.g. `10.2` for a 10 mm magnet). `0` = none |
@@ -74,6 +75,12 @@ Model construction:
   touching rings — e.g. a chain of sliver holes meeting at their corners, common in
   traced photos — cross each other. Such layers are repaired with `make_valid` before
   extrusion; GEOS cannot triangulate self-intersecting polygons.
+- **Per-element heights** (`shape_heights`): within a color, shapes are grouped by
+  height; shapes with a height of their own become separate bodies named
+  `color-<index>-<height>mm` (one 3MF part each, same color), so every body stays a
+  closed prism. Shapes at their color's height merge with it; a shape keeps its own
+  height even when its color is left out (`layer_heights` 0), and the base plate covers
+  only included shapes. The filament plan sees raised parts like any other body.
 - Rings that touch at a single point — shapes meeting at a corner, or a hole touching
   its outline or another hole (valid polygons, common in traced photos) — would give a
   vertical edge shared by four triangles, which slicers and lib3mf report as
@@ -138,7 +145,7 @@ curl -F svg=@logo.svg -F base_mm=1 -F layer_heights='{"0": 0}' \
 ```
 
 Same options and the same bodies as STL (`width_mm`, `base_mm`, `base_shape`,
-`base_margin_mm`, `stack_order`, `loop_hole_mm`, `magnet_mm`, `magnet_depth_mm`, `layer_mm`, `layered`, `layer_heights`, `mirror`, `min_feature_mm`,
+`base_margin_mm`, `stack_order`, `loop_hole_mm`, `magnet_mm`, `magnet_depth_mm`, `layer_mm`, `layered`, `layer_heights`, `shape_heights`, `mirror`, `min_feature_mm`,
 `print_layer_mm`), but packaged so a slicer keeps the colors apart — STL has no
 notion of parts or colors.
 

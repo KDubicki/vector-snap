@@ -38,8 +38,10 @@ from shapely.ops import nearest_points, polylabel
 from app.core.errors import InvalidParameters
 from app.services.svg_geometry import (
     VectorDocument,
-    layer_geometries,
+    VectorLayer,
+    VectorShape,
     polygons,
+    shapes_geometry,
     to_millimetres,
 )
 
@@ -72,6 +74,9 @@ class StlOptions:
     # Height above the base per palette index (mm); 0 leaves the color out. Colors not
     # listed follow `layer_mm` / `layered`.
     layer_heights: Mapping[int, float] = field(default_factory=dict)
+    # Height above the base per shape id (mm), overriding its color: raised or lowered
+    # elements; 0 leaves the shape out. Unknown ids are ignored.
+    shape_heights: Mapping[str, float] = field(default_factory=dict)
     # Mirror horizontally (stamps, printing the top face down).
     mirror: bool = False
     # Remove parts narrower than this (mm), e.g. the nozzle width; 0 keeps everything.
@@ -319,26 +324,55 @@ def _repaired(geometry: BaseGeometry) -> BaseGeometry:
     return geometry if geometry.is_valid else make_valid(geometry)
 
 
-def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
-    """Base plate (under the included colors) and one extruded body per color layer."""
-    layers = [
-        (layer, to_millimetres(geometry, document, options.width_mm))
-        for layer, geometry in zip(document.layers, layer_geometries(document), strict=True)
-    ]
+def _in_millimetres(
+    geometry: BaseGeometry, document: VectorDocument, options: StlOptions
+) -> BaseGeometry:
+    """Scale (and mirror) document-px geometry to the model, repairing rounding damage."""
+    result = to_millimetres(geometry, document, options.width_mm)
     if options.mirror:
-        width = options.width_mm
-        layers = [
-            (layer, affinity.scale(geometry, xfact=-1, yfact=1, origin=(width / 2, 0)))
-            for layer, geometry in layers
-        ]
-    layers = [(layer, _repaired(geometry)) for layer, geometry in layers]
-    layers = stack_layers(layers, [layer.fill for layer, _ in layers], options.stack_order)
+        result = affinity.scale(result, xfact=-1, yfact=1, origin=(options.width_mm / 2, 0))
+    return _repaired(result)
 
-    included = [
-        (layer, geometry, layer_height(position, layer.palette_index, options))
-        for position, (layer, geometry) in enumerate(layers)
-        if layer_height(position, layer.palette_index, options) > 0
-    ]
+
+@dataclass(frozen=True)
+class _Part:
+    """Shapes of one color extruded to one height above the base."""
+
+    layer: VectorLayer
+    geometry: BaseGeometry  # millimetres
+    height: float
+    own_height: bool  # shapes with a height of their own (`shape_heights`)
+
+
+def _parts(document: VectorDocument, options: StlOptions) -> list[_Part]:
+    """Included parts, bottom color first: per color, its shapes grouped by height."""
+    layers = stack_layers(
+        document.layers, [layer.fill for layer in document.layers], options.stack_order
+    )
+    parts: list[_Part] = []
+    for position, layer in enumerate(layers):
+        color_height = layer_height(position, layer.palette_index, options)
+        groups: dict[float | None, list[VectorShape]] = {}
+        for shape in layer.shapes:
+            own = options.shape_heights.get(shape.id)
+            height = None if own is None else snap_to_layers(own, options.print_layer_mm)
+            # Shapes at their color's height merge with it (no walls between them).
+            groups.setdefault(None if height == color_height else height, []).append(shape)
+        for key, shapes in groups.items():
+            height = color_height if key is None else key
+            if height > 0:
+                geometry = _in_millimetres(shapes_geometry(shapes), document, options)
+                parts.append(_Part(layer, geometry, height, key is not None))
+    return parts
+
+
+def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
+    """Base plate (under the included shapes) and one extruded body per color and height.
+
+    Shapes with a height of their own (`shape_heights`) become separate bodies of their
+    color, so every body stays a closed prism.
+    """
+    included = _parts(document, options)
     if not included:
         raise InvalidParameters("Nothing to export: every color has height 0.")
 
@@ -356,7 +390,7 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
     bodies: list[Body] = []
     if base > 0:
         silhouette = printable(
-            unary_union([geometry for _, geometry, _ in included]), options.min_feature_mm
+            unary_union([part.geometry for part in included]), options.min_feature_mm
         )
         silhouette = base_outline(silhouette, options.base_shape, options.base_margin_mm)
         silhouette = with_loop(silhouette, options.loop_hole_mm)
@@ -368,13 +402,16 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
             for polygon in _without_pinches(silhouette)
         ]
         if parts:
-            bodies.append(Body("base", included[0][0].fill, np.concatenate(parts)))
-    for layer, geometry, height in included:
-        top = base + height
-        shapes = _without_pinches(printable(geometry, options.min_feature_mm))
-        parts = [_prism(polygon, base, top) for polygon in shapes]
-        if parts:
-            bodies.append(Body(f"color-{layer.palette_index}", layer.fill, np.concatenate(parts)))
+            bodies.append(Body("base", included[0].layer.fill, np.concatenate(parts)))
+    for part in included:
+        top = base + part.height
+        shapes = _without_pinches(printable(part.geometry, options.min_feature_mm))
+        prisms = [_prism(polygon, base, top) for polygon in shapes]
+        if prisms:
+            name = f"color-{part.layer.palette_index}"
+            if part.own_height:
+                name += f"-{part.height:g}mm"
+            bodies.append(Body(name, part.layer.fill, np.concatenate(prisms)))
     if not bodies:
         raise InvalidParameters(
             f"Nothing to export: every shape is thinner than {options.min_feature_mm:g} mm.",
