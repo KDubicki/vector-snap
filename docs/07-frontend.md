@@ -150,6 +150,13 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
   height are whole layers (shown in mm too), so colors change exactly at a layer.
 - **Height per color**: include/leave out a color and give it extra layers, e.g. a logo
   raised 3 layers above the rest.
+- **Raised elements**: the design view is a clickable map (`ElementMap`, the shapes of
+  the edited document): click selects an element, Shift/Ctrl/Cmd+click adds or removes,
+  clicking empty space clears. The panel raises the selection by whole layers (− / +),
+  shows "different heights" for a mixed selection, and resets one or all. Raised
+  elements get a dashed outline, the selection an accent outline. Raises are stored per
+  shape id and sent as `shape_heights` (color height + extra layers), so the backend
+  prints them as their own parts — e.g. letters 3 layers above a flat AMS sign.
 - **Base plate**: shape (outline, rectangle, rounded, circle), border, hanging loop,
   magnet pocket (depth checked against the base), detail filter (nozzle width).
 - Summary of the total height, **Download 3MF** (one part per color → AMS slots in the

@@ -7,15 +7,18 @@ import { exportFileName } from '../lib/exportFormats';
 import {
   PROJECTS,
   heightPlan,
+  nextSelection,
+  setShapeRaise,
+  sharedRaise,
   layersToMm,
   printOptions,
   validatePrint,
   type BaseShape,
   type PrintSettings,
 } from '../lib/printPlan';
-import { useObjectUrl } from '../lib/useObjectUrl';
 import { useAppStore } from '../state/store';
 import type { FilamentPlan } from '../types/api';
+import { ElementMap } from './ElementMap';
 import { FilamentPlanView } from './FilamentPlanView';
 import type { PreviewRequest } from './ModelPreview';
 
@@ -88,9 +91,9 @@ export function PrintStep() {
   const exportController = useRef<AbortController | null>(null);
   const elapsed = formatElapsed(useElapsedSeconds(status === 'exporting'));
 
+  const [selected, setSelected] = useState<string[]>([]);
+
   const svg = useMemo(() => (editor ? serializeSvg(editor) : null), [editor]);
-  const svgBlob = useMemo(() => (svg ? new Blob([svg], { type: 'image/svg+xml' }) : null), [svg]);
-  const svgUrl = useObjectUrl(svgBlob);
 
   if (!editor || !svg) return null;
 
@@ -102,6 +105,13 @@ export function PrintStep() {
   const key = JSON.stringify([svg, options]);
   const mm = (layers: number) => layersToMm(layers, print.layerMm);
   const update = (change: Partial<PrintSettings>) => setPrint(change);
+  // Ids of the current document only: an edit in the SVG step may have removed shapes.
+  const shapeIds = new Set(editor.groups.flatMap((group) => group.shapes.map((shape) => shape.id)));
+  const selectedShapes = selected.filter((id) => shapeIds.has(id));
+  const selectedRaise = sharedRaise(print.shapeRaise, selectedShapes);
+  const raisedCount = Object.keys(print.shapeRaise).filter((id) => shapeIds.has(id)).length;
+  const raiseSelected = (layers: number) =>
+    update({ shapeRaise: setShapeRaise(print.shapeRaise, selectedShapes, Math.max(0, layers)) });
 
   const showPreview = () => {
     setPreview({
@@ -154,8 +164,18 @@ export function PrintStep() {
           ))}
         </div>
         {view === 'design' ? (
-          <figure className="preview print-design checkerboard">
-            {svgUrl && <img className="preview__image" src={svgUrl} alt="Design to print" />}
+          <figure className="preview print-design">
+            <ElementMap
+              doc={editor}
+              selected={selected}
+              raised={print.shapeRaise}
+              excluded={print.excluded}
+              onSelect={(id, additive) => setSelected(nextSelection(selected, id, additive))}
+            />
+            <figcaption className="hint">
+              Click an element to select it, Shift+click to add more — then raise it in the panel.
+              Dashed outlines mark raised elements.
+            </figcaption>
           </figure>
         ) : preview ? (
           <Suspense fallback={<p className="hint">Loading 3D viewer…</p>}>
@@ -324,6 +344,71 @@ export function PrintStep() {
           <span className="hint">Extra layers raise a whole color above the others.</span>
           {errors.colors && <span className="field-error">{errors.colors}</span>}
         </fieldset>
+
+        <div className="field print-raise">
+          <span>Raised elements</span>
+          {selectedShapes.length === 0 ? (
+            <span className="hint">
+              Select elements in the design to print them higher than their color — e.g. the letters
+              of a name or the eyes of a figure.
+            </span>
+          ) : (
+            <>
+              <div className="print-raise__row">
+                <span>
+                  {selectedShapes.length} selected
+                  {selectedRaise === null && <span className="hint"> (different heights)</span>}
+                </span>
+                <div className="print-stepper" role="group" aria-label="Extra layers">
+                  <button
+                    type="button"
+                    aria-label="One layer lower"
+                    disabled={(selectedRaise ?? 0) <= 0}
+                    onClick={() => raiseSelected((selectedRaise ?? 0) - 1)}
+                  >
+                    −
+                  </button>
+                  <output aria-label="Extra layers for the selection">
+                    {selectedRaise === null ? '–' : `+${selectedRaise}`}
+                  </output>
+                  <button
+                    type="button"
+                    aria-label="One layer higher"
+                    disabled={(selectedRaise ?? 0) >= 50}
+                    onClick={() => raiseSelected((selectedRaise ?? 0) + 1)}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+              <span className="hint">
+                {selectedRaise
+                  ? `+${selectedRaise} layers = ${mm(selectedRaise)} mm above their color`
+                  : 'Not raised: at their color’s height.'}
+              </span>
+              <div className="print-raise__actions">
+                {selectedRaise !== 0 && (
+                  <button type="button" className="link" onClick={() => raiseSelected(0)}>
+                    Lower to their color
+                  </button>
+                )}
+                <button type="button" className="link" onClick={() => setSelected([])}>
+                  Clear selection
+                </button>
+              </div>
+            </>
+          )}
+          {raisedCount > 0 && (
+            <div className="print-raise__actions">
+              <span className="hint">
+                {raisedCount} {raisedCount === 1 ? 'element' : 'elements'} raised
+              </span>
+              <button type="button" className="link" onClick={() => update({ shapeRaise: {} })}>
+                Reset all
+              </button>
+            </div>
+          )}
+        </div>
 
         <div className="field">
           <span>Base plate</span>

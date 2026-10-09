@@ -1348,3 +1348,82 @@ select {
   font-size: 0.8rem;
   font-weight: 400;
 }
+
+.element-map {
+  display: block;
+  width: 100%;
+  max-height: 60vh;
+  border-radius: 8px;
+}
+
+.element-map__shape {
+  cursor: pointer;
+  stroke: transparent;
+  stroke-width: 2px;
+  vector-effect: non-scaling-stroke;
+  paint-order: stroke;
+}
+
+.element-map__shape:hover {
+  stroke: var(--color-muted);
+}
+
+.element-map__shape--excluded {
+  opacity: 0.2;
+}
+
+.element-map__shape--raised {
+  stroke: var(--color-text);
+  stroke-width: 2.5px;
+  stroke-dasharray: 8 5;
+  /* Over the fill, so the whole outline shows. */
+  paint-order: normal;
+}
+
+.element-map__shape--selected,
+.element-map__shape--selected:hover {
+  stroke: var(--color-accent);
+  stroke-width: 3px;
+  stroke-dasharray: none;
+  paint-order: normal;
+  filter: drop-shadow(0 0 3px var(--color-accent));
+}
+
+.print-design figcaption {
+  margin: 8px 0 0;
+}
+
+.print-raise__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.print-raise__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.print-stepper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.print-stepper button {
+  min-width: 36px;
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  cursor: pointer;
+}
+
+.print-stepper output {
+  min-width: 36px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}

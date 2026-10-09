@@ -6,7 +6,10 @@ import {
   applyProject,
   heightPlan,
   layersToMm,
+  nextSelection,
   printOptions,
+  setShapeRaise,
+  sharedRaise,
   validatePrint,
   type PrintSettings,
 } from './printPlan';
@@ -128,5 +131,30 @@ describe('print plan', () => {
     expect(validatePrint(doc, settings({ loopHoleMm: 4, baseLayers: 0 }))).toEqual({
       loopHoleMm: 'A hanging loop needs a base.',
     });
+  });
+});
+
+describe('raised elements', () => {
+  it('sets and clears extra layers for shapes', () => {
+    const raised = setShapeRaise({ a: 1 }, ['a', 'b'], 3);
+
+    expect(raised).toEqual({ a: 3, b: 3 });
+    expect(setShapeRaise(raised, ['a'], 0)).toEqual({ b: 3 });
+  });
+
+  it('reports the raise shared by a selection', () => {
+    expect(sharedRaise({ a: 2, b: 2 }, ['a', 'b'])).toBe(2);
+    expect(sharedRaise({ a: 2 }, ['a', 'b'])).toBeNull();
+    expect(sharedRaise({}, ['a'])).toBe(0);
+  });
+
+  it('selects with clicks and toggles with modifier clicks', () => {
+    expect(nextSelection([], 'a', false)).toEqual(['a']);
+    expect(nextSelection(['a'], 'b', false)).toEqual(['b']);
+    expect(nextSelection(['a'], 'a', false)).toEqual([]);
+    expect(nextSelection(['a'], 'b', true)).toEqual(['a', 'b']);
+    expect(nextSelection(['a', 'b'], 'a', true)).toEqual(['b']);
+    expect(nextSelection(['a'], null, false)).toEqual([]);
+    expect(nextSelection(['a'], null, true)).toEqual(['a']);
   });
 });

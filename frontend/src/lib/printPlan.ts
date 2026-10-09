@@ -199,3 +199,30 @@ export function printOptions(
     mirror: false,
   };
 }
+
+/** Set the extra layers of some shapes; 0 (or less) removes them. */
+export function setShapeRaise(
+  current: Record<string, number>,
+  ids: string[],
+  layers: number,
+): Record<string, number> {
+  const next = { ...current };
+  for (const id of ids) {
+    if (layers > 0) next[id] = layers;
+    else delete next[id];
+  }
+  return next;
+}
+
+/** Extra layers shared by all `ids` (0 when not raised), or `null` when they differ. */
+export function sharedRaise(current: Record<string, number>, ids: string[]): number | null {
+  const values = new Set(ids.map((id) => current[id] ?? 0));
+  return values.size === 1 ? [...values][0] : null;
+}
+
+/** Selection after clicking a shape (`null`: empty space); `additive` toggles. */
+export function nextSelection(selected: string[], id: string | null, additive: boolean): string[] {
+  if (id === null) return additive ? selected : [];
+  if (!additive) return selected.length === 1 && selected[0] === id ? [] : [id];
+  return selected.includes(id) ? selected.filter((item) => item !== id) : [...selected, id];
+}
