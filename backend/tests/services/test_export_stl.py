@@ -12,7 +12,7 @@ from app.services.export_stl import (
     stack_layers,
 )
 from app.services.svg_geometry import parse_svg
-from tests.vectors import contract_svg, is_balanced, is_closed, read_binary_stl, signed_volume
+from tests.vectors import contract_svg, is_closed, read_binary_stl, signed_volume
 
 FRAME = "M0,0 L20,0 L20,20 L0,20 Z M5,5 L5,15 L15,15 L15,5 Z"  # 20x20 with a 10x10 hole
 DOT = "M30,0 L40,0 L40,10 L30,10 Z"
@@ -357,8 +357,31 @@ SLIVER_HOLES = (
 @pytest.mark.parametrize("mirror", [False, True])
 def test_geometry_made_invalid_by_scaling_is_repaired(mirror: bool) -> None:
     svg = contract_svg(512, 320, [("#dc273b", [SLIVER_HOLES])])
-    triangles = read_binary_stl(export_stl(parse_svg(svg), StlOptions(mirror=mirror)))
+    bodies = build_bodies(parse_svg(svg), StlOptions(mirror=mirror))
 
-    assert is_balanced(triangles)
+    # the holes touch each other at points: separated, every body is manifold
+    assert all(is_closed(body.triangles) for body in bodies)
     # a 4 x 4 px square at 100/512 mm per px, 1 mm base + 1 mm layer, minus tiny slivers
-    assert signed_volume(triangles) == pytest.approx((4 * 100 / 512) ** 2 * 2, rel=0.01)
+    # (the 0.78 mm model is pulled in by 2 µm where rings touch)
+    volume = sum(signed_volume(body.triangles) for body in bodies)
+    assert volume == pytest.approx((4 * 100 / 512) ** 2 * 2, rel=0.03)
+
+
+# Two squares meeting at one corner, and a frame whose hole touches the outline.
+CORNER_TOUCH = ["M0,0 L10,0 L10,10 L0,10 Z", "M10,10 L20,10 L20,20 L10,20 Z"]
+HOLE_TOUCHING_OUTLINE = "M0,0 L20,0 L20,20 L0,20 Z M0,10 L10,5 L10,15 Z"
+
+
+@pytest.mark.parametrize("paths", [CORNER_TOUCH, [HOLE_TOUCHING_OUTLINE]])
+def test_rings_touching_at_a_point_extrude_into_manifold_bodies(paths: list[str]) -> None:
+    document = parse_svg(contract_svg(40, 20, [("#000000", paths)]))
+    bodies = build_bodies(document, StlOptions(width_mm=40, base_mm=1))
+
+    assert all(is_closed(body.triangles) for body in bodies)
+    assert all(signed_volume(body.triangles) > 0 for body in bodies)
+
+
+def test_geometry_without_pinch_points_stays_exact() -> None:
+    triangles = _export(StlOptions(width_mm=40, base_mm=0, layer_mm=2), [("#000000", [FRAME])])
+
+    assert signed_volume(triangles) == pytest.approx(300 * 2, rel=1e-9)

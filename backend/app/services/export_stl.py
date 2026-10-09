@@ -282,6 +282,37 @@ def layer_height(position: int, palette_index: int, options: StlOptions) -> floa
     return snap_to_layers(height, options.print_layer_mm)
 
 
+# Inward offset that separates rings touching at a single point (see `_without_pinches`):
+# far below print resolution, well above float32 STL precision for models up to ~1 m.
+PINCH_SEPARATION_MM = 0.002
+
+
+def _has_pinches(shapes: list[Polygon]) -> bool:
+    """Whether rings of these polygons share a point: shapes touching at a corner, or a
+    hole touching its outline or another hole (all valid polygons in shapely)."""
+    seen: set[tuple[float, float]] = set()
+    for polygon in shapes:
+        for ring in [polygon.exterior, *polygon.interiors]:
+            points = {(round(x, 9), round(y, 9)) for x, y in ring.coords[:-1]}
+            if not seen.isdisjoint(points):
+                return True
+            seen |= points
+    return False
+
+
+def _without_pinches(geometry: BaseGeometry) -> list[Polygon]:
+    """Polygons of `geometry` that extrude into manifold prisms.
+
+    Where rings touch at a single point, the vertical edge there would belong to four
+    triangles, which slicers and 3MF validators report as non-manifold. A tiny inward
+    offset pulls such rings apart; geometry without pinch points is left exact.
+    """
+    shapes = polygons(geometry)
+    if not _has_pinches(shapes):
+        return shapes
+    return polygons(geometry.buffer(-PINCH_SEPARATION_MM, join_style="mitre"))
+
+
 def _repaired(geometry: BaseGeometry) -> BaseGeometry:
     """Valid geometry: scaling rounds coordinates, which can make nearly touching rings
     (e.g. chains of sliver holes) cross; GEOS cannot triangulate such polygons."""
@@ -334,13 +365,13 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
             _prism(polygon, 0.0, base, pocket, options.magnet_depth_mm)
             if pocket is not None and pocket.within(polygon)
             else _prism(polygon, 0.0, base)
-            for polygon in polygons(silhouette)
+            for polygon in _without_pinches(silhouette)
         ]
         if parts:
             bodies.append(Body("base", included[0][0].fill, np.concatenate(parts)))
     for layer, geometry, height in included:
         top = base + height
-        shapes = polygons(printable(geometry, options.min_feature_mm))
+        shapes = _without_pinches(printable(geometry, options.min_feature_mm))
         parts = [_prism(polygon, base, top) for polygon in shapes]
         if parts:
             bodies.append(Body(f"color-{layer.palette_index}", layer.fill, np.concatenate(parts)))

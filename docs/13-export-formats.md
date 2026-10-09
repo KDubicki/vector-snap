@@ -74,6 +74,12 @@ Model construction:
   touching rings — e.g. a chain of sliver holes meeting at their corners, common in
   traced photos — cross each other. Such layers are repaired with `make_valid` before
   extrusion; GEOS cannot triangulate self-intersecting polygons.
+- Rings that touch at a single point — shapes meeting at a corner, or a hole touching
+  its outline or another hole (valid polygons, common in traced photos) — would give a
+  vertical edge shared by four triangles, which slicers and lib3mf report as
+  non-manifold. Bodies with such pinch points are offset inward by 2 µm
+  (`PINCH_SEPARATION_MM`); all other geometry stays exact. Verified with lib3mf in strict
+  mode on a traced photo: every part manifold and oriented.
 - **Printability** (`min_feature_mm`): a morphological opening per layer — shrink by
   half the width, grow back with mitred joins, clip to the original — removes lines,
   slivers and specks narrower than the nozzle, which slicers would drop or print as
