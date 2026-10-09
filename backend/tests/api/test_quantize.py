@@ -79,6 +79,16 @@ def test_quantize_smooths_noisy_regions(client: TestClient) -> None:
     assert edges(smooth) < edges(rough) / 3
 
 
+def test_quantize_upscales_small_images(client: TestClient) -> None:
+    response = _post(client, encode(stripes()), colors="3", upscale="true")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert (body["width"], body["height"]) == (40, 16)
+    png = Image.open(io.BytesIO(base64.b64decode(body["image"]["data"])))
+    assert png.size == (40, 16)
+
+
 @pytest.mark.parametrize("smooth", ["-1", "4"])
 def test_quantize_rejects_invalid_smoothing(client: TestClient, smooth: str) -> None:
     response = _post(client, encode(noisy()), colors="4", smooth=smooth)

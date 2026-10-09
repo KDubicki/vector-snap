@@ -42,6 +42,10 @@ async def quantize(
             description="Clean up noisy color regions: 0 = off, 1-3 = majority window size",
         ),
     ] = 0,
+    upscale: Annotated[
+        bool,
+        Form(description="Enlarge images under 1024 px (up to 4x) for smoother outlines"),
+    ] = False,
 ) -> QuantizeResponse:
     data = await read_upload(image, settings)
     check_color_count(colors, settings)
@@ -57,6 +61,7 @@ async def quantize(
         max_working_size=max_working_size,
         seed=seed,
         smooth=smooth,
+        upscale=upscale,
     )
     png = await run_in_threadpool(to_indexed_png, result)
 

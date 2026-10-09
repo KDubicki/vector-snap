@@ -53,9 +53,13 @@ def quantize_image(
     max_working_size: int = 1024,
     seed: int = 0,
     smooth: int = 0,
+    upscale: bool = False,
 ) -> tuple[DecodedImage, QuantizationResult]:
-    """Decode and quantize an image; `smooth` > 0 then cleans up noisy color regions."""
-    image = decode_image(data, max_dimension)
+    """Decode and quantize an image; `smooth` > 0 then cleans up noisy color regions.
+
+    `upscale` enlarges small images first (see `decode_image`).
+    """
+    image = decode_image(data, max_dimension, upscale=upscale)
     if algorithm == "median_cut":
         result = quantize_median_cut(image, colors, locked_colors=locked_colors)
     else:

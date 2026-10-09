@@ -24,6 +24,7 @@ export function PaletteStep() {
   const colors = useAppStore((s) => s.colors);
   const algorithm = useAppStore((s) => s.algorithm);
   const smooth = useAppStore((s) => s.smooth);
+  const upscale = useAppStore((s) => s.upscale);
   const limits = useAppStore((s) => s.limits);
   const quantized = useAppStore((s) => s.quantized);
   const locked = useAppStore((s) => s.locked);
@@ -44,7 +45,7 @@ export function PaletteStep() {
     if (!file) return;
     const timer = setTimeout(() => void useAppStore.getState().runQuantize(), QUANTIZE_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [file, colors, algorithm, smooth, locked]);
+  }, [file, colors, algorithm, smooth, upscale, locked]);
 
   const originalPalette = useMemo(() => quantized?.palette.map((c) => c.hex) ?? [], [quantized]);
   const targetPalette = useMemo(
@@ -127,6 +128,21 @@ export function PaletteStep() {
           <span className="hint">
             Removes specks and evens out jagged edges, so photos and scans become clean shapes for
             3D printing and cutting.
+          </span>
+        </div>
+        <div className="field">
+          <div className="checkbox">
+            <input
+              id="upscale"
+              type="checkbox"
+              checked={upscale}
+              onChange={(event) => actions.setUpscale(event.target.checked)}
+            />
+            <label htmlFor="upscale">Enlarge small images</label>
+          </div>
+          <span className="hint">
+            Images under 1024 px are scaled up (up to 4×) first, so outlines and 3D model edges come
+            out smooth instead of stepped.
           </span>
         </div>
         {quantized && (

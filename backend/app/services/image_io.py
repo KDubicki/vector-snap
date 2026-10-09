@@ -18,6 +18,11 @@ SUPPORTED_FORMATS = {"JPEG": "image/jpeg", "PNG": "image/png"}
 # Pixels with alpha below this threshold are treated as fully transparent.
 ALPHA_THRESHOLD = 128
 
+# `decode_image(..., upscale=True)` enlarges images whose longer side is below this, by a
+# whole factor of at most MAX_UPSCALE.
+UPSCALE_TARGET = 1024
+MAX_UPSCALE = 4
+
 # Label used for transparent pixels in label maps (palettes are limited to 255 entries).
 TRANSPARENT_LABEL = 255
 
@@ -75,11 +80,28 @@ def _open(data: bytes, max_dimension: int) -> Image.Image:
     return image
 
 
-def decode_image(data: bytes, max_dimension: int) -> DecodedImage:
-    """Validate and normalize uploaded bytes into an RGB array and alpha mask."""
+def upscale_factor(width: int, height: int, max_dimension: int) -> int:
+    """Whole factor that brings the longer side to at least UPSCALE_TARGET (1 = keep)."""
+    longest = max(width, height)
+    factor = min(MAX_UPSCALE, -(-UPSCALE_TARGET // longest), max_dimension // longest)
+    return max(1, factor)
+
+
+def decode_image(data: bytes, max_dimension: int, *, upscale: bool = False) -> DecodedImage:
+    """Validate and normalize uploaded bytes into an RGB array and alpha mask.
+
+    With `upscale`, small images are enlarged (Lanczos) before anything else: the
+    anti-aliased edges of the original then become smooth color boundaries instead of
+    pixel stairs, so traced outlines - and 3D model walls - follow the intended shape.
+    """
     image = _open(data, max_dimension)
     is_indexed = image.mode == "P"
     rgba = ImageOps.exif_transpose(image).convert("RGBA")
+    factor = upscale_factor(rgba.width, rgba.height, max_dimension) if upscale else 1
+    if factor > 1:
+        size = (rgba.width * factor, rgba.height * factor)
+        # Pillow premultiplies alpha when resizing RGBA, so edges do not darken.
+        rgba = rgba.resize(size, Image.Resampling.LANCZOS)
 
     pixels = np.asarray(rgba, dtype=np.uint8)
     alpha = pixels[..., 3]

@@ -898,7 +898,8 @@ select {
   margin-top: 8px;
 }
 
-.options .checkbox {
+.options .checkbox,
+.field .checkbox {
   flex-direction: row;
   align-items: center;
   gap: 8px;

@@ -23,7 +23,14 @@ flowchart LR
 ## 2. Normalize
 
 - Apply `ImageOps.exif_transpose` (JPEG orientation).
-- Convert to `RGBA`. Build an **alpha mask**: pixels with `alpha < 128` are treated as
+- Convert to `RGBA`.
+- Optional **upscaling** (`upscale=true` on `/quantize`): an image whose longer side is
+  below 1024 px is enlarged with Lanczos by a whole factor `min(4, ⌈1024 / longest⌉)`
+  (never beyond `max_image_dimension`). The anti-aliased edges of small logos and icons
+  then become smooth color boundaries instead of pixel stairs, so traced outlines — and
+  the walls of 3D exports — follow the intended shape. Pillow premultiplies alpha while
+  resizing, so transparent edges do not darken. The response reports the enlarged size.
+- Build an **alpha mask**: pixels with `alpha < 128` are treated as
   transparent and excluded from clustering and tracing.
 - Composite semi-transparent pixels over white for color computation (configurable later).
 - Convert to a NumPy array `H×W×3 uint8` plus `H×W bool` mask.

@@ -45,6 +45,8 @@ export interface WorkflowSlice {
   algorithm: QuantizeAlgorithm;
   /** Strength of the region cleanup after quantization (0 = off). */
   smooth: number;
+  /** Enlarge small images before quantizing (smoother traced outlines). */
+  upscale: boolean;
   quantized: QuantizeResponse | null;
   /** Parameters that produced `quantized`; avoids re-quantizing (and losing edits) needlessly. */
   quantizedFor: {
@@ -52,6 +54,7 @@ export interface WorkflowSlice {
     colors: number;
     algorithm: QuantizeAlgorithm;
     smooth: number;
+    upscale: boolean;
     locked: string[];
   } | null;
   /** Color count suggested for `file` by the backend, once requested. */
@@ -72,6 +75,7 @@ export interface WorkflowSlice {
   setColors: (colors: number) => void;
   setAlgorithm: (algorithm: QuantizeAlgorithm) => void;
   setSmooth: (smooth: number) => void;
+  setUpscale: (upscale: boolean) => void;
   /** Ask the backend for a good color count for the current file and apply it. */
   suggestColors: () => Promise<void>;
   /** Lock a color into the palette; ignored when it is locked already or no slot is free. */
@@ -100,6 +104,7 @@ const initialState = {
   colors: DEFAULT_COLORS,
   algorithm: 'kmeans' as QuantizeAlgorithm,
   smooth: DEFAULT_SMOOTH,
+  upscale: true,
   quantized: null,
   quantizedFor: null,
   suggestedColors: null as number | null,
@@ -170,6 +175,7 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
   setColors: (colors) => set((state) => ({ colors: Math.max(colors, state.locked.length) })),
   setAlgorithm: (algorithm) => set({ algorithm }),
   setSmooth: (smooth) => set({ smooth }),
+  setUpscale: (upscale) => set({ upscale }),
 
   suggestColors: async () => {
     const { file } = get();
@@ -234,13 +240,14 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
   resetTracing: () => set({ tracing: DEFAULT_TRACING }),
 
   runQuantize: async () => {
-    const { file, colors, algorithm, smooth, locked, quantizedFor } = get();
+    const { file, colors, algorithm, smooth, upscale, locked, quantizedFor } = get();
     if (!file) return;
     if (
       quantizedFor?.file === file &&
       quantizedFor.colors === colors &&
       quantizedFor.algorithm === algorithm &&
       quantizedFor.smooth === smooth &&
+      quantizedFor.upscale === upscale &&
       quantizedFor.locked === locked
     ) {
       return;
@@ -250,13 +257,13 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
     try {
       const quantized = await quantize(
         file,
-        { colors, algorithm, smooth, locked_colors: locked },
+        { colors, algorithm, smooth, upscale, locked_colors: locked },
         signal,
       );
       // Overrides refer to palette indices of the previous result, so they are dropped.
       set({
         quantized,
-        quantizedFor: { file, colors, algorithm, smooth, locked },
+        quantizedFor: { file, colors, algorithm, smooth, upscale, locked },
         overrides: {},
         transparent: [],
         vectorized: null,

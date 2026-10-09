@@ -32,6 +32,8 @@ export interface QuantizeParams {
   locked_colors?: string[];
   /** Clean up noisy color regions: 0 = off, 1-3 = stronger (majority filter). */
   smooth?: number;
+  /** Enlarge images under 1024 px (up to 4x) before quantizing, for smoother outlines. */
+  upscale?: boolean;
 }
 
 export interface QuantizeResponse {

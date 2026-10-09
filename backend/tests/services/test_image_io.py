@@ -8,6 +8,7 @@ from app.services.image_io import (
     decode_image,
     decode_indexed_png,
     encode_indexed_png,
+    upscale_factor,
 )
 from tests.images import RED, encode, stripes, with_transparent_corner
 
@@ -130,3 +131,39 @@ def test_decode_indexed_supports_per_entry_alpha() -> None:
 
     assert decoded.labels.tolist() == [[TRANSPARENT_LABEL, 0]]
     assert decoded.palette.tolist() == [[0, 255, 0]]
+
+
+@pytest.mark.parametrize(
+    ("size", "max_dimension", "factor"),
+    [
+        ((100, 50), 4096, 4),
+        ((300, 200), 4096, 4),
+        ((400, 100), 4096, 3),
+        ((600, 600), 4096, 2),
+        ((1024, 10), 4096, 1),
+        ((2000, 3000), 4096, 1),
+        ((300, 300), 700, 2),
+    ],
+)
+def test_upscale_factor(size: tuple[int, int], max_dimension: int, factor: int) -> None:
+    assert upscale_factor(*size, max_dimension) == factor
+
+
+def test_upscale_enlarges_small_images_with_smooth_edges() -> None:
+    image = Image.new("RGBA", (40, 20), (0, 0, 0, 0))
+    image.paste((255, 0, 0, 255), (10, 0, 30, 20))
+    decoded = decode_image(encode(image), 4096, upscale=True)
+
+    assert (decoded.width, decoded.height) == (160, 80)
+    assert decoded.rgb.shape == (80, 160, 3)
+    # the opaque area scales with the image; edges are not darkened by the transparent black
+    assert decoded.alpha_mask.sum() == pytest.approx(80 * 80, rel=0.05)
+    assert (decoded.rgb[decoded.alpha_mask][:, 0] > 240).all()
+
+
+def test_upscale_is_off_by_default_and_skips_large_images() -> None:
+    small = encode(stripes())
+    large = encode(Image.new("RGB", (1200, 10), RED))
+
+    assert decode_image(small, 4096).width == stripes().width
+    assert decode_image(large, 4096, upscale=True).width == 1200

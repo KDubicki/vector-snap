@@ -67,6 +67,8 @@ Layout: left = original and quantized previews side by side, right = controls.
 - **Smooth regions**: Off / Light / Medium / Strong, sent as `smooth` 0–3 (default
   Light). Removes specks and jagged edges, which matters most for photos and 3D prints;
   changing it re-quantizes like the other parameters.
+- **Enlarge small images** (on by default, sent as `upscale`): images under 1024 px are
+  scaled up before quantizing, so small logos trace into smooth outlines and 3D edges.
 - **Remove colors / background**: the eye toggle on a palette row leaves that color out
   of the SVG (sent as `transparent`); the preview shows it as transparent over a
   checkerboard. "Remove background" appears when `/quantize` reports a

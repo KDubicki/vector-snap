@@ -111,6 +111,20 @@ describe('app store', () => {
     expect(forms.map((form) => form.get('smooth'))).toEqual([String(DEFAULT_SMOOTH), '3']);
   });
 
+  it('upscales small images by default and re-quantizes when turned off', async () => {
+    store().selectFile(file);
+    const fetchMock = respond(quantized);
+    vi.stubGlobal('fetch', fetchMock);
+    await store().runQuantize();
+
+    store().setUpscale(false);
+    await store().runQuantize();
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const forms = fetchMock.mock.calls.map(([, init]) => (init as RequestInit).body as FormData);
+    expect(forms.map((form) => form.get('upscale'))).toEqual(['true', 'false']);
+  });
+
   it('locks colors up to the palette size and re-quantizes with them', async () => {
     store().selectFile(file);
     store().setColors(2);
@@ -632,6 +646,7 @@ describe('app store', () => {
     store().setColors(12);
     store().setAlgorithm('median_cut');
     store().setSmooth(0);
+    store().setUpscale(false);
     store().goTo('upload');
     expect(store().step).toBe('upload');
 
@@ -640,5 +655,6 @@ describe('app store', () => {
     expect(store().colors).toBe(DEFAULT_COLORS);
     expect(store().algorithm).toBe('kmeans');
     expect(store().smooth).toBe(DEFAULT_SMOOTH);
+    expect(store().upscale).toBe(true);
   });
 });

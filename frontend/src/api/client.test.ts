@@ -36,7 +36,12 @@ describe('api client', () => {
   it('sends quantize parameters as multipart form data', async () => {
     const fetchMock = mockFetch(jsonResponse({ palette: [] }));
 
-    await quantize(new Blob(['img']), { colors: 8, algorithm: 'median_cut', smooth: 0 });
+    await quantize(new Blob(['img']), {
+      colors: 8,
+      algorithm: 'median_cut',
+      smooth: 0,
+      upscale: true,
+    });
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     const form = init.body as FormData;
@@ -45,9 +50,10 @@ describe('api client', () => {
     expect(form.get('colors')).toBe('8');
     expect(form.get('algorithm')).toBe('median_cut');
     expect(form.get('smooth')).toBe('0');
+    expect(form.get('upscale')).toBe('true');
   });
 
-  it('omits the algorithm and smoothing when not provided', async () => {
+  it('omits the algorithm, smoothing and upscaling when not provided', async () => {
     const fetchMock = mockFetch(jsonResponse({ palette: [] }));
 
     await quantize(new Blob(['img']), { colors: 4 });
@@ -55,6 +61,7 @@ describe('api client', () => {
     const form = (fetchMock.mock.calls[0] as [string, RequestInit])[1].body as FormData;
     expect(form.has('algorithm')).toBe(false);
     expect(form.has('smooth')).toBe(false);
+    expect(form.has('upscale')).toBe(false);
   });
 
   it('sends locked colors as a JSON array only when there are any', async () => {
