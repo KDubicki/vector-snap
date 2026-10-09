@@ -14,6 +14,7 @@ import {
   type ExportOption,
   type ExportValues,
 } from '../lib/exportFormats';
+import { download } from '../lib/download';
 import { formatElapsed, useElapsedSeconds } from '../lib/elapsed';
 import { rasterSize, svgToPng } from '../lib/raster';
 import { useAppStore } from '../state/store';
@@ -24,15 +25,6 @@ import type { PreviewRequest } from './ModelPreview';
 
 // three.js is only downloaded when a 3D preview is opened.
 const ModelPreview = lazy(() => import('./ModelPreview'));
-
-function download(blob: Blob, fileName: string): void {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = fileName;
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
 
 /** Summary of a collapsed option section: invalid options first, else changed ones. */
 function SectionBadge({ invalid, changed }: { invalid: number; changed: number }) {

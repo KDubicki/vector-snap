@@ -634,11 +634,50 @@ describe('app store', () => {
     useAppStore.setState({ quantized });
     vi.stubGlobal('fetch', respond(vectorized));
     await store().runVectorize();
-    expect(reachableSteps(store())).toEqual(['upload', 'palette', 'result']);
+    expect(reachableSteps(store())).toEqual(['upload', 'palette', 'result', 'print']);
 
     store().goTo('upload');
     store().goTo('result');
     expect(store().step).toBe('result');
+  });
+
+  it('opens the 3D print step once there is an SVG', async () => {
+    store().selectFile(file);
+    store().goTo('print');
+    expect(store().step).toBe('palette');
+
+    useAppStore.setState({ quantized });
+    vi.stubGlobal('fetch', respond(vectorized));
+    await store().runVectorize();
+    store().goTo('print');
+    expect(store().step).toBe('print');
+  });
+
+  it('keeps the project for design edits and turns custom on other changes', () => {
+    store().chooseProject('keychain');
+    expect(store().print).toMatchObject({ project: 'keychain', loopHoleMm: 4 });
+
+    store().setPrint({ shapeRaise: { 'p-0-0': 2 }, excluded: [1] });
+    expect(store().print.project).toBe('keychain');
+
+    store().setPrint({ widthMm: 50 });
+    expect(store().print).toMatchObject({ project: 'custom', widthMm: 50, loopHoleMm: 4 });
+  });
+
+  it('resets colors and raised elements for a new SVG but keeps the project', async () => {
+    store().chooseProject('magnet');
+    store().setPrint({ shapeRaise: { 'p-0-0': 2 }, colorRaise: { 0: 1 }, excluded: [1] });
+    useAppStore.setState({ quantized });
+    vi.stubGlobal('fetch', respond(vectorized));
+
+    await store().runVectorize();
+
+    expect(store().print).toMatchObject({
+      project: 'magnet',
+      shapeRaise: {},
+      colorRaise: {},
+      excluded: [],
+    });
   });
 
   it('navigates and resets', () => {

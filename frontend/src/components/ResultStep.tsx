@@ -86,6 +86,10 @@ export function ResultStep() {
             </a>
           )}
         </div>
+        <button type="button" className="secondary print-cta" onClick={() => goTo('print')}>
+          <strong>3D print</strong>
+          <span>Magnets, keychains, ornaments — heights per color and element</span>
+        </button>
         <ExportPanel />
         <button
           type="button"

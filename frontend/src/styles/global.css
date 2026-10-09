@@ -303,7 +303,8 @@ select {
    in view while it scrolls. Only where they sit side by side and fit the window. */
 @media (min-width: 1100px) and (min-height: 640px) {
   .workspace > .previews,
-  .workspace > .result-main {
+  .workspace > .result-main,
+  .workspace > .print-main {
     position: sticky;
     top: 16px;
   }
@@ -1227,4 +1228,123 @@ select {
   margin: 0 0 20px;
   color: var(--color-muted);
   line-height: 1.45;
+}
+
+/* 3D print step */
+.print-main {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.print-design {
+  display: grid;
+  place-items: center;
+  min-height: 320px;
+}
+
+.print-design .preview__image {
+  image-rendering: auto;
+}
+
+.print-empty {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 12px;
+  min-height: 320px;
+}
+
+.print-stale {
+  margin: 0;
+}
+
+.projects {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.project {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.project span {
+  color: var(--color-muted);
+  font-size: 0.78rem;
+}
+
+.project:hover {
+  border-color: var(--color-muted);
+}
+
+.project.active {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+.project:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.print-number {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.print-number input {
+  flex: 1;
+  min-width: 0;
+}
+
+.print-number .hint {
+  white-space: nowrap;
+}
+
+.print-colors li {
+  grid-template-columns: auto auto minmax(0, 1fr) 60px 56px;
+}
+
+.print-colors input[type='number'] {
+  width: 60px;
+}
+
+.print-colors li .hint {
+  white-space: nowrap;
+  text-align: right;
+}
+
+.print-summary {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+  font-size: 0.9rem;
+}
+
+.print-cta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+}
+
+.print-cta span {
+  color: var(--color-muted);
+  font-size: 0.8rem;
+  font-weight: 400;
 }

@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { ImageUpload } from './components/ImageUpload';
 import { PaletteStep } from './components/PaletteStep';
+import { PrintStep } from './components/PrintStep';
 import { ResultStep } from './components/ResultStep';
 import { ThemeToggle } from './components/ThemeToggle';
 import { useConfirm } from './components/useConfirm';
@@ -9,7 +10,12 @@ import { useDiscardGuard } from './components/useDiscardGuard';
 import { hasUnsavedEdits } from './state/editorSlice';
 import { STEPS, reachableSteps, useAppStore, type Step } from './state/store';
 
-const STEP_LABELS: Record<Step, string> = { upload: 'Upload', palette: 'Colors', result: 'SVG' };
+const STEP_LABELS: Record<Step, string> = {
+  upload: 'Upload',
+  palette: 'Colors',
+  result: 'SVG',
+  print: '3D print',
+};
 
 function CheckIcon() {
   return (
@@ -104,6 +110,7 @@ export function App() {
       )}
       {step === 'palette' && <PaletteStep />}
       {step === 'result' && <ResultStep />}
+      {step === 'print' && <PrintStep />}
       {dialog}
     </main>
   );

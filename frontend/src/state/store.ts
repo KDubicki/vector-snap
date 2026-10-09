@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { errorMessage, getLimits, quantize, suggestColors, vectorize } from '../api/client';
 import { base64ToBlob } from '../lib/base64';
 import { finalPalette } from '../lib/color';
+import { DEFAULT_PRINT, applyProject, type PrintSettings, type ProjectId } from '../lib/printPlan';
 import { DEFAULT_TRACING } from '../lib/tracing';
 import type {
   Limits,
@@ -17,22 +18,25 @@ import {
   type EditorSlice,
 } from './editorSlice';
 
-export type Step = 'upload' | 'palette' | 'result';
+export type Step = 'upload' | 'palette' | 'result' | 'print';
 export type Status = 'idle' | 'quantizing' | 'vectorizing';
 
 export const DEFAULT_COLORS = 8;
 /** Light smoothing removes specks without rounding off real details. */
 export const DEFAULT_SMOOTH = 1;
 
-export const STEPS: Step[] = ['upload', 'palette', 'result'];
+export const STEPS: Step[] = ['upload', 'palette', 'result', 'print'];
 
-/** Steps the user can open now: colors need an image, the SVG step a converted result. */
+/** Steps the user can open now: colors need an image, the SVG and 3D print steps a
+ * converted result. */
 export function reachableSteps(state: Pick<AppState, 'file' | 'vectorized' | 'editor'>): Step[] {
   return STEPS.filter(
     (step) =>
       step === 'upload' ||
       (step === 'palette' && state.file !== null) ||
-      (step === 'result' && state.vectorized !== null && state.editor !== null),
+      ((step === 'result' || step === 'print') &&
+        state.vectorized !== null &&
+        state.editor !== null),
   );
 }
 
@@ -67,6 +71,8 @@ export interface WorkflowSlice {
   transparent: number[];
   tracing: TracingOptions;
   vectorized: VectorizeResponse | null;
+  /** 3D print step settings (docs/07-frontend.md); colors and raises reset per SVG. */
+  print: PrintSettings;
   status: Status;
   error: string | null;
 
@@ -92,6 +98,9 @@ export interface WorkflowSlice {
   runVectorize: () => Promise<void>;
   /** Open a step; ignored when it is not reachable yet (see `reachableSteps`). */
   goTo: (step: Step) => void;
+  setPrint: (change: Partial<PrintSettings>) => void;
+  /** Apply a project preset (magnet, keychain, …); colors and raised elements stay. */
+  chooseProject: (id: ProjectId) => void;
   reset: () => void;
 }
 
@@ -114,6 +123,7 @@ const initialState = {
   transparent: [] as number[],
   tracing: DEFAULT_TRACING,
   vectorized: null,
+  print: DEFAULT_PRINT,
   ...initialEditorState,
   status: 'idle' as Status,
   error: null,
@@ -122,6 +132,9 @@ const initialState = {
 function isAbort(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'AbortError';
 }
+
+/** Print settings that belong to the design, not to a project preset. */
+const DESIGN_SETTINGS = new Set(['colorRaise', 'excluded', 'shapeRaise']);
 
 let pending: AbortController | null = null;
 // Separate from `pending`: a suggestion must not abort quantization (or vice versa), since
@@ -284,12 +297,14 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
       const image = base64ToBlob(quantized.image.data, quantized.image.media_type);
       const palette = finalPalette(quantized.palette, overrides);
       const vectorized = await vectorize(image, palette, { ...tracing, transparent }, signal);
-      set({
+      set((state) => ({
         vectorized,
         ...openDocument(vectorized.svg),
+        // Palette indices and shape ids belong to the previous SVG.
+        print: { ...state.print, colorRaise: {}, excluded: [], shapeRaise: {} },
         step: 'result',
         status: 'idle',
-      });
+      }));
     } catch (error) {
       if (isAbort(error)) return;
       set({ status: 'idle', error: errorMessage(error) });
@@ -299,6 +314,14 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
   goTo: (step) => {
     if (reachableSteps(get()).includes(step)) set({ step, error: null });
   },
+
+  setPrint: (change) =>
+    set((state) => {
+      // Editing what a project sets (sizes, base, loop, …) makes the settings custom.
+      const custom = Object.keys(change).some((key) => !DESIGN_SETTINGS.has(key));
+      return { print: { ...state.print, ...change, ...(custom && { project: 'custom' }) } };
+    }),
+  chooseProject: (id) => set((state) => ({ print: applyProject(state.print, id) })),
 
   reset: () => {
     pending?.abort();

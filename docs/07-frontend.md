@@ -15,13 +15,13 @@
 
 ## Screen flow
 
-The application is a single page with a three-step wizard. Going back to the colors step
+The application is a single page with a four-step wizard (upload, colors, SVG, 3D print). Going back to the colors step
 keeps the palette edits; changing the color count or method re-quantizes and resets them
 (palette indices change).
 
 The step indicator in the header is the navigation: completed steps show a check mark,
 and every step that is reachable (`reachableSteps` in the store — colors once an image is
-chosen, SVG once it has been converted) is a button, so the user can jump between the
+chosen, SVG and 3D print once it has been converted) is a button, so the user can jump between the
 colors and the editor without losing edits. `goTo` ignores unreachable steps.
 
 ```mermaid
@@ -33,6 +33,9 @@ stateDiagram-v2
     Palette --> Result: "Convert to SVG"
     Result --> Palette: back (edits kept)
     Result --> [*]: download SVG
+    Result --> Print: "3D print"
+    Print --> Result: back (edits kept)
+    Print --> [*]: download 3MF / STL
     Palette --> Upload: new image
     Result --> Upload: new image
 ```
@@ -124,6 +127,40 @@ tracing and export options). Narrower windows stack everything and scroll normal
 - ✅ Download exports the **edited** document in the SVG contract; shape count and file
   size reflect the edits.
 
+### Step 4 — 3D print ✅
+
+A dedicated step for printable objects (`PrintStep`, logic in `src/lib/printPlan.ts`,
+unit-tested), opened from the "3D print" button in the SVG step or the header:
+
+- **Project presets** set size, base and extras; colors and raised elements are kept,
+  and editing any preset value switches to *Custom*:
+
+  | Project | Width | Base | Base plate | Extras |
+  |---------|-------|------|------------|--------|
+  | Fridge magnet | 60 mm | 12 layers (2.4 mm) | design outline + 2 mm | 10.2 × 2 mm magnet pocket |
+  | Keychain | 45 mm | 10 layers (2 mm) | outline + 2 mm | 4 mm loop |
+  | Christmas ornament | 80 mm | 8 layers (1.6 mm) | circle + 2 mm | 3 mm loop |
+  | Sign or coaster | 100 mm | 10 layers (2 mm) | rounded rectangle + 5 mm | — |
+
+- **Colors: Flat (AMS)** — every color has the same height, so the top is level and a
+  multi-color printer switches colors within the same layers; **Stepped** — each color
+  one step higher, for a single extruder with filament changes (the filament plan is
+  offered).
+- **Heights in printer layers**: printer layer height (0.08–0.28 mm), base plate and color
+  height are whole layers (shown in mm too), so colors change exactly at a layer.
+- **Height per color**: include/leave out a color and give it extra layers, e.g. a logo
+  raised 3 layers above the rest.
+- **Base plate**: shape (outline, rectangle, rounded, circle), border, hanging loop,
+  magnet pocket (depth checked against the base), detail filter (nozzle width).
+- Summary of the total height, **Download 3MF** (one part per color → AMS slots in the
+  slicer) or **STL**, a 3D preview (marked stale when settings change) and cancellable
+  progress.
+
+The heights are sent explicitly (`layer_heights` for every color, `shape_heights` for
+raised elements), so what the panel shows is exactly what the backend builds. Color
+extras and raised elements reset when the image is converted again (palette indices and
+shape ids change); the project settings stay.
+
 ## Component tree
 
 ```
@@ -138,6 +175,7 @@ App                         header with step indicator, error banner
     ├── SvgEditor           Paper.js canvas + view toolbar (docs/08)
     ├── ShapeInspector      selected shapes, selection color
     └── EditorPalettePanel  color groups: recolor, select group
+└── PrintStep               (step: print) — projects, heights, 3D preview, STL/3MF
 ```
 
 ## State
