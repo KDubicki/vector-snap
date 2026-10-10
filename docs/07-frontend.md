@@ -173,6 +173,32 @@ raised elements), so what the panel shows is exactly what the backend builds. Co
 extras and raised elements reset when the image is converted again (palette indices and
 shape ids change); the project settings stay.
 
+#### Mixed colors model (`src/lib/mixing.ts`)
+
+With only a few filaments (4 AMS slots), more colors come from layering: thin layers of
+translucent filament over another one blend seen from above ("filament painting", as in
+HueForge). The model behind it:
+
+- Each filament has a color and a **transmission distance (TD)** in mm — the thickness at
+  which practically no light passes (taken as 5 %); HueForge and filament makers list
+  it (e.g. [Prusament TD values](https://help.prusa3d.com/article/hueforge-filament-transparency-values-and-hexcodes_762314)).
+- A color is printed as a **recipe**: up to two thin filaments on top (from the surface
+  down, whole layers) over a base filament filling the rest of the color height, all on
+  the base plate (first filament).
+- **Prediction** (`predictColor`): composed bottom-up in linear light; light fades
+  exponentially (Beer–Lambert) and crosses each layer twice (down and back up), so a
+  layer of thickness t lets e^(−2 · ln 20 · t / TD) of the color below through.
+  Thin colors over the white base plate therefore look lighter — real, and the reason
+  flat prints need enough color height.
+- **Choosing recipes** (`bestRecipe`): every base with up to two top filaments of
+  1–6 layers is tried (a few hundred recipes for 4 filaments) and the one with the
+  smallest CIE76 ΔE to the design color wins, with a small penalty per extra filament
+  so simpler recipes are preferred when they look alike. Matches above ΔE 10 are flagged:
+  some colors cannot be mixed from the loaded filaments (no green from white, red, blue
+  and black).
+- `colorStacks()` turns the recipes into the export's `color_stacks` option
+  ([13-export-formats.md](13-export-formats.md)).
+
 ## Component tree
 
 ```
