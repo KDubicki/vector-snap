@@ -18,6 +18,7 @@ import {
   translation,
   type SelectionTransform,
 } from '../editor/transform';
+import { placeFragment, type Fragment, type PlaceOptions } from '../lib/fragments';
 import type { AppState } from './store';
 
 /** SVG editor state of the result step (docs/08-svg-editor.md). */
@@ -63,6 +64,8 @@ export interface EditorActions {
   moveSelection: (dx: number, dy: number) => void;
   /** Scale, flip or rotate the selected shapes around their center. */
   transformSelection: (kind: SelectionTransform) => void;
+  /** Place a saved fragment on top of the design; the placed shapes become the selection. */
+  placeFragment: (fragment: Fragment, options: PlaceOptions) => void;
   undo: () => void;
   redo: () => void;
   /** Record that the current document was downloaded, so it has no unsaved edits. */
@@ -258,6 +261,17 @@ export const createEditorSlice: StateCreator<AppState, [], [], EditorSlice> = (s
       if (!state.editor || !bounds) return {};
       const matrix = transformMatrix(kind, bounds);
       return commit(state, transformShapes(state.editor, state.selection, matrix));
+    }),
+
+  placeFragment: (fragment, options) =>
+    set((state) => {
+      if (!state.editor) return {};
+      const placed = placeFragment(state.editor, fragment, options);
+      return {
+        ...commit(state, placed.doc),
+        selection: placed.ids,
+        notice: `Placed “${fragment.name}”: drag it into position, resize it in the inspector.`,
+      };
     }),
 
   undo: () =>

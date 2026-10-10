@@ -19,6 +19,7 @@ export function FragmentsPanel() {
   const stored = useAppStore((s) => s.fragmentsStored);
   const selection = useAppStore((s) => s.selection);
   const [name, setName] = useState('');
+  const [matchColors, setMatchColors] = useState(false);
   const [message, setMessage] = useState<{ text: string; error?: boolean } | null>(null);
   const { confirm, dialog } = useConfirm();
 
@@ -28,6 +29,13 @@ export function FragmentsPanel() {
     if (!fragment) return;
     setName('');
     setMessage({ text: `Saved “${fragment.name}”.` });
+  };
+
+  const place = (fragment: Fragment) => {
+    useAppStore.getState().placeFragment(fragment, { matchColors });
+    setMessage(null);
+    // On narrow screens the canvas is above the panel: show where the fragment landed.
+    document.querySelector('.editor')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   };
 
   const exportLibrary = () => {
@@ -99,11 +107,29 @@ export function FragmentsPanel() {
         </p>
       )}
       {fragments.length > 0 && (
-        <ul className="fragments__list" aria-label="Saved fragments">
-          {fragments.map((fragment) => (
-            <FragmentItem key={fragment.id} fragment={fragment} onDelete={() => remove(fragment)} />
-          ))}
-        </ul>
+        <>
+          <ul className="fragments__list" aria-label="Saved fragments">
+            {fragments.map((fragment) => (
+              <FragmentItem
+                key={fragment.id}
+                fragment={fragment}
+                onPlace={() => place(fragment)}
+                onDelete={() => remove(fragment)}
+              />
+            ))}
+          </ul>
+          <div className="checkbox">
+            <input
+              id="fragment-match-colors"
+              type="checkbox"
+              checked={matchColors}
+              onChange={(event) => setMatchColors(event.target.checked)}
+            />
+            <label htmlFor="fragment-match-colors">
+              Place in this image's nearest colors (no extra filaments)
+            </label>
+          </div>
+        </>
       )}
       <div className="fragments__library">
         <button
@@ -130,7 +156,13 @@ export function FragmentsPanel() {
   );
 }
 
-function FragmentItem({ fragment, onDelete }: { fragment: Fragment; onDelete: () => void }) {
+interface FragmentItemProps {
+  fragment: Fragment;
+  onPlace: () => void;
+  onDelete: () => void;
+}
+
+function FragmentItem({ fragment, onPlace, onDelete }: FragmentItemProps) {
   const thumbnail = useMemo(
     () => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(fragmentSvg(fragment))}`,
     [fragment],
@@ -168,6 +200,15 @@ function FragmentItem({ fragment, onDelete }: { fragment: Fragment; onDelete: ()
         </span>
       </div>
       <div className="fragment__actions">
+        <button
+          type="button"
+          className="secondary"
+          aria-label={`Place fragment ${fragment.name} on the image`}
+          title="Place on top of the image, centered"
+          onClick={onPlace}
+        >
+          Place
+        </button>
         <button
           type="button"
           className="link"

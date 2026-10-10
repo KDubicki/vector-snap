@@ -5,13 +5,17 @@
  * See docs/08-svg-editor.md#fragments.
  */
 import { serializeSvg } from '../editor/export';
-import { shapeFill, type EditorDoc } from '../editor/model';
+import { transformPath } from '../editor/geometry';
+import { shapeFill, type ColorGroup, type EditorDoc } from '../editor/model';
+import { nearestColor } from './color';
 import { shapesBounds, transformShapes, translation } from '../editor/transform';
 
 export const FRAGMENTS_STORAGE_KEY = 'vectorsnap.fragments';
 export const MAX_NAME_LENGTH = 60;
 export const LIBRARY_FORMAT = 'vectorsnap-fragments';
 export const LIBRARY_FILE_NAME = 'vectorsnap-fragments.json';
+/** A placed fragment larger than this share of the image is scaled down to it. */
+export const PLACE_MAX_SHARE = 0.5;
 
 export interface FragmentShape {
   /** Path data with the fragment's top-left corner at (0, 0). */
@@ -192,4 +196,51 @@ export function mergeFragments(
     return true;
   });
   return { fragments: [...added, ...current], added: added.length };
+}
+
+export interface PlaceOptions {
+  /** Replace the fragment's colors by the nearest colors of the image (fewer filaments). */
+  matchColors: boolean;
+}
+
+/**
+ * Place a fragment on top of the design, centered; fragments larger than half the image
+ * are scaled down. Each color gets a new color group above all others, so the fragment
+ * covers what lies below it. Returns the new document and the ids of the placed shapes.
+ */
+export function placeFragment(
+  doc: EditorDoc,
+  fragment: Fragment,
+  { matchColors }: PlaceOptions,
+): { doc: EditorDoc; ids: string[] } {
+  const scale = Math.min(
+    1,
+    (PLACE_MAX_SHARE * doc.width) / fragment.width,
+    (PLACE_MAX_SHARE * doc.height) / fragment.height,
+  );
+  const tx = (doc.width - fragment.width * scale) / 2;
+  const ty = (doc.height - fragment.height * scale) / 2;
+  const imageColors = [
+    ...new Set(doc.groups.flatMap((group) => group.shapes.map((shape) => shapeFill(group, shape)))),
+  ];
+  const taken = new Set(doc.groups.flatMap((group) => group.shapes.map((shape) => shape.id)));
+  let placement = 1;
+  while ([...taken].some((id) => id.startsWith(`frag-${placement}-`))) placement += 1;
+
+  let nextIndex = Math.max(-1, ...doc.groups.map((group) => group.paletteIndex)) + 1;
+  const added: ColorGroup[] = [];
+  const ids: string[] = [];
+  fragment.shapes.forEach((shape, index) => {
+    const fill = matchColors ? nearestColor(shape.fill, imageColors) : shape.fill;
+    let group = added.find((candidate) => candidate.fill === fill);
+    if (!group) {
+      group = { paletteIndex: nextIndex, fill, shapes: [] };
+      nextIndex += 1;
+      added.push(group);
+    }
+    const id = `frag-${placement}-${index}`;
+    group.shapes.push({ id, d: transformPath(shape.d, [scale, 0, 0, scale, tx, ty]) });
+    ids.push(id);
+  });
+  return { doc: { ...doc, groups: [...doc.groups, ...added] }, ids };
 }

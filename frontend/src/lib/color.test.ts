@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { finalPalette, hexToRgb, isHexColor, relativeLuminance, rgbToHex } from './color';
+import {
+  finalPalette,
+  hexToRgb,
+  isHexColor,
+  nearestColor,
+  relativeLuminance,
+  rgbToHex,
+} from './color';
 
 describe('color helpers', () => {
   it('converts between hex and rgb', () => {
@@ -26,5 +33,13 @@ describe('color helpers', () => {
     expect(relativeLuminance('#000000')).toBe(0);
     expect(relativeLuminance('#ffffff')).toBeCloseTo(1);
     expect(relativeLuminance('#00ff00')).toBeGreaterThan(relativeLuminance('#ff0000'));
+  });
+});
+
+describe('nearestColor', () => {
+  it('picks the closest candidate, or keeps the color without candidates', () => {
+    expect(nearestColor('#f01010', ['#000000', '#ff0000', '#ffffff'])).toBe('#ff0000');
+    expect(nearestColor('#202020', ['#000000', '#ffffff'])).toBe('#000000');
+    expect(nearestColor('#123456', [])).toBe('#123456');
   });
 });

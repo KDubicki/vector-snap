@@ -516,6 +516,14 @@ describe('app store', () => {
     expect(store().fragments[0].id).toBe('imported');
     store().deleteFragment('imported');
 
+    const triangle = store().fragments.find((f) => f.id === saved!.id)!;
+    store().placeFragment(triangle, { matchColors: false });
+    expect(store().selection).toEqual(['frag-1-0']);
+    expect(store().notice).toMatch('Placed “Triangle”');
+    expect(store().editor!.groups.at(-1)).toMatchObject({ paletteIndex: 1, fill: '#ff0000' });
+    store().undo();
+    expect(store().editor!.groups).toHaveLength(1);
+
     store().reset();
     store().deleteFragment(store().fragments[0].id);
     expect(store().fragments.map((f) => f.name)).toEqual(['Triangle']);

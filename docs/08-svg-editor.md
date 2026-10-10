@@ -182,6 +182,16 @@ a frame, a star. `src/lib/fragments.ts`, `src/state/fragmentsSlice.ts`, panel
   works for the open page and the panel says that it will be lost on closing.
 - The library belongs to the browser, not to the image: starting with a new image keeps
   it.
+- **Place** (`placeFragment(fragment, { matchColors })`) — puts a fragment on top of the
+  current design, centered; a fragment larger than half the image (either side) is
+  scaled down to fit. Every color of the fragment gets a **new color group above all
+  others** (new palette indices), so the fragment covers what lies below — in the
+  editor, in exported SVGs and in 3D models, where covered areas are cut out of the
+  parts below ([13-export-formats.md](13-export-formats.md)). The placed shapes
+  (`frag-N-i` ids) become the selection, ready to drag, nudge, scale, flip or rotate;
+  placing is one undo step. With *Place in this image's nearest colors* each color is
+  replaced by the nearest color already used in the image (redmean RGB distance,
+  `nearestColor()` in `lib/color.ts`), so no extra filament is needed.
 - **Export / import** — *Export library* downloads `vectorsnap-fragments.json`
   (`{"format": "vectorsnap-fragments", "version": 1, "fragments": [...]}`) to back the
   library up or move it to another browser. *Import library…* adds the valid fragments of

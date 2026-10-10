@@ -30,3 +30,26 @@ export function relativeLuminance(hex: string): number {
 export function finalPalette(palette: PaletteColor[], overrides: Record<number, string>): string[] {
   return palette.map((color) => (overrides[color.index] ?? color.hex).toLowerCase());
 }
+
+/**
+ * The candidate closest to `hex` ("redmean" weighted RGB distance, a cheap approximation
+ * of perceived difference); `hex` itself when there are no candidates.
+ */
+export function nearestColor(hex: string, candidates: string[]): string {
+  const [r, g, b] = hexToRgb(hex);
+  let best = hex;
+  let bestDistance = Infinity;
+  for (const candidate of candidates) {
+    const [cr, cg, cb] = hexToRgb(candidate);
+    const mean = (r + cr) / 2;
+    const distance =
+      (2 + mean / 256) * (r - cr) ** 2 +
+      4 * (g - cg) ** 2 +
+      (2 + (255 - mean) / 256) * (b - cb) ** 2;
+    if (distance < bestDistance) {
+      best = candidate;
+      bestDistance = distance;
+    }
+  }
+  return best;
+}

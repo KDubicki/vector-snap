@@ -112,7 +112,8 @@ tracing and export options). Narrower windows stack everything and scroll normal
 - ✅ Merge shapes and move them between color groups.
 - ✅ Move the selection (drag, arrow keys); scale, flip and rotate it.
 - ✅ **Fragments**: save the selection (with its colors) in a library kept in the browser,
-  rename and delete saved fragments, export and import the library as a JSON file
+  rename and delete saved fragments, export and import the library as a JSON file, and
+  place a fragment on top of another image (own colors or the image's nearest colors)
   ([08-svg-editor.md](08-svg-editor.md#fragments-)).
 - ✅ Export panel (STL, 3MF, lithophane, DXF, PDF, PNG) with per-color heights and a 3D
   preview with print statistics ([13-export-formats.md](13-export-formats.md)).
@@ -229,7 +230,7 @@ interface EditorSlice {
   notice: string | null;                     // why an edit did nothing
   // actions: select, selectMany, selectAll, recolorSelection, resetSelectionColor,
   // recolorGroup, splitWithLine, cutWithLasso, deleteSelection, mergeSelection,
-  // moveSelectionToGroup, moveSelection, transformSelection, undo, redo
+  // moveSelectionToGroup, moveSelection, transformSelection, placeFragment, undo, redo
 }
 
 interface FragmentsSlice {
