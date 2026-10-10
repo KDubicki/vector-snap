@@ -911,6 +911,10 @@ select {
   cursor: crosshair;
 }
 
+.editor__canvas--select.editor__canvas--movable {
+  cursor: move;
+}
+
 .move-to-group {
   display: flex;
   flex-direction: column;

@@ -85,6 +85,13 @@ export class EditorScene {
     }
   }
 
+  /** Move shapes (and the selection outlines) on screen only, while they are dragged. */
+  previewMove(ids: string[], dx: number, dy: number): void {
+    const delta = new this.scope.Point(dx, dy);
+    for (const id of ids) this.findItem(id)?.translate(delta);
+    this.overlay.translate(delta);
+  }
+
   /** Thin outline of the shape under the cursor (preview of what a click selects). */
   hover(id: string | null): void {
     if (id === this.hovered) return;

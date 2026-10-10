@@ -10,6 +10,16 @@ export interface Point {
   y: number;
 }
 
+export interface Bounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** Affine matrix [a, b, c, d, tx, ty]: x' = a·x + c·y + tx, y' = b·x + d·y + ty. */
+export type Matrix = [number, number, number, number, number, number];
+
 /** Pieces smaller than this (in document px²) are numerical slivers and are dropped. */
 const MIN_PIECE_AREA = 0.5;
 const PATH_PRECISION = 2;
@@ -148,6 +158,23 @@ export function uniteShapes(paths: string[]): string {
 function pathData(item: paper.PathItem): string {
   const svg = item.exportSVG({ asString: true, precision: PATH_PRECISION }) as string;
   return /\sd="([^"]+)"/.exec(svg)?.[1] ?? '';
+}
+
+/** Path data transformed by an affine matrix. */
+export function transformPath(d: string, matrix: Matrix): string {
+  const s = geometryScope();
+  const item = toPathItem(s, d);
+  item.transform(new s.Matrix(...matrix));
+  return pathData(item);
+}
+
+/** Bounding box of several paths, or `null` for none. */
+export function pathsBounds(paths: string[]): Bounds | null {
+  const s = geometryScope();
+  const boxes = paths.map((d) => toPathItem(s, d).bounds).filter((box) => box.area > 0);
+  if (!boxes.length) return null;
+  const box = boxes.reduce((all, next) => all.unite(next));
+  return { x: box.x, y: box.y, width: box.width, height: box.height };
 }
 
 /** Area of a path (absolute, holes subtracted). */

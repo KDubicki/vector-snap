@@ -469,6 +469,25 @@ describe('app store', () => {
     expect(store().selection).toEqual(['p-0-0.a']);
   });
 
+  it('moves the selection; nudges are one undo step', async () => {
+    useAppStore.setState({ quantized });
+    vi.stubGlobal('fetch', respond(vectorized));
+    await store().runVectorize();
+    const first = () => store().editor!.groups[0].shapes[0].d;
+    const original = first();
+
+    store().moveSelection(5, 0);
+    expect(store().history.past).toHaveLength(0); // nothing selected
+
+    store().select('p-0-0');
+    store().moveSelection(1, 0);
+    store().moveSelection(1, 0);
+    expect(first()).not.toBe(original);
+    expect(store().history.past).toHaveLength(1);
+    store().undo();
+    expect(first()).toBe(original);
+  });
+
   it('merges the selection into the largest shape', async () => {
     const svg =
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 10">' +

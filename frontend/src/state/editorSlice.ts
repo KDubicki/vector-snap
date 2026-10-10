@@ -11,6 +11,7 @@ import {
   resetShapeColors,
 } from '../editor/operations';
 import { cutWithRegion, splitAlongLine } from '../editor/split';
+import { transformShapes, translation } from '../editor/transform';
 import type { AppState } from './store';
 
 /** SVG editor state of the result step (docs/08-svg-editor.md). */
@@ -49,6 +50,11 @@ export interface EditorActions {
   mergeSelection: () => void;
   /** Move the selected shapes into another color group. */
   moveSelectionToGroup: (paletteIndex: number) => void;
+  /**
+   * Move the selected shapes by a document offset. Repeated moves (arrow-key nudges)
+   * are one undo step.
+   */
+  moveSelection: (dx: number, dy: number) => void;
   undo: () => void;
   redo: () => void;
   /** Record that the current document was downloaded, so it has no unsaved edits. */
@@ -224,6 +230,17 @@ export const createEditorSlice: StateCreator<AppState, [], [], EditorSlice> = (s
     set((state) =>
       state.editor && state.selection.length
         ? commit(state, moveShapesToGroup(state.editor, state.selection, paletteIndex))
+        : {},
+    ),
+
+  moveSelection: (dx, dy) =>
+    set((state) =>
+      state.editor && state.selection.length && (dx || dy)
+        ? commit(
+            state,
+            transformShapes(state.editor, state.selection, translation(dx, dy)),
+            `move:${state.selection.join(',')}`,
+          )
         : {},
     ),
 

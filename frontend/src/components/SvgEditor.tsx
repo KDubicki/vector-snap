@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type PointerEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'react';
 import { EditorScene, type ViewPoint } from '../editor/scene';
 import { useAppStore } from '../state/store';
 
@@ -15,7 +15,7 @@ const TOOLS: { id: Tool; label: string; key: string; title: string; hint: string
     label: 'Select',
     key: 'v',
     title: 'Select (V): click a shape or drag a box around shapes',
-    hint: 'Click to select · drag a box to select shapes inside · Shift adds · Space+drag pans',
+    hint: 'Click to select · drag a box to select · drag the selection to move it (arrows nudge) · Shift adds · Space+drag pans',
   },
   {
     id: 'hand',
@@ -41,14 +41,23 @@ const TOOLS: { id: Tool; label: string; key: string; title: string; hint: string
 ];
 
 interface Gesture {
-  mode: 'pending' | 'pan' | 'knife' | 'lasso' | 'marquee';
+  mode: 'pending' | 'pan' | 'knife' | 'lasso' | 'marquee' | 'move';
   /** Shape under the pointer when the gesture started (lasso target without selection). */
   startId: string | null;
   start: ViewPoint;
   last: ViewPoint;
-  /** Knife line in document coordinates. */
+  /** Knife line in document coordinates; for a move, the start and the last position. */
   line: ViewPoint[];
 }
+
+const NUDGE: Record<string, [number, number]> = {
+  ArrowLeft: [-1, 0],
+  ArrowRight: [1, 0],
+  ArrowUp: [0, -1],
+  ArrowDown: [0, 1],
+};
+/** Shift+arrow moves this many document pixels at once. */
+const NUDGE_SHIFT = 10;
 
 const NON_TEXT_INPUTS = new Set(['color', 'range', 'checkbox', 'radio', 'button', 'file']);
 
@@ -146,11 +155,21 @@ export function SvgEditor() {
     sceneRef.current?.highlight(selection);
   }, [selection, editor]);
 
-  const cancelGesture = () => {
+  /** Redraw the document, e.g. after shapes were moved on screen only. */
+  const redraw = useCallback(() => {
+    const { editor: doc, selection: ids } = useAppStore.getState();
+    if (!sceneRef.current || !doc) return;
+    sceneRef.current.render(doc);
+    sceneRef.current.highlight(ids);
+  }, []);
+
+  const cancelGesture = useCallback(() => {
+    const gesture = gestureRef.current;
     gestureRef.current = null;
     sceneRef.current?.drawGuide(null);
     sceneRef.current?.drawMarquee(null);
-  };
+    if (gesture?.mode === 'move') redraw();
+  }, [redraw]);
 
   // Keyboard shortcuts: Ctrl/Cmd+Z undo, Ctrl/Cmd+Shift+Z or Ctrl+Y redo, Delete removes,
   // V/K tools, Esc cancels/clears, Space pans, 0 fits, +/- zoom.
@@ -179,6 +198,13 @@ export function SvgEditor() {
         setTool(shortcut.id);
         return;
       }
+      const nudge = NUDGE[event.key];
+      if (nudge && store.selection.length) {
+        event.preventDefault();
+        const step = event.shiftKey ? NUDGE_SHIFT : 1;
+        store.moveSelection(nudge[0] * step, nudge[1] * step);
+        return;
+      }
       const center = { x: canvas.clientWidth / 2, y: canvas.clientHeight / 2 };
       switch (event.key) {
         case ' ':
@@ -196,9 +222,7 @@ export function SvgEditor() {
           return;
         case 'Escape':
           if (gestureRef.current) {
-            gestureRef.current = null;
-            scene.drawGuide(null);
-            scene.drawMarquee(null);
+            cancelGesture();
           } else {
             select(null);
           }
@@ -227,7 +251,7 @@ export function SvgEditor() {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
     };
-  }, [select]);
+  }, [select, cancelGesture]);
 
   const onPointerDown = (event: PointerEvent<HTMLCanvasElement>) => {
     const scene = sceneRef.current;
@@ -236,13 +260,22 @@ export function SvgEditor() {
     event.currentTarget.focus();
     event.currentTarget.setPointerCapture(event.pointerId);
     const panning = event.button === 1 || spaceRef.current || tool === 'hand';
+    const hit = panning ? null : scene.hitTest(point);
+    // Dragging a selected shape moves the selection; anywhere else it draws a box.
+    const moving = tool === 'select' && hit !== null && selection.includes(hit) && !event.shiftKey;
     scene.hover(null);
     gestureRef.current = {
-      mode: panning ? 'pan' : tool === 'knife' || tool === 'lasso' ? tool : 'pending',
-      startId: tool === 'lasso' ? scene.hitTest(point) : null,
+      mode: panning
+        ? 'pan'
+        : tool === 'knife' || tool === 'lasso'
+          ? tool
+          : moving
+            ? 'move'
+            : 'pending',
+      startId: tool === 'lasso' ? hit : null,
       start: point,
       last: point,
-      line: [scene.toDocument(point)],
+      line: [scene.toDocument(point), scene.toDocument(point)],
     };
   };
 
@@ -252,8 +285,21 @@ export function SvgEditor() {
     if (!scene) return;
     const point = viewPoint(event, event.currentTarget);
     if (!gesture) {
-      // Preview what a click would select.
-      scene.hover(tool === 'select' && !spaceRef.current ? scene.hitTest(point) : null);
+      // Preview what a click would select; selected shapes can be dragged.
+      const hit = tool === 'select' && !spaceRef.current ? scene.hitTest(point) : null;
+      scene.hover(hit);
+      event.currentTarget.classList.toggle(
+        'editor__canvas--movable',
+        hit !== null && selection.includes(hit),
+      );
+      return;
+    }
+
+    if (gesture.mode === 'move') {
+      const position = scene.toDocument(point);
+      const previous = gesture.line[1];
+      scene.previewMove(selection, position.x - previous.x, position.y - previous.y);
+      gesture.line[1] = position;
       return;
     }
 
@@ -297,11 +343,23 @@ export function SvgEditor() {
   const onPointerUp = (event: PointerEvent<HTMLCanvasElement>) => {
     const gesture = gestureRef.current;
     const scene = sceneRef.current;
-    cancelGesture();
+    gestureRef.current = null;
+    scene?.drawGuide(null);
+    scene?.drawMarquee(null);
     if (!gesture || !scene) return;
     const point = viewPoint(event, event.currentTarget);
 
-    if (gesture.mode === 'knife') {
+    if (gesture.mode === 'move') {
+      const end = scene.toDocument(point);
+      const [start] = gesture.line;
+      if (Math.hypot(point.x - gesture.start.x, point.y - gesture.start.y) < DRAG_THRESHOLD_PX) {
+        // A click, not a drag: the shapes stay and the clicked one becomes the selection.
+        redraw();
+        select(scene.hitTest(point), false);
+      } else {
+        useAppStore.getState().moveSelection(end.x - start.x, end.y - start.y);
+      }
+    } else if (gesture.mode === 'knife') {
       const end = scene.toDocument(point);
       const line = event.shiftKey ? [gesture.line[0], end] : [...gesture.line, end];
       useAppStore.getState().splitWithLine(line);

@@ -47,6 +47,7 @@ Status: ✅ implemented · 🔜 planned.
 | Tool | Shortcut | Behavior | Status |
 |------|----------|----------|--------|
 | Select | `V` | Click selects the topmost shape under the cursor (hit-test on fill; holes are not hits); the shape under the cursor is outlined in blue before clicking. **Drag a box** to select every shape lying completely inside it (the background is never caught). `Shift` adds (click toggles). Click on empty canvas clears. | ✅ |
+| Move | drag a selected shape / arrow keys | Dragging a selected shape (Select tool) moves the whole selection; arrows nudge it by 1 px, `Shift`+arrow by 10 px (see [Transforming shapes](#transforming-shapes-)). | ✅ |
 | Select all | `Ctrl/Cmd+A` | Select every shape. | ✅ |
 | Hand / pan | `H`, `Space`+drag, middle button | Drag to move the viewport (works in every tool with `Space` or the middle button). | ✅ |
 | Zoom | wheel / `+` / `-` / `0` (fit) / toolbar | Zoom around the cursor, 10 %–6400 % of "fit". | ✅ |
@@ -138,6 +139,23 @@ shapes do not overlap and splitting never reveals hidden geometry underneath.
 - **Move to color group** (`moveSelectionToGroup()`) — inspector swatches move the
   selection on top of another group and drop own colors, so the shapes take that group's
   color (and later group recolors apply to them). Groups left empty disappear.
+
+## Transforming shapes ✅
+
+Placing fragments and adjusting parts needs shapes to move. Transforms are affine
+matrices applied to the path data (`transformPath()` in `geometry.ts`,
+`transformShapes()` in `transform.ts`), so the document stays plain SVG paths and
+every transform is one undoable edit.
+
+- **Move** (`moveSelection(dx, dy)`) — in the Select tool, pressing on a shape that is
+  already selected drags the selection instead of drawing a box (the cursor turns into a
+  move cursor over it). While dragging, only the Paper.js items are translated
+  (`EditorScene.previewMove`); the document changes once, on release. A press without a
+  drag selects the clicked shape as before; `Esc` or a cancelled pointer restores the
+  original position. Arrow keys nudge by 1 document px (`Shift`: 10 px); consecutive
+  nudges coalesce into one undo step.
+- Moving does not cut or fill the shapes underneath: a moved shape leaves the area it
+  covered showing whatever lies below (often a hole in the background shape).
 
 ## Selecting small shapes ✅
 
