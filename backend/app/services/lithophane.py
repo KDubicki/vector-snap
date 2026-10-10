@@ -12,8 +12,8 @@ from numpy.typing import NDArray
 from PIL import Image
 
 from app.core.errors import InvalidParameters
-from app.services.export_stl import write_binary_stl
 from app.services.image_io import DecodedImage
+from app.services.mesh import write_binary_stl
 
 # Upper bound for the height grid: ~2 triangles per point, 50 bytes each (~100 MB).
 MAX_GRID_POINTS = 1_000_000

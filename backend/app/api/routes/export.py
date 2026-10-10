@@ -16,10 +16,11 @@ from app.schemas.export import (
     parse_layer_heights,
     parse_shape_heights,
 )
+from app.services.base_plate import BaseShape
 from app.services.export_3mf import export_3mf
 from app.services.export_dxf import DxfOptions, export_dxf
 from app.services.export_pdf import PageSize, PdfOptions, export_pdf
-from app.services.export_stl import BaseShape, StackOrder, StlOptions, export_stl
+from app.services.export_stl import StackOrder, StlOptions, export_stl
 from app.services.filament_plan import filament_plan
 from app.services.image_io import decode_image
 from app.services.lithophane import LithophaneOptions, export_lithophane

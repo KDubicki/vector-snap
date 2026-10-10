@@ -9,7 +9,8 @@ rectangle, rounded rectangle or circle around it; colors can be stacked in docum
 or by brightness. A hanging loop can be added at the top of the base plate and a magnet
 pocket in its underside.
 Coordinates are converted to millimetres and the y axis is flipped (SVG y points down,
-STL z-up models are viewed from above with y up). See docs/13-export-formats.md.
+STL z-up models are viewed from above with y up). The meshes come from `mesh`, the base
+plate from `base_plate`. See docs/13-export-formats.md.
 """
 
 import math
@@ -19,50 +20,30 @@ from typing import Literal
 
 import numpy as np
 from numpy.typing import NDArray
-from shapely import (
-    Point,
-    Polygon,
-    affinity,
-    box,
-    constrained_delaunay_triangles,
-    get_coordinates,
-    make_valid,
-    minimum_bounding_circle,
-    minimum_bounding_radius,
-    unary_union,
-)
+from shapely import affinity, make_valid, unary_union
 from shapely.geometry.base import BaseGeometry
-from shapely.geometry.polygon import orient
-from shapely.ops import nearest_points, polylabel
 
 from app.core.errors import InvalidParameters
+from app.services.base_plate import (
+    MAGNET_ROOF_MM,
+    BaseShape,
+    base_outline,
+    magnet_pocket,
+    printable,
+    with_loop,
+)
+from app.services.mesh import prism, without_pinches, write_binary_stl
 from app.services.svg_geometry import (
     VectorDocument,
     VectorLayer,
     VectorShape,
-    polygons,
     shapes_geometry,
     to_millimetres,
 )
 
-BaseShape = Literal["outline", "rectangle", "rounded", "circle"]
 # Bottom-to-top order of the color layers: as in the SVG (largest coverage at the bottom)
-# or by brightness, and a hanging loop can be added at the top of the base plate.
+# or by brightness.
 StackOrder = Literal["document", "light_to_dark", "dark_to_light"]
-
-# Corner radius of the "rounded" base plate, relative to its shorter side.
-ROUNDED_CORNER_RATIO = 0.15
-# Width of the ring around the hanging loop's hole (mm).
-LOOP_WALL_MM = 2.0
-# Minimum plastic around (and above) a magnet pocket (mm).
-MAGNET_WALL_MM = 1.0
-MAGNET_ROOF_MM = 0.4
-# Segments per quarter circle of round outlines.
-_QUAD_SEGS = 32
-
-_TRIANGLE_DTYPE = np.dtype(
-    [("normal", "<f4", (3,)), ("vertices", "<f4", (3, 3)), ("attribute", "<u2")]
-)
 
 
 @dataclass(frozen=True)
@@ -121,149 +102,6 @@ class Body:
     triangles: NDArray[np.float64]  # N x 3 x 3, millimetres
 
 
-def _at(points: NDArray[np.float64], z: float) -> NDArray[np.float64]:
-    return np.concatenate([points, np.full((*points.shape[:-1], 1), z)], axis=-1)
-
-
-def _cap(polygon: Polygon, z: float, *, up: bool) -> NDArray[np.float64]:
-    """Flat triangulation of a polygon with holes at height z, facing up or down.
-
-    GEOS constrained Delaunay triangulation is robust for polygons with many holes and
-    reuses the exact ring vertices, so caps and walls share their edges.
-    """
-    caps = get_coordinates(constrained_delaunay_triangles(polygon)).reshape(-1, 4, 2)[:, :3]
-    u, v = caps[:, 1] - caps[:, 0], caps[:, 2] - caps[:, 0]
-    clockwise = u[:, 0] * v[:, 1] - u[:, 1] * v[:, 0] < 0
-    caps[clockwise] = caps[clockwise][:, [0, 2, 1]]
-    return _at(caps if up else caps[:, [0, 2, 1]], z)
-
-
-def _walls(ring: NDArray[np.float64], bottom: float, top: float) -> NDArray[np.float64]:
-    """Side walls of a closed ring; counter-clockwise rings face out, clockwise ones in."""
-    start = ring[:-1]
-    end = np.roll(start, -1, axis=0)
-    a0, b0, a1, b1 = _at(start, bottom), _at(end, bottom), _at(start, top), _at(end, top)
-    return np.concatenate([np.stack([a0, b0, b1], axis=1), np.stack([a0, b1, a1], axis=1)])
-
-
-def _prism(
-    polygon: Polygon, bottom: float, top: float, pocket: Polygon | None = None, depth: float = 0
-) -> NDArray[np.float64]:
-    """Closed triangle mesh (N x 3 x 3) of a polygon with holes extruded from bottom to top.
-
-    `pocket` (inside the polygon, clear of its holes) is recessed `depth` into the bottom.
-    """
-    polygon = orient(polygon, sign=1.0)  # exterior counter-clockwise, holes clockwise
-    rings = [polygon.exterior, *polygon.interiors]
-    parts = [_cap(polygon, top, up=True)]
-    parts += [_walls(np.asarray(ring.coords), bottom, top) for ring in rings]
-    if pocket is None:
-        parts.append(_cap(polygon, bottom, up=False))
-    else:
-        pocket = orient(pocket, sign=-1.0)  # a hole of the bottom face: clockwise
-        floor = Polygon(polygon.exterior, [*polygon.interiors, pocket.exterior])
-        parts += [
-            _cap(floor, bottom, up=False),
-            _walls(np.asarray(pocket.exterior.coords), bottom, bottom + depth),
-            _cap(pocket, bottom + depth, up=False),
-        ]
-    return np.concatenate(parts)
-
-
-def write_binary_stl(triangles: list[NDArray[np.float64]]) -> bytes:
-    vertices = np.concatenate(triangles) if triangles else np.zeros((0, 3, 3))
-    data = np.zeros(len(vertices), dtype=_TRIANGLE_DTYPE)
-    if len(vertices):
-        normals = np.cross(vertices[:, 1] - vertices[:, 0], vertices[:, 2] - vertices[:, 0])
-        lengths = np.linalg.norm(normals, axis=1, keepdims=True)
-        data["normal"] = np.divide(normals, lengths, out=np.zeros_like(normals), where=lengths > 0)
-        data["vertices"] = vertices
-    header = b"VectorSnap STL export".ljust(80, b"\0")
-    return header + np.uint32(len(vertices)).tobytes() + data.tobytes()
-
-
-def printable(geometry: BaseGeometry, min_feature_mm: float) -> BaseGeometry:
-    """Drop every part of `geometry` narrower than `min_feature_mm`.
-
-    Morphological opening: shrinking by half the width removes thin lines, slivers and
-    specks entirely; growing back restores everything else. Mitred joins keep the
-    corners of the remaining shapes sharp.
-    """
-    if min_feature_mm <= 0:
-        return geometry
-    radius = min_feature_mm / 2
-    shrunk = geometry.buffer(-radius, join_style="mitre")
-    return shrunk.buffer(radius, join_style="mitre").intersection(geometry)
-
-
-def base_outline(silhouette: BaseGeometry, shape: BaseShape, margin_mm: float) -> BaseGeometry:
-    """Footprint of the base plate around the design's `silhouette` (millimetres).
-
-    `outline` follows the design (grown by the margin with round joins, like a sticker
-    border); the other shapes enclose the whole design plus the margin, filling gaps and
-    transparent areas.
-    """
-    if silhouette.is_empty:
-        return silhouette
-    if shape == "outline":
-        return silhouette.buffer(margin_mm, quad_segs=_QUAD_SEGS) if margin_mm > 0 else silhouette
-    if shape == "circle":
-        center = minimum_bounding_circle(silhouette).centroid
-        # The polygon circumscribes the true circle, so no point of the design sticks out.
-        radius = (minimum_bounding_radius(silhouette) + margin_mm) / math.cos(
-            math.pi / (4 * _QUAD_SEGS)
-        )
-        return Point(center.x, center.y).buffer(radius, quad_segs=_QUAD_SEGS)
-    minx, miny, maxx, maxy = silhouette.bounds
-    rectangle = box(minx - margin_mm, miny - margin_mm, maxx + margin_mm, maxy + margin_mm)
-    if shape == "rectangle":
-        return rectangle
-    # Concentric with a corner of the design's bounding box, so the margin stays even.
-    radius = ROUNDED_CORNER_RATIO * min(maxx - minx, maxy - miny) + margin_mm
-    return rectangle.buffer(-radius, join_style="mitre").buffer(radius, quad_segs=_QUAD_SEGS)
-
-
-def with_loop(outline: BaseGeometry, hole_mm: float) -> BaseGeometry:
-    """Add a ring with a `hole_mm` hole above the top of `outline` (millimetres).
-
-    The ring is centered on the outline's top, as close to the middle as possible, and
-    reaches half a wall into it, so it is joined to the plate; the hole starts just above
-    the outline and never cuts into the design.
-    """
-    if hole_mm <= 0 or outline.is_empty:
-        return outline
-    minx, _, maxx, maxy = outline.bounds
-    top = outline.intersection(box(minx, maxy - LOOP_WALL_MM / 2, maxx, maxy))
-    anchor = nearest_points(top, Point((minx + maxx) / 2, maxy))[0]
-    radius = hole_mm / 2
-    center = Point(anchor.x, maxy + radius)
-    ring = center.buffer(radius + LOOP_WALL_MM, quad_segs=_QUAD_SEGS)
-    return outline.union(ring).difference(center.buffer(radius, quad_segs=_QUAD_SEGS))
-
-
-def magnet_pocket(outline: BaseGeometry, diameter_mm: float) -> Polygon | None:
-    """Round pocket for a magnet in the widest spot of the largest base polygon.
-
-    None when no magnet is requested; raises when the plate has no spot wide enough.
-    """
-    if diameter_mm <= 0:
-        return None
-    parts = polygons(outline)
-    if not parts:
-        return None
-    largest = max(parts, key=lambda part: part.area)
-    center = polylabel(largest, tolerance=0.01)
-    room = largest.boundary.distance(center)
-    radius = diameter_mm / 2
-    if room < radius + MAGNET_WALL_MM:
-        raise InvalidParameters(
-            f"No room for a {diameter_mm:g} mm magnet: the base plate fits at most "
-            f"{max(0.0, 2 * (room - MAGNET_WALL_MM)):.1f} mm.",
-            {"field": "magnet_mm"},
-        )
-    return center.buffer(radius, quad_segs=_QUAD_SEGS)
-
-
 def relative_luminance(hex_color: str) -> float:
     """WCAG relative luminance of a `#rrggbb` color: 0 (black) to 1 (white)."""
     channels = [int(hex_color[i : i + 2], 16) / 255 for i in (1, 3, 5)]
@@ -303,37 +141,6 @@ def layer_height(position: int, palette_index: int, options: StlOptions) -> floa
     else:
         height = options.layer_mm * (position + 1 if options.layered else 1)
     return snap_to_layers(height, options.print_layer_mm)
-
-
-# Inward offset that separates rings touching at a single point (see `_without_pinches`):
-# far below print resolution, well above float32 STL precision for models up to ~1 m.
-PINCH_SEPARATION_MM = 0.002
-
-
-def _has_pinches(shapes: list[Polygon]) -> bool:
-    """Whether rings of these polygons share a point: shapes touching at a corner, or a
-    hole touching its outline or another hole (all valid polygons in shapely)."""
-    seen: set[tuple[float, float]] = set()
-    for polygon in shapes:
-        for ring in [polygon.exterior, *polygon.interiors]:
-            points = {(round(x, 9), round(y, 9)) for x, y in ring.coords[:-1]}
-            if not seen.isdisjoint(points):
-                return True
-            seen |= points
-    return False
-
-
-def _without_pinches(geometry: BaseGeometry) -> list[Polygon]:
-    """Polygons of `geometry` that extrude into manifold prisms.
-
-    Where rings touch at a single point, the vertical edge there would belong to four
-    triangles, which slicers and 3MF validators report as non-manifold. A tiny inward
-    offset pulls such rings apart; geometry without pinch points is left exact.
-    """
-    shapes = polygons(geometry)
-    if not _has_pinches(shapes):
-        return shapes
-    return polygons(geometry.buffer(-PINCH_SEPARATION_MM, join_style="mitre"))
 
 
 def _repaired(geometry: BaseGeometry) -> BaseGeometry:
@@ -444,10 +251,10 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
         silhouette = with_loop(silhouette, options.loop_hole_mm)
         pocket = magnet_pocket(silhouette, options.magnet_mm)
         parts = [
-            _prism(polygon, 0.0, base, pocket, options.magnet_depth_mm)
+            prism(polygon, 0.0, base, pocket, options.magnet_depth_mm)
             if pocket is not None and pocket.within(polygon)
-            else _prism(polygon, 0.0, base)
-            for polygon in _without_pinches(silhouette)
+            else prism(polygon, 0.0, base)
+            for polygon in without_pinches(silhouette)
         ]
         if parts:
             base_color = options.filaments[0] if options.filaments else included[0].layer.fill
@@ -469,8 +276,8 @@ def _color_bodies(
     """One body per color and height."""
     bodies: list[Body] = []
     for part, geometry in zip(parts, visible, strict=True):
-        shapes = _without_pinches(printable(geometry, options.min_feature_mm))
-        prisms = [_prism(polygon, base, base + part.height) for polygon in shapes]
+        shapes = without_pinches(printable(geometry, options.min_feature_mm))
+        prisms = [prism(polygon, base, base + part.height) for polygon in shapes]
         if prisms:
             name = f"color-{part.layer.palette_index}"
             if part.own_height:
@@ -531,8 +338,8 @@ def _filament_bodies(
     bodies: list[Body] = []
     for filament, bottom, top in sorted(slabs, key=lambda slab: (slab[1], slab[2], slab[0])):
         geometry = unary_union(slabs[filament, bottom, top])
-        shapes = _without_pinches(printable(geometry, options.min_feature_mm))
-        prisms = [_prism(polygon, base + bottom, base + top) for polygon in shapes]
+        shapes = without_pinches(printable(geometry, options.min_feature_mm))
+        prisms = [prism(polygon, base + bottom, base + top) for polygon in shapes]
         if prisms:
             name = f"filament-{filament + 1}-{bottom:g}-{top:g}mm"
             bodies.append(Body(name, options.filaments[filament], np.concatenate(prisms)))
