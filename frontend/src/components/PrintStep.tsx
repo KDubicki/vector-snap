@@ -1,8 +1,6 @@
-import { Suspense, lazy, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useMemo, useState } from 'react';
 import { errorMessage, exportFile, getFilamentPlan } from '../api/client';
 import { serializeSvg } from '../editor/export';
-import { download } from '../lib/download';
-import { formatElapsed, useElapsedSeconds } from '../lib/elapsed';
 import { exportFileName } from '../lib/exportFormats';
 import {
   PROJECTS,
@@ -21,9 +19,11 @@ import {
   type BaseShape,
   type PrintSettings,
 } from '../lib/printPlan';
+import { useExport } from '../lib/useExport';
 import { useAppStore } from '../state/store';
 import type { FilamentPlan } from '../types/api';
 import { ElementMap } from './ElementMap';
+import { ExportProgress } from './ExportProgress';
 import { FilamentPlanView } from './FilamentPlanView';
 import { FilamentSlots } from './FilamentSlots';
 import { MixTable } from './MixTable';
@@ -110,11 +110,8 @@ export function PrintStep() {
   const { setPrint, chooseProject, goTo } = useAppStore.getState();
   const [view, setView] = useState<'design' | 'model'>('design');
   const [preview, setPreview] = useState<{ request: PreviewRequest; key: string } | null>(null);
-  const [status, setStatus] = useState<'idle' | 'exporting'>('idle');
-  const [error, setError] = useState<string | null>(null);
+  const job = useExport();
   const [plan, setPlan] = useState<{ plan: FilamentPlan; key: string } | null>(null);
-  const exportController = useRef<AbortController | null>(null);
-  const elapsed = formatElapsed(useElapsedSeconds(status === 'exporting'));
 
   const [selected, setSelected] = useState<string[]>([]);
 
@@ -153,41 +150,29 @@ export function PrintStep() {
     setView('model');
   };
 
-  const run = async (
-    format: 'stl' | '3mf',
-    source = { svg, options, name: exportFileName(file?.name, format) },
-  ) => {
-    const controller = new AbortController();
-    exportController.current = controller;
-    setStatus('exporting');
-    setError(null);
-    try {
-      const blob = await exportFile(format, source.svg, source.options, controller.signal);
-      download(blob, source.name);
-    } catch (caught) {
-      if (!controller.signal.aborted) setError(errorMessage(caught, 'Export failed'));
-    } finally {
-      exportController.current = null;
-      setStatus('idle');
-    }
-  };
+  const run = (format: 'stl' | '3mf') =>
+    job.run(
+      (signal) => exportFile(format, svg, options, signal),
+      exportFileName(file?.name, format),
+    );
 
   /** A small print of every mixed color, to check the predictions with real filaments. */
   const runTestCard = () => {
     const card = testCard(editor, print);
-    void run('3mf', {
-      svg: serializeSvg(card.doc),
-      options: printOptions(card.doc, card.settings),
-      name: exportFileName(file?.name, 'test-card.3mf'),
-    });
+    const cardSvg = serializeSvg(card.doc);
+    const cardOptions = printOptions(card.doc, card.settings);
+    void job.run(
+      (signal) => exportFile('3mf', cardSvg, cardOptions, signal),
+      exportFileName(file?.name, 'test-card.3mf'),
+    );
   };
 
   const showPlan = async () => {
-    setError(null);
+    job.setError(null);
     try {
       setPlan({ plan: await getFilamentPlan(svg, options), key });
     } catch (caught) {
-      setError(errorMessage(caught, 'Planning failed'));
+      job.setError(errorMessage(caught, 'Planning failed'));
     }
   };
 
@@ -417,7 +402,7 @@ export function PrintStep() {
             groups={printedGroups(editor, print)}
             plan={mix}
             filaments={print.filaments}
-            busy={invalid || status !== 'idle'}
+            busy={invalid || job.exporting}
             onTestCard={runTestCard}
           />
         )}
@@ -563,16 +548,16 @@ export function PrintStep() {
           Total height <strong>{mm(heights.totalLayers)} mm</strong> · {heights.totalLayers} layers
           · base {mm(print.baseLayers)} mm
         </p>
-        {error && (
+        {job.error && (
           <p className="field-error" role="alert">
-            {error}
+            {job.error}
           </p>
         )}
         <div className="actions">
           <button
             type="button"
             className="primary"
-            disabled={invalid || status !== 'idle'}
+            disabled={invalid || job.exporting}
             onClick={() => void run('3mf')}
           >
             Download 3MF
@@ -580,7 +565,7 @@ export function PrintStep() {
           <button
             type="button"
             className="secondary"
-            disabled={invalid || status !== 'idle'}
+            disabled={invalid || job.exporting}
             onClick={() => void run('stl')}
           >
             Download STL
@@ -591,18 +576,8 @@ export function PrintStep() {
             ? `3MF parts come only in the ${print.filaments.length} filament colors: assign each to the AMS slot with that filament.`
             : '3MF keeps one part per color, so the slicer assigns AMS slots automatically.'}
         </span>
-        {status === 'exporting' && (
-          <p className="hint export__progress" role="status">
-            <span className="spinner" aria-hidden="true" />
-            Building the model{elapsed && ` · ${elapsed}`}
-            <button
-              type="button"
-              className="link"
-              onClick={() => exportController.current?.abort()}
-            >
-              Cancel
-            </button>
-          </p>
+        {job.exporting && (
+          <ExportProgress what="the model" elapsed={job.elapsed} onCancel={job.cancel} />
         )}
         <div className="actions">
           <button type="button" className="secondary" disabled={invalid} onClick={showPreview}>

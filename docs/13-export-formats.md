@@ -323,7 +323,10 @@ Long exports show progress: below the buttons a status line ("Building the STL f
 aborts the request (`AbortController`); nothing is downloaded and no error is shown. The
 3D preview does the same while it loads ("Building model… 12 s", a note that detailed
 designs can take a minute, **Cancel** closes the preview). `src/lib/elapsed.ts` formats
-the time.
+the time. The export panel and the 3D print step share this behaviour through the
+`useExport` hook (`src/lib/useExport.ts`: one export at a time, download, error
+message, cancel — a build that ignores the signal, like PNG rendering, is dropped after
+cancelling) and the `ExportProgress` status line.
 
 For STL and 3MF the panel also lists every color with an *include* checkbox and a height field
 (empty = automatic, shown as placeholder — following the chosen color order and already rounded to the printer layer height

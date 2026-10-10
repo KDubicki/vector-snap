@@ -1,4 +1,4 @@
-import { Fragment, Suspense, lazy, useMemo, useRef, useState } from 'react';
+import { Fragment, Suspense, lazy, useMemo, useState } from 'react';
 import { errorMessage, exportFile, exportLithophane, getFilamentPlan } from '../api/client';
 import { serializeSvg } from '../editor/export';
 import {
@@ -14,12 +14,12 @@ import {
   type ExportOption,
   type ExportValues,
 } from '../lib/exportFormats';
-import { download } from '../lib/download';
-import { formatElapsed, useElapsedSeconds } from '../lib/elapsed';
 import { rasterSize, svgToPng } from '../lib/raster';
+import { useExport } from '../lib/useExport';
 import { useAppStore } from '../state/store';
 import type { FilamentPlan } from '../types/api';
 import { ColorHeightsTable } from './ColorHeightsTable';
+import { ExportProgress } from './ExportProgress';
 import { FilamentPlanView } from './FilamentPlanView';
 import type { PreviewRequest } from './ModelPreview';
 
@@ -43,16 +43,13 @@ export function ExportPanel() {
   const [values, setValues] = useState<Record<string, ExportValues>>({});
   const current = values[format.id] ?? defaultValues(format);
   const errors = useMemo(() => validate(format, current), [format, current]);
-  const [status, setStatus] = useState<'idle' | 'exporting'>('idle');
-  const [error, setError] = useState<string | null>(null);
+  const job = useExport();
   const [colorSettings, setColorSettings] = useState<Record<number, Partial<ColorHeight>>>({});
   const [preview, setPreview] = useState<PreviewRequest | null>(null);
   // Cleared whenever an option changes, so a shown plan always matches the options.
   const [plan, setPlan] = useState<FilamentPlan | null>(null);
   const [planning, setPlanning] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
-  const exportController = useRef<AbortController | null>(null);
-  const elapsed = formatElapsed(useElapsedSeconds(status === 'exporting'));
 
   if (!editor) return null;
 
@@ -105,30 +102,13 @@ export function ExportPanel() {
 
   const showPlan = async () => {
     setPlanning(true);
-    setError(null);
+    job.setError(null);
     try {
       setPlan(await getFilamentPlan(serializeSvg(editor), requestOptions()));
     } catch (caught) {
-      setError(errorMessage(caught, 'Planning failed'));
+      job.setError(errorMessage(caught, 'Planning failed'));
     } finally {
       setPlanning(false);
-    }
-  };
-
-  const run = async () => {
-    const controller = new AbortController();
-    exportController.current = controller;
-    setStatus('exporting');
-    setError(null);
-    try {
-      const blob = await render(controller.signal);
-      // PNG renders in the browser and ignores the signal: drop it if cancelled meanwhile.
-      if (!controller.signal.aborted) download(blob, exportFileName(file?.name, format.extension));
-    } catch (caught) {
-      if (!controller.signal.aborted) setError(errorMessage(caught, 'Export failed'));
-    } finally {
-      exportController.current = null;
-      setStatus('idle');
     }
   };
 
@@ -259,9 +239,9 @@ export function ExportPanel() {
           }}
         />
       )}
-      {error && (
+      {job.error && (
         <p className="field-error" role="alert">
-          {error}
+          {job.error}
         </p>
       )}
       <div className="actions">
@@ -278,20 +258,18 @@ export function ExportPanel() {
         <button
           type="button"
           className="secondary"
-          disabled={status !== 'idle' || invalid}
-          onClick={() => void run()}
+          disabled={job.exporting || invalid}
+          onClick={() => void job.run(render, exportFileName(file?.name, format.extension))}
         >
-          {status === 'exporting' ? 'Exporting…' : `Export ${format.label}`}
+          {job.exporting ? 'Exporting…' : `Export ${format.label}`}
         </button>
       </div>
-      {status === 'exporting' && (
-        <p className="hint export__progress" role="status">
-          <span className="spinner" aria-hidden="true" />
-          Building the {format.label} file{elapsed && ` · ${elapsed}`}
-          <button type="button" className="link" onClick={() => exportController.current?.abort()}>
-            Cancel
-          </button>
-        </p>
+      {job.exporting && (
+        <ExportProgress
+          what={`the ${format.label} file`}
+          elapsed={job.elapsed}
+          onCancel={job.cancel}
+        />
       )}
       {format.perColorHeights && (
         <button
