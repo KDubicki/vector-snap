@@ -1,0 +1,135 @@
+// @vitest-environment jsdom
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { exportFile, getFilamentPlan } from '../api/client';
+import { download } from '../lib/download';
+import { useAppStore } from '../state/store';
+import { sampleDoc } from '../test/fixtures';
+import { PrintStep } from './PrintStep';
+
+vi.mock('../api/client', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../api/client')>()),
+  exportFile: vi.fn(),
+  getFilamentPlan: vi.fn(),
+}));
+vi.mock('../lib/download', () => ({ download: vi.fn() }));
+
+const store = () => useAppStore.getState();
+const summary = () => screen.getByText(/Total height/).textContent;
+
+describe('PrintStep', () => {
+  beforeEach(() => {
+    vi.mocked(exportFile).mockReset();
+    vi.mocked(getFilamentPlan).mockReset();
+    vi.mocked(download).mockReset();
+    store().reset();
+    useAppStore.setState({
+      editor: sampleDoc(),
+      file: new File(['png'], 'logo.png', { type: 'image/png' }),
+    });
+  });
+
+  it('renders nothing without a document', () => {
+    useAppStore.setState({ editor: null });
+    const { container } = render(<PrintStep />);
+
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('applies a project and shows the total height', async () => {
+    render(<PrintStep />);
+    expect(summary()).toContain('2 mm · 10 layers'); // 8 base + 2 color layers of 0.2 mm
+
+    await userEvent.click(screen.getByRole('radio', { name: /Fridge magnet/ }));
+    expect(store().print).toMatchObject({ project: 'magnet', magnetMm: 10.2 });
+    expect(summary()).toContain('2.8 mm · 14 layers');
+  });
+
+  it('raises an element selected in the design', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<PrintStep />);
+
+    await user.click(container.querySelector('path[d="M10,10 H30 V30 H10 Z"]')!);
+    await user.click(screen.getByRole('button', { name: 'One layer higher' }));
+    await user.click(screen.getByRole('button', { name: 'One layer higher' }));
+
+    expect(store().print.shapeRaise).toEqual({ 'p-1-0': 2 });
+    expect(summary()).toContain('12 layers');
+    await user.click(screen.getByRole('button', { name: 'Clear selection' }));
+    expect(screen.getByText(/Select elements in the design/)).toBeInTheDocument();
+  });
+
+  it('downloads the 3MF with the panel settings and reports failures', async () => {
+    const user = userEvent.setup();
+    vi.mocked(exportFile).mockResolvedValueOnce(new Blob(['3mf']));
+    render(<PrintStep />);
+
+    await user.click(screen.getByRole('button', { name: 'Download 3MF' }));
+    await waitFor(() => expect(download).toHaveBeenCalledWith(expect.any(Blob), 'logo.3mf'));
+    const [format, svg, options] = vi.mocked(exportFile).mock.calls[0];
+    expect(format).toBe('3mf');
+    expect(svg).toContain('id="p-1-0"');
+    expect(options).toMatchObject({ base_mm: 1.6, layered: false, stack_order: 'document' });
+
+    vi.mocked(exportFile).mockRejectedValueOnce(new Error('Backend down'));
+    await user.click(screen.getByRole('button', { name: 'Download STL' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Backend down');
+  });
+
+  it('mixes colors from the loaded filaments and prints a test card', async () => {
+    const user = userEvent.setup();
+    vi.mocked(exportFile).mockResolvedValue(new Blob(['3mf']));
+    render(<PrintStep />);
+
+    await user.click(screen.getByRole('radio', { name: 'Mixed' }));
+    expect(store().print).toMatchObject({ style: 'mixed', layerMm: 0.08, colorLayers: 15 });
+    expect(screen.getByRole('group', { name: 'Loaded filaments' })).toBeInTheDocument();
+    expect(screen.getByText('Mixed colors')).toBeInTheDocument();
+    expect(screen.getByLabelText('Show predicted print colors')).toBeChecked();
+
+    await user.click(screen.getByRole('button', { name: 'Download test card (3MF)' }));
+    await waitFor(() =>
+      expect(download).toHaveBeenCalledWith(expect.any(Blob), 'logo.test-card.3mf'),
+    );
+    const [, cardSvg, cardOptions] = vi.mocked(exportFile).mock.calls[0];
+    expect(cardSvg).toContain('id="card-0"');
+    expect(JSON.parse(String(cardOptions.filaments))[0]).toBe('#ffffff');
+  });
+
+  it('plans filament changes for stepped colors', async () => {
+    const user = userEvent.setup();
+    vi.mocked(getFilamentPlan).mockResolvedValueOnce({
+      steps: [
+        { z_mm: 0, layer: 1, color: '#ffffff' },
+        { z_mm: 2, layer: 11, color: '#ff0000' },
+      ],
+      conflicts: [],
+      height_mm: 2.4,
+    });
+    render(<PrintStep />);
+    expect(screen.queryByRole('button', { name: 'Filament changes' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('radio', { name: 'Stepped' }));
+    await user.click(screen.getByRole('button', { name: 'Filament changes' }));
+
+    expect(await screen.findByRole('region', { name: 'Filament changes' })).toBeInTheDocument();
+  });
+
+  it('goes back to the SVG editor', async () => {
+    useAppStore.setState({
+      step: 'print',
+      vectorized: {
+        width: 100,
+        height: 50,
+        palette: [],
+        stats: { paths: 3, bytes: 1, duration_ms: 1 },
+        svg: '',
+      },
+    });
+    render(<PrintStep />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Back to the SVG editor' }));
+    expect(store().step).toBe('result');
+  });
+});

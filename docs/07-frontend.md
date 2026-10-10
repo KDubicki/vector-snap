@@ -230,7 +230,16 @@ App                         header with step indicator, error banner
     ├── ShapeInspector      selected shapes, selection color
     ├── EditorPalettePanel  color groups: recolor, select group
     └── FragmentsPanel      save the selection as a fragment, saved fragments
-└── PrintStep               (step: print) — projects, heights, 3D preview, STL/3MF
+└── PrintStep               (step: print) — views, preview, exports (useExport)
+    ├── ElementMap          clickable design (selection, raised, predicted colors)
+    ├── ProjectPicker       project presets
+    ├── ColorStylePicker    flat / mixed / stepped
+    ├── FilamentSlots       loaded filaments (mixed)
+    ├── LayerFields         width, layer height, base and color layers (NumberField)
+    ├── PrintColorsTable    include / extra layers per color
+    ├── MixTable            recipes, predictions, test card (mixed)
+    ├── RaisedElementsPanel raise the selected elements
+    └── BasePlateFields     shape, border, loop, magnet, detail filter
 ```
 
 ## State

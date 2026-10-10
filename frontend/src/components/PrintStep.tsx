@@ -3,11 +3,8 @@ import { errorMessage, exportFile, getFilamentPlan } from '../api/client';
 import { serializeSvg } from '../editor/export';
 import { exportFileName } from '../lib/exportFormats';
 import {
-  PROJECTS,
   heightPlan,
   nextSelection,
-  setShapeRaise,
-  sharedRaise,
   layersToMm,
   mixPlan,
   mixedChange,
@@ -16,88 +13,26 @@ import {
   suggestFilaments,
   testCard,
   validatePrint,
-  type BaseShape,
   type PrintSettings,
 } from '../lib/printPlan';
 import { useExport } from '../lib/useExport';
 import { useAppStore } from '../state/store';
 import type { FilamentPlan } from '../types/api';
+import { BasePlateFields } from './BasePlateFields';
+import { ColorStylePicker } from './ColorStylePicker';
 import { ElementMap } from './ElementMap';
 import { ExportProgress } from './ExportProgress';
 import { FilamentPlanView } from './FilamentPlanView';
 import { FilamentSlots } from './FilamentSlots';
 import { MixTable } from './MixTable';
+import { LayerFields } from './LayerFields';
 import type { PreviewRequest } from './ModelPreview';
+import { PrintColorsTable } from './PrintColorsTable';
+import { ProjectPicker } from './ProjectPicker';
+import { RaisedElementsPanel } from './RaisedElementsPanel';
 
 // three.js is only downloaded when a 3D preview is opened.
 const ModelPreview = lazy(() => import('./ModelPreview'));
-
-const PRINTER_LAYERS = [0.08, 0.12, 0.16, 0.2, 0.24, 0.28];
-
-const STYLES: { value: PrintSettings['style']; label: string; hint: string }[] = [
-  {
-    value: 'flat',
-    label: 'Flat (AMS)',
-    hint: 'All colors on the same layers with a level top — for AMS / multi-color printers. Raise colors or elements below to make them stand out.',
-  },
-  {
-    value: 'mixed',
-    label: 'Mixed',
-    hint: 'More colors than filaments: thin translucent layers printed over another filament blend into new colors (like HueForge). Flat top, AMS.',
-  },
-  {
-    value: 'stepped',
-    label: 'Stepped',
-    hint: 'Each color one step higher — for a single extruder: change filament at each step (see the filament plan).',
-  },
-];
-
-const BASE_SHAPES: { value: BaseShape; label: string }[] = [
-  { value: 'outline', label: 'Follow the design' },
-  { value: 'rectangle', label: 'Rectangle' },
-  { value: 'rounded', label: 'Rounded rectangle' },
-  { value: 'circle', label: 'Circle' },
-];
-
-interface NumberFieldProps {
-  id: string;
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  onChange: (value: number) => void;
-  /** Shown after the input, e.g. "= 1.6 mm". */
-  suffix?: string;
-  hint?: string;
-  error?: string;
-}
-
-function NumberField({ id, label, suffix, hint, error, onChange, ...input }: NumberFieldProps) {
-  return (
-    <div className="option">
-      <label htmlFor={id}>{label}</label>
-      <div className="print-number">
-        <input
-          id={id}
-          type="number"
-          {...input}
-          value={Number.isFinite(input.value) ? input.value : ''}
-          aria-invalid={Boolean(error)}
-          aria-describedby={error ? `${id}-error` : undefined}
-          onChange={(event) => onChange(event.target.valueAsNumber)}
-        />
-        {suffix && <span className="hint">{suffix}</span>}
-      </div>
-      {hint && <span className="hint">{hint}</span>}
-      {error && (
-        <span id={`${id}-error`} className="field-error">
-          {error}
-        </span>
-      )}
-    </div>
-  );
-}
 
 /**
  * 3D print step: project presets (magnet, keychain, ornament, sign), flat (AMS) or stepped
@@ -134,14 +69,6 @@ export function PrintStep() {
   const key = JSON.stringify([svg, options]);
   const mm = (layers: number) => layersToMm(layers, print.layerMm);
   const update = (change: Partial<PrintSettings>) => setPrint(change);
-  // Ids of the current document only: an edit in the SVG step may have removed shapes.
-  const shapeIds = new Set(editor.groups.flatMap((group) => group.shapes.map((shape) => shape.id)));
-  const selectedShapes = selected.filter((id) => shapeIds.has(id));
-  const selectedRaise = sharedRaise(print.shapeRaise, selectedShapes);
-  const raisedCount = Object.keys(print.shapeRaise).filter((id) => shapeIds.has(id)).length;
-  const raiseSelected = (layers: number) =>
-    update({ shapeRaise: setShapeRaise(print.shapeRaise, selectedShapes, Math.max(0, layers)) });
-
   const showPreview = () => {
     setPreview({
       request: { kind: '3mf', load: (signal) => exportFile('3mf', svg, options, signal) },
@@ -245,45 +172,14 @@ export function PrintStep() {
       </div>
 
       <aside className="panel print-panel">
-        <div className="field">
-          <span>Project</span>
-          <div className="projects" role="radiogroup" aria-label="Project">
-            {PROJECTS.map((project) => (
-              <button
-                key={project.id}
-                type="button"
-                role="radio"
-                aria-checked={print.project === project.id}
-                className={`project${print.project === project.id ? ' active' : ''}`}
-                onClick={() => chooseProject(project.id)}
-              >
-                <strong>{project.label}</strong>
-                <span>{project.description}</span>
-              </button>
-            ))}
-          </div>
-        </div>
+        <ProjectPicker project={print.project} onChoose={chooseProject} />
 
-        <div className="field">
-          <span>Colors</span>
-          <div className="segmented" role="radiogroup" aria-label="Color style">
-            {STYLES.map(({ value, label }) => (
-              <button
-                key={value}
-                type="button"
-                role="radio"
-                aria-checked={print.style === value}
-                className={print.style === value ? 'active' : ''}
-                onClick={() =>
-                  update(value === 'mixed' ? mixedChange(editor, print) : { style: value })
-                }
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <span className="hint">{STYLES.find(({ value }) => value === print.style)?.hint}</span>
-        </div>
+        <ColorStylePicker
+          style={print.style}
+          onChoose={(value) =>
+            update(value === 'mixed' ? mixedChange(editor, print) : { style: value })
+          }
+        />
 
         {mixed && (
           <FilamentSlots
@@ -294,108 +190,15 @@ export function PrintStep() {
           />
         )}
 
-        <div className="options">
-          <NumberField
-            id="print-width"
-            label="Width (mm)"
-            value={print.widthMm}
-            min={1}
-            max={1000}
-            step={1}
-            error={errors.widthMm}
-            onChange={(widthMm) => update({ widthMm })}
-          />
-          <div className="option">
-            <label htmlFor="print-layer">Printer layer height</label>
-            <select
-              id="print-layer"
-              value={print.layerMm}
-              onChange={(event) => update({ layerMm: Number(event.target.value) })}
-            >
-              {PRINTER_LAYERS.map((value) => (
-                <option key={value} value={value}>
-                  {value} mm
-                </option>
-              ))}
-            </select>
-          </div>
-          <NumberField
-            id="print-base"
-            label="Base plate (layers)"
-            value={print.baseLayers}
-            min={0}
-            max={100}
-            step={1}
-            suffix={`= ${mm(print.baseLayers)} mm`}
-            error={errors.baseLayers}
-            onChange={(baseLayers) => update({ baseLayers })}
-          />
-          <NumberField
-            id="print-color"
-            label={print.style === 'stepped' ? 'Step per color (layers)' : 'Colors (layers)'}
-            value={print.colorLayers}
-            min={1}
-            max={50}
-            step={1}
-            suffix={`= ${mm(print.colorLayers)} mm`}
-            error={errors.colorLayers}
-            onChange={(colorLayers) => update({ colorLayers })}
-          />
-        </div>
+        <LayerFields settings={print} errors={errors} onChange={update} />
 
-        <fieldset className="color-heights print-colors">
-          <legend>Height per color</legend>
-          <ul>
-            {editor.groups
-              .filter((group) => group.shapes.length > 0)
-              .map((group) => {
-                const included = !print.excluded.includes(group.paletteIndex);
-                const layers = heights.colors.get(group.paletteIndex);
-                const id = `print-raise-${group.paletteIndex}`;
-                return (
-                  <li key={group.paletteIndex}>
-                    <input
-                      type="checkbox"
-                      checked={included}
-                      aria-label={`Print ${group.fill}`}
-                      onChange={() =>
-                        update({
-                          excluded: included
-                            ? [...print.excluded, group.paletteIndex]
-                            : print.excluded.filter((index) => index !== group.paletteIndex),
-                        })
-                      }
-                    />
-                    <span className="swatch" style={{ background: group.fill }} />
-                    <label htmlFor={id}>{group.fill}</label>
-                    <input
-                      id={id}
-                      type="number"
-                      min={0}
-                      max={50}
-                      step={1}
-                      disabled={!included}
-                      aria-label={`Extra layers for ${group.fill}`}
-                      value={print.colorRaise[group.paletteIndex] ?? 0}
-                      onChange={(event) =>
-                        update({
-                          colorRaise: {
-                            ...print.colorRaise,
-                            [group.paletteIndex]: Math.max(0, event.target.valueAsNumber || 0),
-                          },
-                        })
-                      }
-                    />
-                    <span className="hint">
-                      {layers === undefined ? 'left out' : `${mm(layers)} mm`}
-                    </span>
-                  </li>
-                );
-              })}
-          </ul>
-          <span className="hint">Extra layers raise a whole color above the others.</span>
-          {errors.colors && <span className="field-error">{errors.colors}</span>}
-        </fieldset>
+        <PrintColorsTable
+          doc={editor}
+          settings={print}
+          colors={heights.colors}
+          error={errors.colors}
+          onChange={update}
+        />
 
         {mixed && !errors.filaments && (
           <MixTable
@@ -407,142 +210,15 @@ export function PrintStep() {
           />
         )}
 
-        <div className="field print-raise">
-          <span>Raised elements</span>
-          {selectedShapes.length === 0 ? (
-            <span className="hint">
-              Select elements in the design to print them higher than their color — e.g. the letters
-              of a name or the eyes of a figure.
-            </span>
-          ) : (
-            <>
-              <div className="print-raise__row">
-                <span>
-                  {selectedShapes.length} selected
-                  {selectedRaise === null && <span className="hint"> (different heights)</span>}
-                </span>
-                <div className="print-stepper" role="group" aria-label="Extra layers">
-                  <button
-                    type="button"
-                    aria-label="One layer lower"
-                    disabled={(selectedRaise ?? 0) <= 0}
-                    onClick={() => raiseSelected((selectedRaise ?? 0) - 1)}
-                  >
-                    −
-                  </button>
-                  <output aria-label="Extra layers for the selection">
-                    {selectedRaise === null ? '–' : `+${selectedRaise}`}
-                  </output>
-                  <button
-                    type="button"
-                    aria-label="One layer higher"
-                    disabled={(selectedRaise ?? 0) >= 50}
-                    onClick={() => raiseSelected((selectedRaise ?? 0) + 1)}
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-              <span className="hint">
-                {selectedRaise
-                  ? `+${selectedRaise} layers = ${mm(selectedRaise)} mm above their color`
-                  : 'Not raised: at their color’s height.'}
-              </span>
-              <div className="print-raise__actions">
-                {selectedRaise !== 0 && (
-                  <button type="button" className="link" onClick={() => raiseSelected(0)}>
-                    Lower to their color
-                  </button>
-                )}
-                <button type="button" className="link" onClick={() => setSelected([])}>
-                  Clear selection
-                </button>
-              </div>
-            </>
-          )}
-          {raisedCount > 0 && (
-            <div className="print-raise__actions">
-              <span className="hint">
-                {raisedCount} {raisedCount === 1 ? 'element' : 'elements'} raised
-              </span>
-              <button type="button" className="link" onClick={() => update({ shapeRaise: {} })}>
-                Reset all
-              </button>
-            </div>
-          )}
-        </div>
+        <RaisedElementsPanel
+          doc={editor}
+          settings={print}
+          selected={selected}
+          onClearSelection={() => setSelected([])}
+          onChange={update}
+        />
 
-        <div className="field">
-          <span>Base plate</span>
-          <div className="options">
-            <div className="option">
-              <label htmlFor="print-shape">Shape</label>
-              <select
-                id="print-shape"
-                value={print.baseShape}
-                onChange={(event) => update({ baseShape: event.target.value as BaseShape })}
-              >
-                {BASE_SHAPES.map((shape) => (
-                  <option key={shape.value} value={shape.value}>
-                    {shape.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <NumberField
-              id="print-margin"
-              label="Border around the design (mm)"
-              value={print.marginMm}
-              min={0}
-              max={100}
-              step={0.5}
-              onChange={(marginMm) => update({ marginMm })}
-            />
-            <NumberField
-              id="print-loop"
-              label="Hanging loop hole (mm)"
-              value={print.loopHoleMm}
-              min={0}
-              max={20}
-              step={0.5}
-              hint="For a key ring, ribbon or hook. 0 = no loop."
-              error={errors.loopHoleMm}
-              onChange={(loopHoleMm) => update({ loopHoleMm })}
-            />
-            <NumberField
-              id="print-magnet"
-              label="Magnet pocket diameter (mm)"
-              value={print.magnetMm}
-              min={0}
-              max={50}
-              step={0.1}
-              hint="Pocket in the back, ~0.2 mm wider than the magnet. 0 = none."
-              onChange={(magnetMm) => update({ magnetMm })}
-            />
-            {print.magnetMm > 0 && (
-              <NumberField
-                id="print-magnet-depth"
-                label="Magnet pocket depth (mm)"
-                value={print.magnetDepthMm}
-                min={0.1}
-                max={20}
-                step={0.1}
-                error={errors.magnetDepthMm}
-                onChange={(magnetDepthMm) => update({ magnetDepthMm })}
-              />
-            )}
-            <NumberField
-              id="print-nozzle"
-              label="Drop details thinner than (mm)"
-              value={print.nozzleMm}
-              min={0}
-              max={10}
-              step={0.1}
-              hint="Your nozzle width; thinner lines and specks cannot be printed."
-              onChange={(nozzleMm) => update({ nozzleMm })}
-            />
-          </div>
-        </div>
+        <BasePlateFields settings={print} errors={errors} onChange={update} />
 
         <p className="print-summary" role="status">
           Total height <strong>{mm(heights.totalLayers)} mm</strong> · {heights.totalLayers} layers
