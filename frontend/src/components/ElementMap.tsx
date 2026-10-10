@@ -6,6 +6,8 @@ interface ElementMapProps {
   /** Extra layers per shape id. */
   raised: Record<string, number>;
   excluded: number[];
+  /** Colors to show instead of the design's, per palette index (predicted print colors). */
+  fills?: Map<number, string>;
   /** `additive`: Shift/Ctrl/Cmd click toggles instead of replacing the selection. */
   onSelect: (id: string | null, additive: boolean) => void;
 }
@@ -14,7 +16,7 @@ interface ElementMapProps {
  * The design as clickable shapes: select elements to raise them. Raised elements have a
  * dashed outline, selected ones a solid accent outline; left-out colors are faded.
  */
-export function ElementMap({ doc, selected, raised, excluded, onSelect }: ElementMapProps) {
+export function ElementMap({ doc, selected, raised, excluded, fills, onSelect }: ElementMapProps) {
   return (
     <svg
       className="element-map checkerboard"
@@ -38,7 +40,7 @@ export function ElementMap({ doc, selected, raised, excluded, onSelect }: Elemen
             <path
               key={shape.id}
               d={shape.d}
-              fill={shape.fill ?? group.fill}
+              fill={fills?.get(group.paletteIndex) ?? shape.fill ?? group.fill}
               className={classes.filter(Boolean).join(' ')}
               onClick={(event) =>
                 onSelect(shape.id, event.shiftKey || event.metaKey || event.ctrlKey)

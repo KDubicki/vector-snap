@@ -150,7 +150,18 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
 - **Colors: Flat (AMS)** — every color has the same height, so the top is level and a
   multi-color printer switches colors within the same layers; **Stepped** — each color
   one step higher, for a single extruder with filament changes (the filament plan is
-  offered).
+  offered); **Mixed** — flat, with more colors than filaments (see below).
+- **Mixed colors** (`style: 'mixed'`): the panel lists the **loaded filaments**
+  (`FilamentSlots`, up to 4 — one AMS; color and TD, slot 1 also prints the base plate)
+  and, per design color, the predicted print color, the recipe (thin layers × count from
+  the top, on a base filament) and its ΔE (`MixTable`; above 10 flagged, with advice to
+  load a closer filament or add color layers). Switching to Mixed sets 0.08 mm layers,
+  keeps the base and color heights in mm with at least 15 color layers (1.2 mm — thinner
+  colors look washed out over the white base), and suggests filaments: white plus the
+  most used, clearly different design colors with typical TDs (`suggestFilaments`,
+  `typicalTd`), which the user replaces with the real ones. The design view can show the
+  predicted colors. Exports send `filaments` and `color_stacks` (`mixPlan`), so the 3MF
+  has parts only in the filament colors. Projects keep the style and the filaments.
 - **Heights in printer layers**: printer layer height (0.08–0.28 mm), base plate and color
   height are whole layers (shown in mm too), so colors change exactly at a layer.
 - **Height per color**: include/leave out a color and give it extra layers, e.g. a logo

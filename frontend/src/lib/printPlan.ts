@@ -5,7 +5,9 @@
  */
 
 import type { EditorDoc } from '../editor/model';
+import { isHexColor } from './color';
 import { MAGNET_ROOF_MM } from './exportFormats';
+import { bestRecipe, colorStacks, deltaE, toLab, type Filament, type MixMatch } from './mixing';
 
 export type BaseShape = 'outline' | 'rectangle' | 'rounded' | 'circle';
 
@@ -14,8 +16,20 @@ export type BaseShape = 'outline' | 'rectangle' | 'rounded' | 'circle';
  * (AMS/MMU) change color within the same layers.
  * stepped: each color one step higher than the one below — single extruder with
  * filament changes at the steps.
+ * mixed: flat, but every color is mixed from a few loaded filaments by layering thin
+ * translucent layers (see lib/mixing.ts) — more colors than AMS slots.
  */
-export type PrintStyle = 'flat' | 'stepped';
+export type PrintStyle = 'flat' | 'stepped' | 'mixed';
+
+/** Filament slots for mixed colors (one AMS). */
+export const MAX_FILAMENTS = 4;
+/** Thin layers mix finer; switching to mixed colors uses at most this layer height. */
+export const MIXED_LAYER_MM = 0.08;
+/**
+ * Mixed colors need room for a base and thin layers on top; over the white base plate a
+ * thinner color also looks washed out (1.2 mm at 0.08 mm layers).
+ */
+export const MIXED_MIN_COLOR_LAYERS = 15;
 
 export type ProjectId = 'magnet' | 'keychain' | 'ornament' | 'sign' | 'custom';
 
@@ -43,13 +57,23 @@ export interface PrintSettings {
   excluded: number[];
   /** Extra layers per shape id, on top of its color's height (raised elements). */
   shapeRaise: Record<string, number>;
+  /** Loaded filaments for mixed colors; the first one prints the base plate. */
+  filaments: Filament[];
 }
 
-/** Settings a project applies; colors and raised elements are kept. */
-type ProjectSettings = Omit<PrintSettings, 'project' | 'colorRaise' | 'excluded' | 'shapeRaise'>;
+/** Settings that belong to the design or the printer, so projects keep them. */
+export const KEPT_BY_PROJECTS = [
+  'style',
+  'colorRaise',
+  'excluded',
+  'shapeRaise',
+  'filaments',
+] as const;
+
+/** Settings a project applies. */
+type ProjectSettings = Omit<PrintSettings, 'project' | (typeof KEPT_BY_PROJECTS)[number]>;
 
 const COMMON: ProjectSettings = {
-  style: 'flat',
   layerMm: 0.2,
   widthMm: 80,
   baseLayers: 8,
@@ -104,13 +128,15 @@ export const PROJECTS: Project[] = [
 
 export const DEFAULT_PRINT: PrintSettings = {
   project: 'custom',
+  style: 'flat',
   ...COMMON,
   colorRaise: {},
   excluded: [],
   shapeRaise: {},
+  filaments: [],
 };
 
-/** Apply a project's settings; colors and raised elements stay. Custom changes nothing. */
+/** Apply a project's settings; colors, style and filaments stay. Custom changes nothing. */
 export function applyProject(settings: PrintSettings, id: ProjectId): PrintSettings {
   const project = PROJECTS.find((item) => item.id === id);
   if (!project || id === 'custom') return { ...settings, project: 'custom' };
@@ -155,6 +181,13 @@ export function heightPlan(doc: EditorDoc, settings: PrintSettings) {
 export function validatePrint(doc: EditorDoc, settings: PrintSettings): Record<string, string> {
   const errors: Record<string, string> = {};
   const base = layersToMm(settings.baseLayers, settings.layerMm);
+  if (settings.style === 'mixed') {
+    const bad = settings.filaments.some(
+      (filament) => !isHexColor(filament.color) || !(filament.td > 0 && filament.td <= 100),
+    );
+    if (!settings.filaments.length) errors.filaments = 'Add at least one filament.';
+    else if (bad) errors.filaments = 'Every filament needs a color and a TD above 0 mm.';
+  }
   if (!(settings.widthMm >= 1 && settings.widthMm <= 1000)) {
     errors.widthMm = 'Must be between 1 and 1000 mm.';
   }
@@ -181,6 +214,18 @@ export function printOptions(
     layerHeights[group.paletteIndex] = mm(colors.get(group.paletteIndex) ?? 0);
   }
   const shapeHeights = Object.fromEntries([...shapes].map(([id, layers]) => [id, mm(layers)]));
+  const mixed: Record<string, string> =
+    settings.style === 'mixed'
+      ? {
+          filaments: JSON.stringify(settings.filaments.map((filament) => filament.color)),
+          color_stacks: JSON.stringify(
+            colorStacks(
+              new Map([...mixPlan(doc, settings)].map(([index, match]) => [index, match.recipe])),
+              settings.layerMm,
+            ),
+          ),
+        }
+      : {};
   return {
     width_mm: settings.widthMm,
     base_mm: mm(settings.baseLayers),
@@ -197,7 +242,73 @@ export function printOptions(
     magnet_mm: settings.magnetMm,
     magnet_depth_mm: settings.magnetDepthMm,
     mirror: false,
+    ...mixed,
   };
+}
+
+/**
+ * Mixed colors: for every printed color the closest recipe of the loaded filaments at the
+ * color's height (empty without filaments).
+ */
+export function mixPlan(doc: EditorDoc, settings: PrintSettings): Map<number, MixMatch> {
+  const plan = new Map<number, MixMatch>();
+  if (!settings.filaments.length) return plan;
+  const { colors } = heightPlan(doc, settings);
+  for (const group of printedGroups(doc, settings)) {
+    const colorLayers = colors.get(group.paletteIndex) ?? settings.colorLayers;
+    plan.set(
+      group.paletteIndex,
+      bestRecipe(group.fill, settings.filaments, {
+        layerMm: settings.layerMm,
+        baseLayers: settings.baseLayers,
+        colorLayers,
+      }),
+    );
+  }
+  return plan;
+}
+
+/**
+ * Settings change for switching to mixed colors: thin layers and enough color height to
+ * layer filaments, and filaments suggested from the design when none are set yet.
+ */
+export function mixedChange(doc: EditorDoc, settings: PrintSettings): Partial<PrintSettings> {
+  const change: Partial<PrintSettings> = { style: 'mixed' };
+  if (settings.layerMm > MIXED_LAYER_MM) change.layerMm = MIXED_LAYER_MM;
+  const layerMm = change.layerMm ?? settings.layerMm;
+  // Keep the color height in mm when the layers get thinner, but at least the minimum.
+  const colorLayers = Math.round((settings.colorLayers * settings.layerMm) / layerMm);
+  if (colorLayers !== settings.colorLayers || colorLayers < MIXED_MIN_COLOR_LAYERS) {
+    change.colorLayers = Math.max(colorLayers, MIXED_MIN_COLOR_LAYERS);
+  }
+  const baseLayers = Math.round((settings.baseLayers * settings.layerMm) / layerMm);
+  if (baseLayers !== settings.baseLayers) change.baseLayers = baseLayers;
+  if (!settings.filaments.length) change.filaments = suggestFilaments(doc);
+  return change;
+}
+
+/** Typical transmission distance for a color: the darker, the more opaque. */
+export function typicalTd(color: string): number {
+  const [lightness] = toLab(color);
+  if (lightness < 25) return 0.5;
+  if (lightness < 45) return 1;
+  return deltaE(color, '#ffffff') < 15 ? 3 : 1.5;
+}
+
+/**
+ * Starting filaments for mixed colors: white (prints the base and lightens colors), then
+ * the most used, clearly different colors of the design.
+ */
+export function suggestFilaments(doc: EditorDoc, count = MAX_FILAMENTS): Filament[] {
+  const colors = ['#ffffff'];
+  // Groups are ordered by coverage (largest first) in traced documents.
+  for (const group of doc.groups) {
+    if (colors.length >= count) break;
+    if (group.shapes.length && colors.every((color) => deltaE(color, group.fill) > 15)) {
+      colors.push(group.fill);
+    }
+  }
+  return colors.map((color) => ({ color, td: typicalTd(color) }));
 }
 
 /** Set the extra layers of some shapes; 0 (or less) removes them. */

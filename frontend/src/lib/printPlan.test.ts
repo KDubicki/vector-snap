@@ -6,10 +6,14 @@ import {
   applyProject,
   heightPlan,
   layersToMm,
+  mixPlan,
+  mixedChange,
   nextSelection,
   printOptions,
   setShapeRaise,
   sharedRaise,
+  suggestFilaments,
+  typicalTd,
   validatePrint,
   type PrintSettings,
 } from './printPlan';
@@ -156,5 +160,67 @@ describe('raised elements', () => {
     expect(nextSelection(['a', 'b'], 'a', true)).toEqual(['b']);
     expect(nextSelection(['a'], null, false)).toEqual([]);
     expect(nextSelection(['a'], null, true)).toEqual(['a']);
+  });
+});
+
+describe('mixed colors', () => {
+  const filaments = [
+    { color: '#ffffff', td: 3 },
+    { color: '#ff0000', td: 1.2 },
+  ];
+  const mixed = (change: Partial<PrintSettings> = {}) =>
+    settings({ style: 'mixed', layerMm: 0.08, colorLayers: 15, filaments, ...change });
+
+  it('switches to thin layers keeping heights, and suggests filaments', () => {
+    const change = mixedChange(doc, settings({ layerMm: 0.2, colorLayers: 2, baseLayers: 8 }));
+
+    expect(change).toMatchObject({
+      style: 'mixed',
+      layerMm: 0.08,
+      colorLayers: 15,
+      baseLayers: 20,
+    });
+    expect(change.filaments?.map((filament) => filament.color)).toEqual(['#ffffff', '#ff0000']);
+    // set up already: only the style changes
+    expect(mixedChange(doc, mixed())).toEqual({ style: 'mixed' });
+  });
+
+  it('suggests white and clearly different design colors with typical TDs', () => {
+    expect(suggestFilaments(doc)).toEqual([
+      { color: '#ffffff', td: 3 },
+      { color: '#ff0000', td: 1.5 },
+    ]);
+    expect(typicalTd('#101010')).toBe(0.5);
+    expect(typicalTd('#3a4a6b')).toBe(1);
+    expect(typicalTd('#fafafa')).toBe(3);
+  });
+
+  it('mixes every printed color and sends filaments and stacks', () => {
+    const plan = mixPlan(doc, mixed());
+
+    expect([...plan.keys()]).toEqual([0, 1]);
+    expect(plan.get(0)!.recipe).toEqual({ base: 0, top: [] });
+    expect(mixPlan(doc, mixed({ filaments: [] })).size).toBe(0);
+
+    const options = printOptions(doc, mixed());
+    expect(options.layered).toBe(false);
+    expect(JSON.parse(String(options.filaments))).toEqual(['#ffffff', '#ff0000']);
+    expect(JSON.parse(String(options.color_stacks))).toMatchObject({ 0: { base: 0, top: [] } });
+    expect(printOptions(doc, settings()).filaments).toBeUndefined();
+  });
+
+  it('needs valid filaments', () => {
+    expect(validatePrint(doc, mixed({ filaments: [] })).filaments).toMatch('at least one');
+    expect(validatePrint(doc, mixed({ filaments: [{ color: '#fff', td: 1 }] })).filaments).toMatch(
+      'TD above 0',
+    );
+    expect(
+      validatePrint(doc, mixed({ filaments: [{ color: '#ffffff', td: 0 }] })).filaments,
+    ).toMatch('TD above 0');
+    expect(validatePrint(doc, mixed())).toEqual({});
+  });
+
+  it('keeps the style and filaments when a project is chosen', () => {
+    expect(applyProject(mixed(), 'magnet')).toMatchObject({ style: 'mixed', filaments });
   });
 });

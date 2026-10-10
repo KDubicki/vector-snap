@@ -720,6 +720,7 @@ describe('app store', () => {
     expect(store().print).toMatchObject({ project: 'keychain', loopHoleMm: 4 });
 
     store().setPrint({ shapeRaise: { 'p-0-0': 2 }, excluded: [1] });
+    store().setPrint({ style: 'mixed', filaments: [{ color: '#ffffff', td: 3 }] });
     expect(store().print.project).toBe('keychain');
 
     store().setPrint({ widthMm: 50 });

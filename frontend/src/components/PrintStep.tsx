@@ -11,7 +11,11 @@ import {
   setShapeRaise,
   sharedRaise,
   layersToMm,
+  mixPlan,
+  mixedChange,
   printOptions,
+  printedGroups,
+  suggestFilaments,
   validatePrint,
   type BaseShape,
   type PrintSettings,
@@ -20,12 +24,32 @@ import { useAppStore } from '../state/store';
 import type { FilamentPlan } from '../types/api';
 import { ElementMap } from './ElementMap';
 import { FilamentPlanView } from './FilamentPlanView';
+import { FilamentSlots } from './FilamentSlots';
+import { MixTable } from './MixTable';
 import type { PreviewRequest } from './ModelPreview';
 
 // three.js is only downloaded when a 3D preview is opened.
 const ModelPreview = lazy(() => import('./ModelPreview'));
 
 const PRINTER_LAYERS = [0.08, 0.12, 0.16, 0.2, 0.24, 0.28];
+
+const STYLES: { value: PrintSettings['style']; label: string; hint: string }[] = [
+  {
+    value: 'flat',
+    label: 'Flat (AMS)',
+    hint: 'All colors on the same layers with a level top — for AMS / multi-color printers. Raise colors or elements below to make them stand out.',
+  },
+  {
+    value: 'mixed',
+    label: 'Mixed',
+    hint: 'More colors than filaments: thin translucent layers printed over another filament blend into new colors (like HueForge). Flat top, AMS.',
+  },
+  {
+    value: 'stepped',
+    label: 'Stepped',
+    hint: 'Each color one step higher — for a single extruder: change filament at each step (see the filament plan).',
+  },
+];
 
 const BASE_SHAPES: { value: BaseShape; label: string }[] = [
   { value: 'outline', label: 'Follow the design' },
@@ -93,7 +117,14 @@ export function PrintStep() {
 
   const [selected, setSelected] = useState<string[]>([]);
 
+  const [showPredicted, setShowPredicted] = useState(true);
+
   const svg = useMemo(() => (editor ? serializeSvg(editor) : null), [editor]);
+  const mixed = print.style === 'mixed';
+  const mix = useMemo(
+    () => (editor && mixed ? mixPlan(editor, print) : new Map()),
+    [editor, mixed, print],
+  );
 
   if (!editor || !svg) return null;
 
@@ -170,11 +201,26 @@ export function PrintStep() {
               selected={selected}
               raised={print.shapeRaise}
               excluded={print.excluded}
+              fills={
+                mixed && showPredicted
+                  ? new Map([...mix].map(([index, match]) => [index, match.predicted]))
+                  : undefined
+              }
               onSelect={(id, additive) => setSelected(nextSelection(selected, id, additive))}
             />
             <figcaption className="hint">
               Click an element to select it, Shift+click to add more — then raise it in the panel.
               Dashed outlines mark raised elements.
+              {mixed && (
+                <label className="print-predicted">
+                  <input
+                    type="checkbox"
+                    checked={showPredicted}
+                    onChange={(event) => setShowPredicted(event.target.checked)}
+                  />
+                  Show predicted print colors
+                </label>
+              )}
             </figcaption>
           </figure>
         ) : preview ? (
@@ -222,25 +268,32 @@ export function PrintStep() {
         <div className="field">
           <span>Colors</span>
           <div className="segmented" role="radiogroup" aria-label="Color style">
-            {(['flat', 'stepped'] as const).map((value) => (
+            {STYLES.map(({ value, label }) => (
               <button
                 key={value}
                 type="button"
                 role="radio"
                 aria-checked={print.style === value}
                 className={print.style === value ? 'active' : ''}
-                onClick={() => update({ style: value })}
+                onClick={() =>
+                  update(value === 'mixed' ? mixedChange(editor, print) : { style: value })
+                }
               >
-                {value === 'flat' ? 'Flat (AMS)' : 'Stepped'}
+                {label}
               </button>
             ))}
           </div>
-          <span className="hint">
-            {print.style === 'flat'
-              ? 'All colors on the same layers with a level top — for AMS / multi-color printers. Raise colors or elements below to make them stand out.'
-              : 'Each color one step higher — for a single extruder: change filament at each step (see the filament plan).'}
-          </span>
+          <span className="hint">{STYLES.find(({ value }) => value === print.style)?.hint}</span>
         </div>
+
+        {mixed && (
+          <FilamentSlots
+            filaments={print.filaments}
+            error={errors.filaments}
+            onChange={(filaments) => update({ filaments })}
+            onSuggest={() => update({ filaments: suggestFilaments(editor) })}
+          />
+        )}
 
         <div className="options">
           <NumberField
@@ -280,7 +333,7 @@ export function PrintStep() {
           />
           <NumberField
             id="print-color"
-            label={print.style === 'flat' ? 'Colors (layers)' : 'Step per color (layers)'}
+            label={print.style === 'stepped' ? 'Step per color (layers)' : 'Colors (layers)'}
             value={print.colorLayers}
             min={1}
             max={50}
@@ -344,6 +397,10 @@ export function PrintStep() {
           <span className="hint">Extra layers raise a whole color above the others.</span>
           {errors.colors && <span className="field-error">{errors.colors}</span>}
         </fieldset>
+
+        {mixed && !errors.filaments && (
+          <MixTable groups={printedGroups(editor, print)} plan={mix} filaments={print.filaments} />
+        )}
 
         <div className="field print-raise">
           <span>Raised elements</span>
@@ -510,7 +567,9 @@ export function PrintStep() {
           </button>
         </div>
         <span className="hint">
-          3MF keeps one part per color, so the slicer assigns AMS slots automatically.
+          {mixed
+            ? `3MF parts come only in the ${print.filaments.length} filament colors: assign each to the AMS slot with that filament.`
+            : '3MF keeps one part per color, so the slicer assigns AMS slots automatically.'}
         </span>
         {status === 'exporting' && (
           <p className="hint export__progress" role="status">

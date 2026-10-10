@@ -2,7 +2,13 @@ import { create } from 'zustand';
 import { errorMessage, getLimits, quantize, suggestColors, vectorize } from '../api/client';
 import { base64ToBlob } from '../lib/base64';
 import { finalPalette } from '../lib/color';
-import { DEFAULT_PRINT, applyProject, type PrintSettings, type ProjectId } from '../lib/printPlan';
+import {
+  DEFAULT_PRINT,
+  KEPT_BY_PROJECTS,
+  applyProject,
+  type PrintSettings,
+  type ProjectId,
+} from '../lib/printPlan';
 import { DEFAULT_TRACING } from '../lib/tracing';
 import type {
   Limits,
@@ -134,8 +140,8 @@ function isAbort(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'AbortError';
 }
 
-/** Print settings that belong to the design, not to a project preset. */
-const DESIGN_SETTINGS = new Set(['colorRaise', 'excluded', 'shapeRaise']);
+/** Print settings that are not part of a project preset. */
+const KEPT_SETTINGS = new Set<string>(KEPT_BY_PROJECTS);
 
 let pending: AbortController | null = null;
 // Separate from `pending`: a suggestion must not abort quantization (or vice versa), since
@@ -320,7 +326,7 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
   setPrint: (change) =>
     set((state) => {
       // Editing what a project sets (sizes, base, loop, …) makes the settings custom.
-      const custom = Object.keys(change).some((key) => !DESIGN_SETTINGS.has(key));
+      const custom = Object.keys(change).some((key) => !KEPT_SETTINGS.has(key));
       return { print: { ...state.print, ...change, ...(custom && { project: 'custom' }) } };
     }),
   chooseProject: (id) => set((state) => ({ print: applyProject(state.print, id) })),
