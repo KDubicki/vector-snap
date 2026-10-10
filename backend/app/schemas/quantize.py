@@ -8,6 +8,7 @@ from app.schemas.palette import PaletteColor
 class QuantizeAlgorithm(StrEnum):
     KMEANS = "kmeans"
     MEDIAN_CUT = "median_cut"
+    FILAMENTS = "filaments"
 
 
 class EncodedImage(BaseModel):

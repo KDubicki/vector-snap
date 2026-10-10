@@ -6,6 +6,7 @@ from fastapi.concurrency import run_in_threadpool
 
 from app.api.deps import check_color_count, read_upload
 from app.core.config import Settings, get_settings
+from app.core.errors import InvalidParameters
 from app.schemas.palette import palette_colors, parse_hex_colors
 from app.schemas.quantize import (
     ColorCountError,
@@ -23,6 +24,9 @@ from app.services.pipeline import (
 from app.services.quantization import MAX_SMOOTH, SUGGEST_TARGET_DELTA_E
 
 router = APIRouter(tags=["processing"])
+
+# Upper bound for the `filaments` list (a large filament collection, not a full gamut).
+MAX_FILAMENT_CANDIDATES = 128
 
 
 @router.post("/quantize", response_model=QuantizeResponse)
@@ -46,10 +50,26 @@ async def quantize(
         bool,
         Form(description="Enlarge images under 1024 px (up to 4x) for smoother outlines"),
     ] = False,
+    filaments: Annotated[
+        str,
+        Form(
+            description="`filaments` algorithm: JSON array of the available filament colors; "
+            "the best `colors` of them become the palette"
+        ),
+    ] = "[]",
 ) -> QuantizeResponse:
     data = await read_upload(image, settings)
     check_color_count(colors, settings)
     locked = parse_hex_colors(locked_colors, "locked_colors")
+    filament_colors = parse_hex_colors(filaments, "filaments")
+    if algorithm == QuantizeAlgorithm.FILAMENTS and not filament_colors:
+        raise InvalidParameters(
+            "The `filaments` algorithm needs a list of filament colors.", {"field": "filaments"}
+        )
+    if len(filament_colors) > MAX_FILAMENT_CANDIDATES:
+        raise InvalidParameters(
+            f"At most {MAX_FILAMENT_CANDIDATES} filament colors.", {"field": "filaments"}
+        )
 
     decoded, result = await run_in_threadpool(
         quantize_image,
@@ -62,6 +82,7 @@ async def quantize(
         seed=seed,
         smooth=smooth,
         upscale=upscale,
+        filaments=filament_colors,
     )
     png = await run_in_threadpool(to_indexed_png, result)
 

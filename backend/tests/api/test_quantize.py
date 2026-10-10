@@ -1,5 +1,6 @@
 import base64
 import io
+import json
 
 import httpx
 import numpy as np
@@ -155,3 +156,30 @@ def test_quantize_suggests_the_border_color_as_background(client: TestClient) ->
 
     assert flat["background_index"] == 0  # red covers most of the border
     assert blocks["background_index"] is None  # four colors share the border equally
+
+
+def test_quantize_to_filaments_uses_their_exact_colors(client: TestClient) -> None:
+    filaments = '["#c81e1e", "#148c28", "#0a1ec8", "#ffffff", "#000000"]'
+
+    response = _post(
+        client, encode(stripes()), colors="4", algorithm="filaments", filaments=filaments
+    )
+
+    assert response.status_code == 200
+    assert [c["hex"] for c in response.json()["palette"]] == ["#c81e1e", "#148c28", "#0a1ec8"]
+
+
+@pytest.mark.parametrize(
+    "form",
+    [
+        {"algorithm": "filaments"},
+        {"algorithm": "filaments", "filaments": '["red"]'},
+        {"algorithm": "filaments", "filaments": json.dumps([f"#{i:06x}" for i in range(129)])},
+    ],
+)
+def test_quantize_to_filaments_needs_valid_filaments(
+    client: TestClient, form: dict[str, str]
+) -> None:
+    response = _post(client, encode(stripes()), colors="4", **form)
+
+    assert response.status_code == 422

@@ -21,6 +21,7 @@ from app.services.quantization import (
     TRANSPARENT_LABEL,
     ColorSuggestion,
     QuantizationResult,
+    quantize_filaments,
     quantize_kmeans,
     quantize_median_cut,
     smooth_regions,
@@ -29,7 +30,7 @@ from app.services.quantization import (
 from app.services.svg_postprocess import build_svg
 from app.services.vectorization import TracingOptions, trace
 
-Algorithm = Literal["kmeans", "median_cut"]
+Algorithm = Literal["kmeans", "median_cut", "filaments"]
 
 
 @dataclass(frozen=True)
@@ -54,13 +55,17 @@ def quantize_image(
     seed: int = 0,
     smooth: int = 0,
     upscale: bool = False,
+    filaments: list[tuple[int, int, int]] | None = None,
 ) -> tuple[DecodedImage, QuantizationResult]:
     """Decode and quantize an image; `smooth` > 0 then cleans up noisy color regions.
 
-    `upscale` enlarges small images first (see `decode_image`).
+    `upscale` enlarges small images first (see `decode_image`). The `filaments` algorithm
+    picks the palette from the given filament colors.
     """
     image = decode_image(data, max_dimension, upscale=upscale)
-    if algorithm == "median_cut":
+    if algorithm == "filaments":
+        result = quantize_filaments(image, filaments or [], colors, locked_colors=locked_colors)
+    elif algorithm == "median_cut":
         result = quantize_median_cut(image, colors, locked_colors=locked_colors)
     else:
         result = quantize_kmeans(

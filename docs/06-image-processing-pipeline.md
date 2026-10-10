@@ -69,6 +69,31 @@ large images or as a fallback.
 still-free palette entry (greedy, in Lab), and every opaque pixel is then reassigned to
 the nearest entry of the adjusted palette in Lab.
 
+### Filaments (for 3D printing)
+
+k-means and median cut invent colors: every palette entry is an average of pixels, so a
+shaded area becomes two near-identical greens and white turns into `#fafbf9` — none of
+which exists as filament, and each takes an AMS slot. With `algorithm=filaments` the
+palette is chosen from the **available filament colors** instead
+(`quantize_filaments`):
+
+1. The image is reduced to a 256 px working sample (the choice depends on color shares,
+   not detail); its unique colors are weighted by pixel count.
+2. CIE76 ΔE from every sample color to every filament (Lab, computed as
+   `|a|² + |b|² − 2a·b` to avoid an N × C × 3 temporary).
+3. **Greedy selection**: start with the locked colors, then repeatedly add the filament
+   that lowers the weighted mean ΔE most, until `colors` filaments or until no
+   filament helps — so a design that needs 3 filaments gets 3, even with 8 allowed.
+4. **Swap refinement** (up to 3 rounds): each chosen filament is replaced by an unchosen
+   one while that lowers the error. This fixes greedy picks such as gray for a
+   black-and-white image (black + white beat gray + either).
+5. Every opaque pixel of the full image takes the nearest chosen filament (Lab); the
+   palette holds the filament colors **exactly**.
+
+Similar shades merge into one filament automatically: a second, close green only gets a
+slot when it lowers the error more than any other filament would (e.g. a red detail).
+Speed is comparable to k-means (≈ 0.3–0.6 s for 1–2.5 MP photos with 128 candidates).
+
 ### Color count suggestion
 
 `suggest_color_count` (`POST /suggest-colors`) proposes a value for `colors`:

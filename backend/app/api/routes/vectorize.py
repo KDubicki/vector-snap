@@ -5,6 +5,7 @@ from fastapi.concurrency import run_in_threadpool
 
 from app.api.deps import check_color_count, read_upload
 from app.core.config import Settings, get_settings
+from app.core.errors import InvalidParameters
 from app.schemas.palette import palette_colors, parse_hex_colors, parse_palette_indices
 from app.schemas.quantize import QuantizeAlgorithm
 from app.schemas.vectorize import Stacking, TracingMode, VectorizeResponse, VectorizeStats
@@ -45,6 +46,11 @@ async def vectorize(
     ] = "[]",
 ) -> VectorizeResponse | Response:
     data = await read_upload(image, settings)
+    if algorithm == QuantizeAlgorithm.FILAMENTS:
+        raise InvalidParameters(
+            "Quantize with `filaments` through /quantize, then vectorize its indexed PNG.",
+            {"field": "algorithm"},
+        )
     if colors is not None:
         check_color_count(colors, settings)
     palette_override = parse_hex_colors(palette, "palette") if palette is not None else None
@@ -65,7 +71,7 @@ async def vectorize(
         ),
         palette_override=palette_override,
         colors=colors,
-        algorithm=algorithm.value,
+        algorithm="median_cut" if algorithm == QuantizeAlgorithm.MEDIAN_CUT else "kmeans",
         transparent=transparent_indices,
     )
 

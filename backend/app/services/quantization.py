@@ -16,6 +16,7 @@ __all__ = [
     "TRANSPARENT_LABEL",
     "ColorSuggestion",
     "QuantizationResult",
+    "quantize_filaments",
     "quantize_kmeans",
     "quantize_median_cut",
     "smooth_regions",
@@ -30,6 +31,11 @@ MAX_SMOOTH = 3
 SUGGEST_TARGET_DELTA_E = 5.0
 _SUGGEST_MAX_COLORS = 24
 _SUGGEST_WORKING_SIZE = 128
+
+# Choosing filaments works on a small copy: the choice depends on color shares, not detail.
+FILAMENT_WORKING_SIZE = 256
+# Rounds of trying to swap a chosen filament for a better one after the greedy choice.
+_FILAMENT_SWAP_ROUNDS = 3
 
 # D65 reference white and sRGB -> XYZ matrix.
 _WHITE_D65 = np.array([0.95047, 1.0, 1.08883])
@@ -189,6 +195,93 @@ def quantize_kmeans(
             palette[k] = np.rint((unique_rgb[members] * weights).sum(axis=0) / weights.sum())
 
     return _finalize(image, unique_labels[inverse], palette)
+
+
+def quantize_filaments(
+    image: DecodedImage,
+    filaments: list[tuple[int, int, int]],
+    colors: int,
+    *,
+    locked_colors: list[tuple[int, int, int]] | None = None,
+    max_working_size: int = FILAMENT_WORKING_SIZE,
+) -> QuantizationResult:
+    """Reduce the image to at most `colors` of the given filament colors, used exactly.
+
+    For 3D printing the palette has to be colors that exist as filament. Instead of
+    averaging pixels into new colors, this picks the subset of `filaments` that represents
+    the image best — the smallest mean color difference (CIE76 ΔE, weighted by pixel
+    count) — greedily, then improves it by swapping chosen filaments for unchosen ones.
+    Locked colors are always used. Filaments that would not improve the result are left
+    out, so fewer than `colors` can come back (fewer AMS slots, fewer color changes).
+    """
+    candidates = list(dict.fromkeys([*(locked_colors or []), *filaments]))
+    forced = len(dict.fromkeys(locked_colors or []))
+    candidate_lab = srgb_to_lab(np.array(candidates, dtype=np.uint8))
+
+    working = _working_sample(image, max_working_size)
+    w_unique, w_counts = np.unique(_pack(working), return_counts=True)
+    distances = _lab_distances(srgb_to_lab(_unpack(w_unique)), candidate_lab)
+    chosen = _choose_filaments(distances, w_counts.astype(np.float64), colors, forced)
+
+    opaque = image.rgb[image.alpha_mask]
+    unique, inverse = np.unique(_pack(opaque), return_inverse=True)
+    unique_labels = _nearest(srgb_to_lab(_unpack(unique)), candidate_lab[chosen])
+    palette = np.array([candidates[i] for i in chosen], dtype=np.uint8)
+    return _finalize(image, unique_labels[inverse], palette)
+
+
+def _lab_distances(
+    points: NDArray[np.float64], centers: NDArray[np.float64]
+) -> NDArray[np.float64]:
+    """ΔE (CIE76) from every point to every center, without an N x C x 3 temporary."""
+    squared = (
+        (points**2).sum(axis=1)[:, None]
+        + (centers**2).sum(axis=1)[None, :]
+        - 2 * points @ centers.T
+    )
+    distances: NDArray[np.float64] = np.sqrt(np.maximum(squared, 0))
+    return distances
+
+
+def _choose_filaments(
+    distances: NDArray[np.float64], weights: NDArray[np.float64], limit: int, forced: int
+) -> list[int]:
+    """Columns of `distances` (colors x candidates) with the smallest weighted error.
+
+    The first `forced` candidates are always chosen. Greedy forward selection adds the
+    candidate that lowers the error most until `limit` or no candidate helps; then rounds
+    of swaps replace a chosen candidate by an unchosen one while that lowers the error.
+    """
+    limit = max(limit, forced, 1)
+
+    def error(columns: list[int]) -> float:
+        return float((distances[:, columns].min(axis=1) * weights).sum())
+
+    chosen = list(range(forced))
+    nearest = distances[:, chosen].min(axis=1) if chosen else np.full(len(weights), np.inf)
+    while len(chosen) < min(limit, distances.shape[1]):
+        totals = (np.minimum(nearest[:, None], distances) * weights[:, None]).sum(axis=0)
+        totals[chosen] = np.inf
+        best = int(totals.argmin())
+        if chosen and totals[best] >= error(chosen):
+            break
+        chosen.append(best)
+        nearest = np.minimum(nearest, distances[:, best])
+
+    for _ in range(_FILAMENT_SWAP_ROUNDS):
+        improved = False
+        for position in range(forced, len(chosen)):
+            others = chosen[:position] + chosen[position + 1 :]
+            rest = distances[:, others].min(axis=1) if others else np.full(len(weights), np.inf)
+            totals = (np.minimum(rest[:, None], distances) * weights[:, None]).sum(axis=0)
+            totals[others] = np.inf
+            best = int(totals.argmin())
+            if totals[best] < error(chosen) - 1e-9:
+                chosen[position] = best
+                improved = True
+        if not improved:
+            break
+    return chosen
 
 
 def _working_sample(image: DecodedImage, max_working_size: int) -> NDArray[np.uint8]:

@@ -64,8 +64,9 @@ Reduces the image to `colors` representative colors.
 |-------|------|:--------:|---------|-------------|
 | `image` | file | ✅ | — | JPEG or PNG |
 | `colors` | int | ✅ | — | Target palette size, `min_colors ≤ colors ≤ max_colors` |
-| `algorithm` | enum | | `kmeans` | `kmeans` \| `median_cut` |
-| `locked_colors` | JSON string | | `[]` | Hex colors that MUST be part of the palette, e.g. `["#ff0000"]` (counts toward `colors`); honored by both algorithms |
+| `algorithm` | enum | | `kmeans` | `kmeans` \| `median_cut` \| `filaments` (palette chosen from `filaments`) |
+| `locked_colors` | JSON string | | `[]` | Hex colors that MUST be part of the palette, e.g. `["#ff0000"]` (counts toward `colors`); honored by every algorithm |
+| `filaments` | JSON string | with `filaments` | `[]` | Available filament colors (up to 128), e.g. `["#ffffff", "#000000", "#c12e1f"]`; the best `colors` of them become the palette, unused ones are left out (`422 INVALID_PARAMETERS` when missing) |
 | `max_working_size` | int | | `1024` | Image is downscaled to this longer side for clustering; labels are then assigned at full resolution |
 | `seed` | int | | `0` | Random seed (deterministic output) |
 | `upscale` | bool | | `false` | Enlarge images whose longer side is under 1024 px (whole factor, at most 4×) before quantizing, for smoother outlines; `width`/`height` report the enlarged size |

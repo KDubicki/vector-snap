@@ -9,6 +9,7 @@ from app.services.quantization import (
     SUGGEST_TARGET_DELTA_E,
     TRANSPARENT_LABEL,
     QuantizationResult,
+    quantize_filaments,
     quantize_kmeans,
     quantize_median_cut,
     smooth_regions,
@@ -263,3 +264,64 @@ def test_suggestion_with_a_single_candidate_count_takes_it() -> None:
 
     assert [k for k, _ in suggestion.errors] == [3]
     assert suggestion.colors == 3
+
+
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+GRAY = (128, 128, 128)
+YELLOW = (240, 220, 0)
+FILAMENTS = [WHITE, BLACK, (200, 30, 30), (20, 140, 40), (10, 30, 200), YELLOW]
+
+
+def _decoded(image: Image.Image) -> DecodedImage:
+    return decode_image(encode(image), 4096)
+
+
+def test_filaments_pick_the_closest_filaments_and_use_their_exact_colors() -> None:
+    result = quantize_filaments(_decoded(stripes()), FILAMENTS, 3)
+
+    assert [tuple(c) for c in result.palette] == [(200, 30, 30), (20, 140, 40), (10, 30, 200)]
+    assert result.coverage.tolist() == pytest.approx([0.6, 0.3, 0.1])
+    assert result.labels.tolist()[0] == [0] * 6 + [1] * 3 + [2]
+
+
+def test_filaments_that_do_not_help_are_left_out() -> None:
+    image = stripes(colors=(RED, BLUE), widths=(5, 5))
+
+    result = quantize_filaments(_decoded(image), FILAMENTS, 5)
+
+    assert len(result.palette) == 2
+
+
+def test_filaments_do_not_spend_a_slot_on_two_similar_colors() -> None:
+    # Two close greens (a shaded area) and a red detail: k-means would split the greens.
+    image = stripes(colors=((20, 140, 40), (35, 125, 50), RED), widths=(5, 4, 1))
+    greens = [(20, 140, 40), (35, 125, 50), (200, 30, 30)]
+
+    result = quantize_filaments(_decoded(image), greens, 2)
+
+    assert [tuple(c) for c in result.palette] == [(20, 140, 40), (200, 30, 30)]
+
+
+def test_filament_swaps_improve_on_the_greedy_choice() -> None:
+    # Gray is the best single filament, but black and white together beat gray + one.
+    image = stripes(colors=(BLACK, WHITE), widths=(5, 5))
+
+    result = quantize_filaments(_decoded(image), [GRAY, BLACK, WHITE], 2)
+
+    assert sorted(tuple(c) for c in result.palette) == [BLACK, WHITE]
+
+
+def test_locked_filaments_are_always_used() -> None:
+    result = quantize_filaments(_decoded(stripes()), FILAMENTS, 2, locked_colors=[YELLOW])
+
+    palette = [tuple(c) for c in result.palette]
+    assert YELLOW in palette
+    assert len(palette) == 2
+    assert (200, 30, 30) in palette  # the largest area gets the other slot
+
+
+def test_filaments_keep_transparency() -> None:
+    result = quantize_filaments(_decoded(with_transparent_corner(stripes())), FILAMENTS, 3)
+
+    assert result.has_transparency
