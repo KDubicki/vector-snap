@@ -1,0 +1,88 @@
+// @vitest-environment jsdom
+import { act, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { useAppStore } from '../state/store';
+import { QUANTIZED, VECTORIZED, fetchResponses } from '../test/fixtures';
+import { PaletteStep } from './PaletteStep';
+
+const store = () => useAppStore.getState();
+const file = new File(['png'], 'logo.png', { type: 'image/png' });
+
+describe('PaletteStep', () => {
+  beforeEach(() => {
+    store().reset();
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:original');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('reduces the colors of a new file after a short pause', async () => {
+    vi.useFakeTimers();
+    const fetch = fetchResponses(QUANTIZED);
+    vi.stubGlobal('fetch', fetch);
+    useAppStore.setState({ file, step: 'palette' });
+    render(<PaletteStep />);
+    expect(screen.getByText('Reducing colors…')).toBeInTheDocument();
+    expect(screen.getByAltText('Original upload')).toHaveAttribute('src', 'blob:original');
+
+    await act(() => vi.advanceTimersByTimeAsync(400));
+    vi.useRealTimers();
+
+    await screen.findByText('Reduced to 2 colors');
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(screen.getByRole('button', { name: 'Convert to SVG' })).toBeEnabled();
+  });
+
+  it('changes method, smoothing and upscaling', async () => {
+    const user = userEvent.setup();
+    useAppStore.setState({ file, quantized: QUANTIZED });
+    vi.stubGlobal('fetch', fetchResponses(QUANTIZED));
+    render(<PaletteStep />);
+
+    await user.click(screen.getByRole('radio', { name: 'Fast (median cut)' }));
+    await user.click(screen.getByRole('radio', { name: 'Strong' }));
+    await user.click(screen.getByLabelText('Enlarge small images'));
+
+    expect(store()).toMatchObject({ algorithm: 'median_cut', smooth: 3, upscale: false });
+    expect(screen.getByRole('radio', { name: 'Strong' })).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('removes the background and converts to SVG', async () => {
+    const user = userEvent.setup();
+    useAppStore.setState({ file, quantized: QUANTIZED });
+    vi.stubGlobal('fetch', fetchResponses(VECTORIZED));
+    render(<PaletteStep />);
+
+    await user.click(screen.getByRole('button', { name: 'Remove background' }));
+    expect(store().transparent).toEqual([0]);
+    await user.click(screen.getByRole('button', { name: 'Convert to SVG' }));
+
+    await waitFor(() => expect(store().step).toBe('result'));
+    expect(store().editor?.groups).toHaveLength(2);
+  });
+
+  it('asks before replacing an edited SVG', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal('fetch', fetchResponses(VECTORIZED));
+    useAppStore.setState({ file, quantized: QUANTIZED });
+    await store().runVectorize();
+    store().select('p-0-0');
+    store().deleteSelection(); // an unsaved edit
+    useAppStore.setState({ step: 'palette' });
+    render(<PaletteStep />);
+
+    await user.click(screen.getByRole('button', { name: 'New image' }));
+    const dialog = screen.getByRole('dialog', { name: 'Discard your SVG edits?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Keep editing' }));
+    expect(store().file).toBe(file);
+
+    await user.click(screen.getByRole('button', { name: 'New image' }));
+    await user.click(screen.getByRole('button', { name: 'Discard edits' }));
+    expect(store().file).toBeNull();
+  });
+});
