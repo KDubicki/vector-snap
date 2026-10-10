@@ -27,3 +27,28 @@ if (typeof Blob !== 'undefined' && !Blob.prototype.text) {
     });
   };
 }
+
+// jsdom has no layout, so nothing is ever resized: observers never fire.
+const scope = globalThis as unknown as Record<string, unknown>;
+
+if (typeof window !== 'undefined' && !scope.ResizeObserver) {
+  scope.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+}
+
+// jsdom has no PointerEvent: without it pointer events lose clientX/Y and pointerId.
+if (typeof window !== 'undefined' && !scope.PointerEvent) {
+  class PointerEventPolyfill extends MouseEvent {
+    readonly pointerId: number;
+    readonly pointerType: string;
+    constructor(type: string, init: PointerEventInit = {}) {
+      super(type, init);
+      this.pointerId = init.pointerId ?? 0;
+      this.pointerType = init.pointerType ?? 'mouse';
+    }
+  }
+  scope.PointerEvent = PointerEventPolyfill;
+}
