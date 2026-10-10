@@ -325,3 +325,23 @@ def test_filaments_keep_transparency() -> None:
     result = quantize_filaments(_decoded(with_transparent_corner(stripes())), FILAMENTS, 3)
 
     assert result.has_transparency
+
+
+def test_filaments_for_anti_aliased_edges_are_left_out() -> None:
+    # A one pixel purple column between red and blue: an edge blend, not a design color.
+    purple = (110, 40, 120)
+    image = stripes(colors=(RED, purple, BLUE), widths=(100, 1, 100))
+
+    result = quantize_filaments(_decoded(image), [(200, 30, 30), purple, (10, 30, 200)], 3)
+
+    assert sorted(tuple(c) for c in result.palette) == [(10, 30, 200), (200, 30, 30)]
+
+
+def test_redundant_first_picks_are_dropped() -> None:
+    # Gray is the best single pick for black, white and a little red, but once black and
+    # white are chosen it adds nothing.
+    image = stripes(colors=(BLACK, WHITE, RED), widths=(45, 45, 10))
+
+    result = quantize_filaments(_decoded(image), [GRAY, BLACK, WHITE, (200, 30, 30)], 4)
+
+    assert sorted(tuple(c) for c in result.palette) == sorted([BLACK, WHITE, (200, 30, 30)])

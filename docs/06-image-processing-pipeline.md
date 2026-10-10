@@ -82,12 +82,18 @@ palette is chosen from the **available filament colors** instead
 2. CIE76 ΔE from every sample color to every filament (Lab, computed as
    `|a|² + |b|² − 2a·b` to avoid an N × C × 3 temporary).
 3. **Greedy selection**: start with the locked colors, then repeatedly add the filament
-   that lowers the weighted mean ΔE most, until `colors` filaments or until no
-   filament helps — so a design that needs 3 filaments gets 3, even with 8 allowed.
+   that lowers the weighted mean ΔE most, until `colors` filaments or until the next one
+   would lower it by less than **0.5 ΔE** (`FILAMENT_MIN_GAIN`) — such filaments only
+   reproduce anti-aliased edge pixels between two design colors (magenta between red and
+   navy). A design that needs 5 filaments gets 5, even with 8 allowed: the bundled
+   sample image comes out as navy, white, red, yellow and cyan.
 4. **Swap refinement** (up to 3 rounds): each chosen filament is replaced by an unchosen
    one while that lowers the error. This fixes greedy picks such as gray for a
    black-and-white image (black + white beat gray + either).
-5. Every opaque pixel of the full image takes the nearest chosen filament (Lab); the
+5. **Pruning**: chosen filaments whose removal raises the mean ΔE by less than the same
+   0.5 are dropped — typically a middle gray picked first that later picks made
+   redundant.
+6. Every opaque pixel of the full image takes the nearest chosen filament (Lab); the
    palette holds the filament colors **exactly**.
 
 Similar shades merge into one filament automatically: a second, close green only gets a

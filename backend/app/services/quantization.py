@@ -36,6 +36,9 @@ _SUGGEST_WORKING_SIZE = 128
 FILAMENT_WORKING_SIZE = 256
 # Rounds of trying to swap a chosen filament for a better one after the greedy choice.
 _FILAMENT_SWAP_ROUNDS = 3
+# A filament is only used when it lowers the mean color difference (ΔE) by at least this:
+# below it, it mostly reproduces anti-aliased edge pixels, not a color of the design.
+FILAMENT_MIN_GAIN = 0.5
 
 # D65 reference white and sRGB -> XYZ matrix.
 _WHITE_D65 = np.array([0.95047, 1.0, 1.08883])
@@ -211,8 +214,9 @@ def quantize_filaments(
     averaging pixels into new colors, this picks the subset of `filaments` that represents
     the image best — the smallest mean color difference (CIE76 ΔE, weighted by pixel
     count) — greedily, then improves it by swapping chosen filaments for unchosen ones.
-    Locked colors are always used. Filaments that would not improve the result are left
-    out, so fewer than `colors` can come back (fewer AMS slots, fewer color changes).
+    Locked colors are always used. Filaments that improve the mean ΔE by less than
+    `FILAMENT_MIN_GAIN` are left out — they would only reproduce anti-aliased edges — so
+    fewer than `colors` can come back (fewer AMS slots, fewer color changes).
     """
     candidates = list(dict.fromkeys([*(locked_colors or []), *filaments]))
     forced = len(dict.fromkeys(locked_colors or []))
@@ -249,38 +253,54 @@ def _choose_filaments(
     """Columns of `distances` (colors x candidates) with the smallest weighted error.
 
     The first `forced` candidates are always chosen. Greedy forward selection adds the
-    candidate that lowers the error most until `limit` or no candidate helps; then rounds
-    of swaps replace a chosen candidate by an unchosen one while that lowers the error.
+    candidate that lowers the mean error most, while it lowers it by `FILAMENT_MIN_GAIN`
+    and `limit` is not reached; rounds of swaps then replace a chosen candidate by an
+    unchosen one while that lowers the error; finally candidates whose removal costs less
+    than `FILAMENT_MIN_GAIN` are dropped (e.g. a middle gray picked first, which the later
+    picks made redundant).
     """
     limit = max(limit, forced, 1)
+    min_gain = FILAMENT_MIN_GAIN * float(weights.sum())
 
     def error(columns: list[int]) -> float:
         return float((distances[:, columns].min(axis=1) * weights).sum())
 
+    def totals_with(columns: list[int]) -> NDArray[np.float64]:
+        """Error of `columns` plus each candidate (inf for candidates already in)."""
+        base = distances[:, columns].min(axis=1) if columns else np.full(len(weights), np.inf)
+        totals: NDArray[np.float64] = (np.minimum(base[:, None], distances) * weights[:, None]).sum(
+            axis=0
+        )
+        totals[columns] = np.inf
+        return totals
+
     chosen = list(range(forced))
-    nearest = distances[:, chosen].min(axis=1) if chosen else np.full(len(weights), np.inf)
     while len(chosen) < min(limit, distances.shape[1]):
-        totals = (np.minimum(nearest[:, None], distances) * weights[:, None]).sum(axis=0)
-        totals[chosen] = np.inf
+        totals = totals_with(chosen)
         best = int(totals.argmin())
-        if chosen and totals[best] >= error(chosen):
+        if chosen and totals[best] > error(chosen) - min_gain:
             break
         chosen.append(best)
-        nearest = np.minimum(nearest, distances[:, best])
 
     for _ in range(_FILAMENT_SWAP_ROUNDS):
         improved = False
         for position in range(forced, len(chosen)):
-            others = chosen[:position] + chosen[position + 1 :]
-            rest = distances[:, others].min(axis=1) if others else np.full(len(weights), np.inf)
-            totals = (np.minimum(rest[:, None], distances) * weights[:, None]).sum(axis=0)
-            totals[others] = np.inf
+            totals = totals_with(chosen[:position] + chosen[position + 1 :])
             best = int(totals.argmin())
             if totals[best] < error(chosen) - 1e-9:
                 chosen[position] = best
                 improved = True
         if not improved:
             break
+
+    while len(chosen) > max(forced, 1):
+        costs = [
+            error(chosen[:i] + chosen[i + 1 :]) - error(chosen) for i in range(forced, len(chosen))
+        ]
+        cheapest = int(np.argmin(costs))
+        if costs[cheapest] >= min_gain:
+            break
+        del chosen[forced + cheapest]
     return chosen
 
 
