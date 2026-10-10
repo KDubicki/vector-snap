@@ -143,6 +143,16 @@ describe('FilamentPlanView', () => {
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining('#ff0000'));
     expect(await screen.findByRole('button', { name: 'Copied' })).toBeInTheDocument();
   });
+
+  it('keeps offering to copy when the clipboard refuses', async () => {
+    vi.stubGlobal('navigator', {
+      clipboard: { writeText: vi.fn().mockRejectedValue(new Error('denied')) },
+    });
+    render(<FilamentPlanView plan={{ steps: [], conflicts: [], height_mm: 1 }} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Copy' }));
+    expect(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument();
+  });
 });
 
 describe('ColorHeightsTable', () => {

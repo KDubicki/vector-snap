@@ -9,18 +9,17 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/**/*.{ts,tsx}'],
-      // UI components are covered by E2E tests (planned); unit coverage targets logic modules.
+      // Components count too: they have component tests (Testing Library).
       exclude: [
         'src/**/*.test.{ts,tsx}',
         'src/main.tsx',
         'src/vite-env.d.ts',
-        'src/components/**',
-        'src/App.tsx',
+        'src/test/**',
         'src/types/**',
       ],
       reporter: ['text', 'json-summary', 'cobertura'],
       reportsDirectory: 'coverage',
-      thresholds: { lines: 80, functions: 80, branches: 70, statements: 80 },
+      thresholds: { lines: 95, functions: 95, branches: 90, statements: 95 },
     },
   },
 });

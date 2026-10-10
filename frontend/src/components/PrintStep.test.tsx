@@ -14,6 +14,16 @@ vi.mock('../api/client', async (importOriginal) => ({
   getFilamentPlan: vi.fn(),
 }));
 vi.mock('../lib/download', () => ({ download: vi.fn() }));
+// three.js needs WebGL; the preview only has to receive the request.
+vi.mock('./ModelPreview', () => ({
+  default: ({ onCancel }: { onCancel: () => void }) => (
+    <div role="region" aria-label="3D model">
+      <button type="button" onClick={onCancel}>
+        Close preview
+      </button>
+    </div>
+  ),
+}));
 
 const store = () => useAppStore.getState();
 const summary = () => screen.getByText(/Total height/).textContent;
@@ -114,6 +124,66 @@ describe('PrintStep', () => {
     await user.click(screen.getByRole('button', { name: 'Filament changes' }));
 
     expect(await screen.findByRole('region', { name: 'Filament changes' })).toBeInTheDocument();
+  });
+
+  it('previews the model and marks the preview stale after changes', async () => {
+    const user = userEvent.setup();
+    render(<PrintStep />);
+    await user.click(screen.getByRole('radio', { name: '3D preview' }));
+    expect(screen.getByText('The 3D model appears here.')).toBeInTheDocument();
+
+    await user.click(screen.getAllByRole('button', { name: 'Preview 3D' })[0]);
+    expect(await screen.findByRole('region', { name: '3D model' })).toBeInTheDocument();
+    expect(screen.queryByText(/Settings changed/)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('radio', { name: /Keychain/ }));
+    expect(screen.getByText(/Settings changed/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'update the preview' }));
+    expect(screen.queryByText(/Settings changed/)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('radio', { name: 'Design' }));
+    expect(screen.getByRole('img', { name: /Design/ })).toBeInTheDocument();
+    await user.click(screen.getByRole('radio', { name: '3D preview' }));
+    await user.click(await screen.findByRole('button', { name: 'Close preview' }));
+    expect(screen.getByText('The 3D model appears here.')).toBeInTheDocument();
+  });
+
+  it('cancels a running download', async () => {
+    const user = userEvent.setup();
+    vi.mocked(exportFile).mockImplementation(
+      (_format, _svg, _options, signal) =>
+        new Promise((_resolve, reject) =>
+          signal?.addEventListener('abort', () =>
+            reject(new DOMException('Aborted', 'AbortError')),
+          ),
+        ),
+    );
+    render(<PrintStep />);
+
+    await user.click(screen.getByRole('button', { name: 'Download 3MF' }));
+    expect(screen.getByText('Building the model')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Download STL' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Download 3MF' })).toBeEnabled());
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(download).not.toHaveBeenCalled();
+  });
+
+  it('reports planning failures and hides the predicted colors on request', async () => {
+    const user = userEvent.setup();
+    vi.mocked(getFilamentPlan).mockRejectedValueOnce(new Error('Plan failed'));
+    const { container } = render(<PrintStep />);
+
+    await user.click(screen.getByRole('radio', { name: 'Stepped' }));
+    await user.click(screen.getByRole('button', { name: 'Filament changes' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Plan failed');
+
+    await user.click(screen.getByRole('radio', { name: 'Mixed' }));
+    const blue = () => container.querySelector('path[d^="M50,10"]')!.getAttribute('fill');
+    const predicted = blue();
+    await user.click(screen.getByLabelText('Show predicted print colors'));
+    expect(blue()).toBe('#0000ff');
+    expect(predicted).not.toBe('#0000ff');
   });
 
   it('goes back to the SVG editor', async () => {

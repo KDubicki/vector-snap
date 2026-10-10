@@ -100,13 +100,16 @@ Defined in `frontend.yml`; all jobs run in parallel on `ubuntu-24.04`.
 |-----|----------------|------------|
 | **Lint & format** | ESLint (`--max-warnings 0`), Prettier `--check` | Any lint warning/error or unformatted file |
 | **Type check** | `tsc -b --noEmit` (strict) | Any type error |
-| **Test** | Vitest with V8 coverage; JUnit + Cobertura uploaded; coverage table in job summary | Test failure or coverage below thresholds (lines/functions/statements 80%, branches 70%) |
+| **Test** | Vitest with V8 coverage; JUnit + Cobertura uploaded; coverage table in job summary | Test failure or coverage below thresholds (lines/functions/statements 95%, branches 90%) |
 | **Build** | Production `vite build`; `dist/` uploaded as artifact (7 days) | Build error |
 | **Dependency audit** | `npm audit --omit=dev --audit-level=high` | High/critical vulnerability in production dependencies |
 | **Docker image** | `hadolint` → BuildKit build with cache → smoke test via `HEALTHCHECK` (nginx serving `/`) | Same as backend |
 
-> Coverage scope: UI components (`src/components/**`, `App.tsx`) are excluded from unit
-> coverage; they will be covered by Playwright E2E tests (see [Roadmap](11-roadmap.md)).
+> Coverage scope: everything in `src/` except tests, test helpers (`src/test/`), types
+> and the entry point — components included, through component tests with React
+> Testing Library (see [Testing strategy](10-development-workflow.md#testing-strategy)).
+> Only WebGL drawing is replaced by a stand-in renderer. Browser flows end to end
+> (Playwright) are still on the [Roadmap](11-roadmap.md).
 
 ## Stack smoke test
 

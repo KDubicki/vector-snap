@@ -60,3 +60,24 @@ if (typeof window !== 'undefined' && !scope.PointerEvent) {
   }
   scope.PointerEvent = PointerEventPolyfill;
 }
+
+// jsdom has no pointer capture; remember captured pointers per element.
+if (typeof Element !== 'undefined' && !Element.prototype.setPointerCapture) {
+  const captured = new WeakMap<Element, Set<number>>();
+  const pointers = (element: Element) => {
+    if (!captured.has(element)) captured.set(element, new Set());
+    return captured.get(element)!;
+  };
+  Element.prototype.setPointerCapture = function setPointerCapture(this: Element, id: number) {
+    pointers(this).add(id);
+  };
+  Element.prototype.releasePointerCapture = function releasePointerCapture(
+    this: Element,
+    id: number,
+  ) {
+    pointers(this).delete(id);
+  };
+  Element.prototype.hasPointerCapture = function hasPointerCapture(this: Element, id: number) {
+    return pointers(this).has(id);
+  };
+}
