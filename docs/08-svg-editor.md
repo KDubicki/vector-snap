@@ -182,6 +182,12 @@ a frame, a star. `src/lib/fragments.ts`, `src/state/fragmentsSlice.ts`, panel
   works for the open page and the panel says that it will be lost on closing.
 - The library belongs to the browser, not to the image: starting with a new image keeps
   it.
+- **Export / import** — *Export library* downloads `vectorsnap-fragments.json`
+  (`{"format": "vectorsnap-fragments", "version": 1, "fragments": [...]}`) to back the
+  library up or move it to another browser. *Import library…* adds the valid fragments of
+  such a file on top (`parseLibraryFile()`, `mergeFragments()`); fragments already in
+  the library (same id) are skipped, so importing a file twice adds nothing. Other files
+  are rejected with a message.
 
 ```ts
 interface Fragment {

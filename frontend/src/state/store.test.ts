@@ -511,6 +511,11 @@ describe('app store', () => {
     expect(store().fragments[1].name).toBe('Triangle');
     expect(JSON.parse(localStorage.getItem('vectorsnap.fragments')!)).toHaveLength(2);
 
+    expect(store().importFragments([saved!])).toBe(0);
+    expect(store().importFragments([{ ...saved!, id: 'imported' }])).toBe(1);
+    expect(store().fragments[0].id).toBe('imported');
+    store().deleteFragment('imported');
+
     store().reset();
     store().deleteFragment(store().fragments[0].id);
     expect(store().fragments.map((f) => f.name)).toEqual(['Triangle']);

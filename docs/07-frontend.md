@@ -112,7 +112,8 @@ tracing and export options). Narrower windows stack everything and scroll normal
 - ✅ Merge shapes and move them between color groups.
 - ✅ Move the selection (drag, arrow keys); scale, flip and rotate it.
 - ✅ **Fragments**: save the selection (with its colors) in a library kept in the browser,
-  rename and delete saved fragments ([08-svg-editor.md](08-svg-editor.md#fragments-)).
+  rename and delete saved fragments, export and import the library as a JSON file
+  ([08-svg-editor.md](08-svg-editor.md#fragments-)).
 - ✅ Export panel (STL, 3MF, lithophane, DXF, PDF, PNG) with per-color heights and a 3D
   preview with print statistics ([13-export-formats.md](13-export-formats.md)).
 - ✅ Delete shapes, undo/redo every edit (toolbar and keyboard).
@@ -234,7 +235,7 @@ interface EditorSlice {
 interface FragmentsSlice {
   fragments: Fragment[];                     // newest first, kept by reset()
   fragmentsStored: boolean;                  // false: storage unavailable or full
-  // actions: saveFragment, renameFragment, deleteFragment
+  // actions: saveFragment, renameFragment, deleteFragment, importFragments
 }
 ```
 

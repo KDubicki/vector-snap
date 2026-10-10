@@ -10,6 +10,8 @@ import { shapesBounds, transformShapes, translation } from '../editor/transform'
 
 export const FRAGMENTS_STORAGE_KEY = 'vectorsnap.fragments';
 export const MAX_NAME_LENGTH = 60;
+export const LIBRARY_FORMAT = 'vectorsnap-fragments';
+export const LIBRARY_FILE_NAME = 'vectorsnap-fragments.json';
 
 export interface FragmentShape {
   /** Path data with the fragment's top-left corner at (0, 0). */
@@ -151,4 +153,43 @@ function isFragment(value: unknown): value is Fragment {
 /** The valid fragments of untrusted data (storage, imported files); others are skipped. */
 export function validFragments(value: unknown): Fragment[] {
   return Array.isArray(value) ? value.filter(isFragment) : [];
+}
+
+/** The library as a file to back it up or move it to another browser. */
+export function libraryFile(fragments: Fragment[]): string {
+  return JSON.stringify({ format: LIBRARY_FORMAT, version: 1, fragments }, null, 1);
+}
+
+/** Fragments of a library file; throws an error with a message for the user. */
+export function parseLibraryFile(text: string): Fragment[] {
+  let data: unknown;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error('This is not a fragment library (expected a .json file).');
+  }
+  const library = data as { format?: unknown; fragments?: unknown } | null;
+  if (library?.format !== LIBRARY_FORMAT) {
+    throw new Error('This is not a VectorSnap fragment library.');
+  }
+  const fragments = validFragments(library.fragments);
+  if (!fragments.length) throw new Error('The library file has no valid fragments.');
+  return fragments;
+}
+
+/**
+ * Add imported fragments to the library (on top, in file order). Fragments already in the
+ * library (same id) are skipped, so importing the same file twice adds nothing.
+ */
+export function mergeFragments(
+  current: Fragment[],
+  imported: Fragment[],
+): { fragments: Fragment[]; added: number } {
+  const known = new Set(current.map((fragment) => fragment.id));
+  const added = imported.filter((fragment) => {
+    if (known.has(fragment.id)) return false;
+    known.add(fragment.id);
+    return true;
+  });
+  return { fragments: [...added, ...current], added: added.length };
 }

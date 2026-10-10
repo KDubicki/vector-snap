@@ -2,6 +2,7 @@ import type { StateCreator } from 'zustand';
 import {
   cleanName,
   extractFragment,
+  mergeFragments,
   nextFragmentName,
   readFragments,
   saveFragments,
@@ -20,6 +21,8 @@ export interface FragmentsSlice {
   saveFragment: (name?: string) => Fragment | null;
   renameFragment: (id: string, name: string) => void;
   deleteFragment: (id: string) => void;
+  /** Add fragments from a library file; returns how many were new. */
+  importFragments: (fragments: Fragment[]) => number;
 }
 
 /** Replace the library and store it. */
@@ -50,4 +53,10 @@ export const createFragmentsSlice: StateCreator<AppState, [], [], FragmentsSlice
 
   deleteFragment: (id) =>
     set((state) => store(state.fragments.filter((fragment) => fragment.id !== id))),
+
+  importFragments: (imported) => {
+    const { fragments, added } = mergeFragments(get().fragments, imported);
+    if (added) set(store(fragments));
+    return added;
+  },
 });

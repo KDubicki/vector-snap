@@ -1,21 +1,25 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
+import { download } from '../lib/download';
 import {
+  LIBRARY_FILE_NAME,
   MAX_NAME_LENGTH,
   fragmentColors,
   fragmentSvg,
+  libraryFile,
   nextFragmentName,
+  parseLibraryFile,
   type Fragment,
 } from '../lib/fragments';
 import { useAppStore } from '../state/store';
 import { useConfirm } from './useConfirm';
 
-/** Saved parts of designs: save the selection, rename and delete fragments. */
+/** Saved parts of designs: save the selection, manage fragments, back up the library. */
 export function FragmentsPanel() {
   const fragments = useAppStore((s) => s.fragments);
   const stored = useAppStore((s) => s.fragmentsStored);
   const selection = useAppStore((s) => s.selection);
   const [name, setName] = useState('');
-  const [saved, setSaved] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ text: string; error?: boolean } | null>(null);
   const { confirm, dialog } = useConfirm();
 
   const save = (event: FormEvent) => {
@@ -23,7 +27,31 @@ export function FragmentsPanel() {
     const fragment = useAppStore.getState().saveFragment(name);
     if (!fragment) return;
     setName('');
-    setSaved(`Saved “${fragment.name}”.`);
+    setMessage({ text: `Saved “${fragment.name}”.` });
+  };
+
+  const exportLibrary = () => {
+    download(new Blob([libraryFile(fragments)], { type: 'application/json' }), LIBRARY_FILE_NAME);
+  };
+
+  const importLibrary = async (event: ChangeEvent<HTMLInputElement>) => {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    input.value = ''; // the same file can be chosen again
+    if (!file) return;
+    try {
+      const imported = parseLibraryFile(await file.text());
+      const added = useAppStore.getState().importFragments(imported);
+      const skipped = imported.length - added;
+      const count = (n: number) => `${n} ${n === 1 ? 'fragment' : 'fragments'}`;
+      setMessage({
+        text: added
+          ? `Imported ${count(added)}` + (skipped ? ` (${skipped} already in the library).` : '.')
+          : `Nothing new: ${count(skipped)} already in the library.`,
+      });
+    } catch (error) {
+      setMessage({ text: error instanceof Error ? error.message : String(error), error: true });
+    }
   };
 
   const remove = async (fragment: Fragment) => {
@@ -57,9 +85,12 @@ export function FragmentsPanel() {
           Select shapes and save them as a fragment to place them on other images later.
         </p>
       )}
-      {saved && (
-        <p className="hint" role="status">
-          {saved}
+      {message && (
+        <p
+          className={message.error ? 'fragments__warning' : 'hint'}
+          role={message.error ? 'alert' : 'status'}
+        >
+          {message.text}
         </p>
       )}
       {!stored && (
@@ -74,6 +105,26 @@ export function FragmentsPanel() {
           ))}
         </ul>
       )}
+      <div className="fragments__library">
+        <button
+          type="button"
+          className="link"
+          onClick={exportLibrary}
+          disabled={fragments.length === 0}
+          title="Download the library to back it up or use it in another browser"
+        >
+          Export library
+        </button>
+        <label className="link fragments__import">
+          Import library…
+          <input
+            type="file"
+            accept=".json,application/json"
+            className="visually-hidden"
+            onChange={(event) => void importLibrary(event)}
+          />
+        </label>
+      </div>
       {dialog}
     </div>
   );

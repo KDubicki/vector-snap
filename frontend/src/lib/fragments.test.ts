@@ -8,7 +8,10 @@ import {
   fragmentColors,
   fragmentDoc,
   fragmentSvg,
+  libraryFile,
+  mergeFragments,
   nextFragmentName,
+  parseLibraryFile,
   readFragments,
   saveFragments,
   validFragments,
@@ -111,5 +114,33 @@ describe('fragments', () => {
 
     expect(saveFragments(full, [fragment])).toBe(false);
     expect(saveFragments(undefined, [fragment])).toBe(false);
+  });
+});
+
+describe('fragment library files', () => {
+  const other: Fragment = { ...fragment, id: 'y', name: 'Star' };
+
+  it('round-trips the library', () => {
+    const text = libraryFile([fragment, other]);
+
+    expect(JSON.parse(text)).toMatchObject({ format: 'vectorsnap-fragments', version: 1 });
+    expect(parseLibraryFile(text)).toEqual([fragment, other]);
+  });
+
+  it('explains files that are not a library', () => {
+    expect(() => parseLibraryFile('<svg/>')).toThrow('not a fragment library');
+    expect(() => parseLibraryFile('{"fragments": []}')).toThrow('not a VectorSnap');
+    expect(() => parseLibraryFile('null')).toThrow('not a VectorSnap');
+    expect(() =>
+      parseLibraryFile(JSON.stringify({ format: 'vectorsnap-fragments', fragments: [{}] })),
+    ).toThrow('no valid fragments');
+  });
+
+  it('merges imports on top and skips fragments already in the library', () => {
+    const merged = mergeFragments([fragment], [other, fragment, other]);
+
+    expect(merged.added).toBe(1);
+    expect(merged.fragments.map((item) => item.id)).toEqual(['y', 'x']);
+    expect(mergeFragments(merged.fragments, [fragment]).added).toBe(0);
   });
 });
