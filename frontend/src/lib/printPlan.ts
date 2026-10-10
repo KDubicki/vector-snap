@@ -5,9 +5,9 @@
  */
 
 import type { EditorDoc } from '../editor/model';
-import { isHexColor } from './color';
+import { deltaE, isHexColor, toLab } from './color';
 import { MAGNET_ROOF_MM } from './exportFormats';
-import { bestRecipe, colorStacks, deltaE, toLab, type Filament, type MixMatch } from './mixing';
+import { bestRecipe, colorStacks, type Filament, type MixMatch } from './mixing';
 
 export type BaseShape = 'outline' | 'rectangle' | 'rounded' | 'circle';
 

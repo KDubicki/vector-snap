@@ -1,11 +1,12 @@
 import { useEffect, useMemo } from 'react';
 import { finalPalette } from '../lib/color';
-import { filamentName } from '../lib/filamentLibrary';
+import { allFilaments, filamentName, ownedColors } from '../lib/filamentLibrary';
 import { useObjectUrl } from '../lib/useObjectUrl';
 import { useAppStore } from '../state/store';
 import { ColorCountSelector } from './ColorCountSelector';
 import { FilamentLibraryPanel } from './FilamentLibraryPanel';
 import { LockedColors } from './LockedColors';
+import { PaletteAdvice } from './PaletteAdvice';
 import { PaletteEditor } from './PaletteEditor';
 import { QuantizedPreview } from './QuantizedPreview';
 import { TracingOptionsPanel } from './TracingOptionsPanel';
@@ -66,6 +67,24 @@ export function PaletteStep() {
         : [],
     [quantized, overrides, transparent],
   );
+
+  const entries = useMemo(
+    () =>
+      quantized
+        ? quantized.palette
+            .filter((color) => !transparent.includes(color.index))
+            .map((color) => ({
+              index: color.index,
+              hex: overrides[color.index] ?? color.hex,
+              coverage: color.coverage ?? 0,
+            }))
+        : [],
+    [quantized, overrides, transparent],
+  );
+  const owned = useMemo(() => {
+    const colors = new Set(ownedColors(filamentLibrary));
+    return allFilaments(filamentLibrary).filter((filament) => colors.has(filament.color));
+  }, [filamentLibrary]);
 
   return (
     <section className="workspace">
@@ -181,6 +200,17 @@ export function PaletteStep() {
             onReset={actions.resetOverride}
             onResetAll={actions.resetOverrides}
             colorName={(hex) => filamentName(filamentLibrary, hex)}
+          />
+        )}
+        {quantized && (
+          <PaletteAdvice
+            entries={entries}
+            filaments={owned}
+            onOverride={(change) =>
+              Object.entries(change).forEach(([index, hex]) =>
+                actions.setOverride(Number(index), hex),
+              )
+            }
           />
         )}
         <LockedColors

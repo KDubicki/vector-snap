@@ -11,7 +11,7 @@
  * approximation (real filaments also scatter and tint), so predictions are a guide and a
  * test print with the actual filaments is worth it. See docs/07-frontend.md.
  */
-import { hexToRgb, rgbToHex, type Rgb } from './color';
+import { deltaE, hexToRgb, rgbToHex, srgbToLinear, type Rgb } from './color';
 
 export interface Filament {
   color: string;
@@ -43,11 +43,6 @@ const ATTENUATION = 2 * Math.log(20);
 // Slight preference for fewer filament changes when two recipes look alike.
 const SEGMENT_PENALTY = 0.5;
 
-function toLinear(channel: number): number {
-  const c = channel / 255;
-  return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-}
-
 function fromLinear(value: number): number {
   const c = Math.min(1, Math.max(0, value));
   const srgb = c <= 0.0031308 ? c * 12.92 : 1.055 * c ** (1 / 2.4) - 0.055;
@@ -56,24 +51,7 @@ function fromLinear(value: number): number {
 
 type Linear = [number, number, number];
 
-const linear = (hex: string): Linear => hexToRgb(hex).map(toLinear) as Linear;
-
-/** CIE L*a*b* (D65) of a hex color. */
-export function toLab(hex: string): [number, number, number] {
-  const [r, g, b] = linear(hex);
-  const x = (0.4124 * r + 0.3576 * g + 0.1805 * b) / 0.95047;
-  const y = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-  const z = (0.0193 * r + 0.1192 * g + 0.9505 * b) / 1.08883;
-  const f = (t: number) => (t > 216 / 24389 ? Math.cbrt(t) : (841 / 108) * t + 4 / 29);
-  return [116 * f(y) - 16, 500 * (f(x) - f(y)), 200 * (f(y) - f(z))];
-}
-
-/** Color difference (CIE76 ΔE): about 2.3 is just noticeable, above 10 clearly different. */
-export function deltaE(a: string, b: string): number {
-  const [l1, a1, b1] = toLab(a);
-  const [l2, a2, b2] = toLab(b);
-  return Math.hypot(l1 - l2, a1 - a2, b1 - b2);
-}
+const linear = (hex: string): Linear => hexToRgb(hex).map(srgbToLinear) as Linear;
 
 /** Layers of each filament from the bottom of the model up: base plate, base, top layers. */
 export function recipeSlabs(

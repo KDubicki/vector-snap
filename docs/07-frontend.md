@@ -79,6 +79,20 @@ tracing and export options). Narrower windows stack everything and scroll normal
   (`vectorsnap.filament-library`) and kept across images; changing it re-runs the
   quantization. The color count becomes a maximum — only the filaments the image needs
   are used — and palette rows show the filament name under the hex.
+- **3D printing tips** (`PaletteAdvice`, logic in `lib/paletteAdvice.ts`): every color
+  is a filament slot with color changes and purge waste, so the panel lists
+  - **similar colors** — pairs closer than CIEDE2000 16 (`≈`; below 8 `≈≈`, nearly
+    identical), most alike first, each color in one pair at most, with **Merge**
+    (the smaller color takes the larger one's value, i.e. a palette override, which merges
+    them in the SVG);
+  - **tiny areas** — colors under 0.5 % of the image, with Merge into the nearest color;
+  - **Use my filaments** — replaces every color by the nearest available filament of the
+    library (colors mapping to one filament merge), listing which filaments result.
+
+  Differences use **CIEDE2000** (`deltaE2000` in `lib/color.ts`, verified against the
+  Sharma–Wu–Dalal reference data): CIE76 overstates differences of saturated colors, so
+  one threshold would not mean "looks alike" across the gamut. Two olive shades of one
+  area (ΔE2000 15) are offered for merging; yellow-green vs. gold (16.6) stay apart.
 - **Smooth regions**: Off / Light / Medium / Strong, sent as `smooth` 0–3 (default
   Light). Removes specks and jagged edges, which matters most for photos and 3D prints;
   changing it re-quantizes like the other parameters.

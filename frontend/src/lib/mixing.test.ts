@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import { deltaE } from './color';
 import {
   POOR_MATCH_DELTA_E,
   bestRecipe,
   colorStacks,
-  deltaE,
   predictColor,
   recipeSlabs,
-  toLab,
   type Filament,
   type Recipe,
 } from './mixing';
@@ -19,13 +18,6 @@ const FOUR = [WHITE, RED, BLUE, BLACK];
 const heights = { layerMm: 0.08, baseLayers: 10, colorLayers: 10 };
 
 describe('color mixing model', () => {
-  it('converts to Lab and measures color differences', () => {
-    expect(toLab('#ffffff')[0]).toBeCloseTo(100, 1);
-    expect(toLab('#000000')[0]).toBeCloseTo(0, 1);
-    expect(deltaE('#ff0000', '#ff0000')).toBe(0);
-    expect(deltaE('#000000', '#ffffff')).toBeCloseTo(100, 0);
-  });
-
   it('stacks the base plate, the base filament and the top layers', () => {
     const recipe: Recipe = {
       base: 0,

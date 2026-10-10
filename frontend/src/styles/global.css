@@ -1780,3 +1780,41 @@ select {
   flex: 1;
   min-width: 0;
 }
+
+.palette-advice ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.palette-advice li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  font-size: 0.85rem;
+}
+
+.palette-advice__color {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.palette-advice li .link {
+  margin-left: auto;
+}
+
+.palette-advice__relation {
+  color: var(--color-muted);
+  font-weight: 600;
+}
+
+.palette-advice__snap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
