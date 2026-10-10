@@ -1,3 +1,5 @@
+import zlib
+
 import numpy as np
 import pytest
 from PIL import Image
@@ -167,3 +169,48 @@ def test_upscale_is_off_by_default_and_skips_large_images() -> None:
 
     assert decode_image(small, 4096).width == stripes().width
     assert decode_image(large, 4096, upscale=True).width == 1200
+
+
+def _indexed(labels: list[list[int]], palette: list[int]) -> Image.Image:
+    image = Image.fromarray(np.array(labels, dtype=np.uint8), mode="P")
+    image.putpalette(palette)
+    return image
+
+
+def test_decode_indexed_keeps_partial_alpha_per_entry() -> None:
+    image = _indexed([[0, 1, 2]], [255, 0, 0, 0, 255, 0, 0, 0, 255])
+
+    decoded = decode_indexed_png(encode(image, transparency=bytes([255, 100, 0])), max_dimension=64)
+
+    # 100 is below the opacity threshold: transparent like 0
+    assert decoded.labels.tolist() == [[0, TRANSPARENT_LABEL, TRANSPARENT_LABEL]]
+
+
+def test_decode_indexed_rejects_fully_transparent_images() -> None:
+    image = _indexed([[0, 0]], [255, 0, 0])
+
+    with pytest.raises(InvalidImage, match="no opaque pixels"):
+        decode_indexed_png(encode(image, transparency=0), max_dimension=64)
+
+
+def test_decode_indexed_rejects_too_many_colors() -> None:
+    labels = np.arange(256, dtype=np.uint8).reshape(16, 16).tolist()
+    palette = [value for i in range(256) for value in (i, 255 - i, i // 2)]
+
+    with pytest.raises(InvalidImage, match="more than 254 colors"):
+        decode_indexed_png(encode(_indexed(labels, palette)), max_dimension=64)
+
+
+def test_decode_indexed_rejects_labels_outside_the_palette() -> None:
+    image = _indexed([[0, 1, 2]], [255, 0, 0, 0, 255, 0, 0, 0, 255])
+    data = bytearray(encode(image))
+    # Shrink the PLTE chunk to its first entry, with a matching CRC.
+    start = data.index(b"PLTE") - 4
+    length = int.from_bytes(data[start : start + 4], "big")
+    chunk = b"PLTE" + bytes(data[start + 8 : start + 11])
+    data[start : start + 12 + length] = (
+        (3).to_bytes(4, "big") + chunk + zlib.crc32(chunk).to_bytes(4, "big")
+    )
+
+    with pytest.raises(InvalidImage):
+        decode_indexed_png(bytes(data), max_dimension=64)

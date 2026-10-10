@@ -98,6 +98,7 @@ def test_returns_raw_svg_when_requested(client: TestClient) -> None:
         {"colors": "100"},
         {"colors": "4", "palette": "nope"},
         {"colors": "4", "mode": "bezier"},
+        {"colors": "4", "transparent": "not json"},
         {"colors": "4", "transparent": "[-1]"},
         {"colors": "4", "transparent": '["0"]'},
         {"colors": "4", "transparent": "[true]"},

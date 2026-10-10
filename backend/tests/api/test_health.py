@@ -22,3 +22,9 @@ def test_limits_exposes_configuration(client: TestClient) -> None:
 
     assert body["min_colors"] < body["max_colors"]
     assert "image/png" in body["supported_formats"]
+
+
+def test_ready_reports_ready(client: TestClient) -> None:
+    response = client.get("/api/v1/health/ready")
+
+    assert response.json() == {"status": "ready", "version": __version__}

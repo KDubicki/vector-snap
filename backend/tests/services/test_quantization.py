@@ -2,6 +2,7 @@ from collections.abc import Callable
 
 import numpy as np
 import pytest
+from PIL import Image
 
 from app.services.image_io import DecodedImage, decode_image
 from app.services.quantization import (
@@ -229,3 +230,36 @@ def test_smoothing_off_returns_the_result_unchanged() -> None:
     original = _labels_result([[0, 1], [1, 0]], 2)
 
     assert smooth_regions(original, 0) is original
+
+
+def test_suggestion_when_rare_colors_vanish_from_the_working_sample() -> None:
+    # Two single pixels one level off red: three colors, more than allowed, but they
+    # vanish when the 4096 px image is reduced to the 128 px working sample.
+    image = np.zeros((64, 4096, 3), dtype=np.uint8)
+    image[...] = RED
+    image[10, 1000] = (255, 0, 1)
+    image[50, 3000] = (255, 1, 0)
+    decoded = decode_image(encode(Image.fromarray(image)), 4096)
+
+    suggestion = suggest_color_count(decoded, min_colors=2, max_colors=2)
+
+    assert suggestion.colors == 2
+    assert suggestion.errors == []
+
+
+def test_suggestion_with_two_candidate_counts_takes_the_larger() -> None:
+    image = decode_image(encode(gradient()), 4096)
+
+    suggestion = suggest_color_count(image, min_colors=2, max_colors=3, target_delta_e=0)
+
+    assert [k for k, _ in suggestion.errors] == [2, 3]
+    assert suggestion.colors == 3
+
+
+def test_suggestion_with_a_single_candidate_count_takes_it() -> None:
+    image = decode_image(encode(gradient()), 4096)
+
+    suggestion = suggest_color_count(image, min_colors=3, max_colors=3, target_delta_e=0)
+
+    assert [k for k, _ in suggestion.errors] == [3]
+    assert suggestion.colors == 3

@@ -88,7 +88,7 @@ Defined in `backend.yml`; all jobs run in parallel on `ubuntu-24.04`.
 |-----|----------------|------------|
 | **Lint & format** | `ruff check` (rules: pycodestyle, pyflakes, isort, bugbear, pyupgrade, simplify, ruff) with inline PR annotations; `ruff format --check --diff` | Any lint error or unformatted file |
 | **Type check** | `mypy app tests` (strict mode for `app/services`) | Any type error |
-| **Test (Python 3.12, 3.13)** | `pytest` with branch coverage, matrix over supported Python versions; JUnit + Cobertura reports uploaded as artifacts; coverage table in the job summary | Test failure or coverage < **80%** (`[tool.coverage.report] fail_under`) |
+| **Test (Python 3.12, 3.13)** | `pytest` with branch coverage, matrix over supported Python versions; JUnit + Cobertura reports uploaded as artifacts; coverage table in the job summary | Test failure or coverage < **95%** (`[tool.coverage.report] fail_under`) |
 | **Dependency audit** | `pip-audit` against the PyPI advisory DB / OSV | A dependency has a known vulnerability |
 | **Docker image** | `hadolint` on the Dockerfile → BuildKit build with GitHub Actions layer cache → smoke test: container must report `healthy` via its own `HEALTHCHECK` (which calls `/api/v1/health`) | Dockerfile lint warning, build failure, or the container exits / is unhealthy / not healthy within 60 s |
 
