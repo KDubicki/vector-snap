@@ -168,8 +168,11 @@ function FragmentItem({ fragment, onPlace, onDelete }: FragmentItemProps) {
     [fragment],
   );
   const colors = fragmentColors(fragment);
-  const rename = (value: string) => {
-    if (value !== fragment.name) useAppStore.getState().renameFragment(fragment.id, value);
+  const rename = (input: HTMLInputElement) => {
+    const value = input.value.trim();
+    // An emptied name is not saved: show the kept name again.
+    if (!value) input.value = fragment.name;
+    else if (value !== fragment.name) useAppStore.getState().renameFragment(fragment.id, value);
   };
 
   return (
@@ -177,14 +180,14 @@ function FragmentItem({ fragment, onPlace, onDelete }: FragmentItemProps) {
       <img className="fragment__thumbnail checkerboard" src={thumbnail} alt="" />
       <div className="fragment__body">
         <input
-          // Re-created after a rename, so an emptied name shows the kept one again.
+          // Re-created when the name changes elsewhere (e.g. trimmed by the store).
           key={fragment.name}
           type="text"
           className="fragment__name"
           defaultValue={fragment.name}
           maxLength={MAX_NAME_LENGTH}
           aria-label={`Name of fragment ${fragment.name}`}
-          onBlur={(event) => rename(event.target.value)}
+          onBlur={(event) => rename(event.currentTarget)}
           onKeyDown={(event) => {
             if (event.key === 'Enter') event.currentTarget.blur();
           }}

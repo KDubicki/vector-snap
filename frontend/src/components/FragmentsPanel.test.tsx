@@ -42,7 +42,7 @@ describe('FragmentsPanel', () => {
     expect(screen.getByLabelText('Fragment name')).toHaveValue('');
   });
 
-  it('renames in place', async () => {
+  it('renames in place and keeps the old name when emptied', async () => {
     const user = userEvent.setup();
     useAppStore.setState({ fragments: [star] });
     render(<FragmentsPanel />);
@@ -51,6 +51,12 @@ describe('FragmentsPanel', () => {
     await user.clear(name);
     await user.type(name, 'Big star{Enter}');
     expect(store().fragments[0].name).toBe('Big star');
+
+    const renamed = screen.getByLabelText('Name of fragment Big star');
+    await user.clear(renamed);
+    await user.tab();
+    expect(store().fragments[0].name).toBe('Big star');
+    expect(screen.getByLabelText('Name of fragment Big star')).toHaveValue('Big star');
   });
 
   it('places a fragment with the chosen colors', async () => {
