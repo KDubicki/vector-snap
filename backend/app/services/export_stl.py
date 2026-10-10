@@ -366,11 +366,39 @@ def _parts(document: VectorDocument, options: StlOptions) -> list[_Part]:
     return parts
 
 
+OVERLAP_TOLERANCE_MM2 = 1e-6
+
+
+def _visible(document: VectorDocument, parts: list[_Part]) -> list[BaseGeometry]:
+    """Each part's geometry without the areas covered by shapes drawn above it.
+
+    Shapes above in the document (later layers) own their footprint, as in the SVG: a
+    shape moved or a fragment placed onto other shapes would otherwise print as bodies
+    overlapping in the same space (slicers resolve that inconsistently). Traced designs
+    rarely overlap, so they are left as they are.
+    """
+    order = {id(layer): position for position, layer in enumerate(document.layers)}
+    by_drawing = sorted(range(len(parts)), key=lambda i: order[id(parts[i].layer)])
+    visible: list[BaseGeometry] = [part.geometry for part in parts]
+    covered: BaseGeometry | None = None
+    for index in reversed(by_drawing):
+        geometry = parts[index].geometry
+        if (
+            covered is not None
+            and geometry.intersects(covered)
+            and geometry.intersection(covered).area > OVERLAP_TOLERANCE_MM2
+        ):
+            visible[index] = _repaired(geometry.difference(covered))
+        covered = geometry if covered is None else covered.union(geometry)
+    return visible
+
+
 def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
     """Base plate (under the included shapes) and one extruded body per color and height.
 
     Shapes with a height of their own (`shape_heights`) become separate bodies of their
-    color, so every body stays a closed prism.
+    color, so every body stays a closed prism. Bodies never overlap: areas covered by
+    shapes drawn above are cut out of the shapes below.
     """
     included = _parts(document, options)
     if not included:
@@ -403,9 +431,9 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
         ]
         if parts:
             bodies.append(Body("base", included[0].layer.fill, np.concatenate(parts)))
-    for part in included:
+    for part, geometry in zip(included, _visible(document, included), strict=True):
         top = base + part.height
-        shapes = _without_pinches(printable(part.geometry, options.min_feature_mm))
+        shapes = _without_pinches(printable(geometry, options.min_feature_mm))
         prisms = [_prism(polygon, base, top) for polygon in shapes]
         if prisms:
             name = f"color-{part.layer.palette_index}"

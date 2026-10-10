@@ -435,3 +435,29 @@ def test_a_shape_can_keep_its_height_when_its_color_is_left_out() -> None:
     assert _tops(bodies) == pytest.approx({"base": 1, "color-0-2mm": 3})
     # the base plate only covers the included element
     assert signed_volume(bodies[0].triangles) == pytest.approx(10 * 10 * 1)
+
+
+SQUARE = "M0,0 L20,0 L20,20 L0,20 Z"
+PLACED = "M5,5 L15,5 L15,15 L5,15 Z"  # lies on top of SQUARE, e.g. a placed fragment
+
+
+def test_shapes_drawn_above_cut_their_footprint_out_of_the_shapes_below() -> None:
+    document = parse_svg(contract_svg(40, 20, [("#000000", [SQUARE]), ("#ff0000", [PLACED])]))
+
+    bodies = build_bodies(document, StlOptions(width_mm=40, base_mm=0, layer_mm=2, layered=False))
+
+    volumes = {body.name: signed_volume(body.triangles) for body in bodies}
+    assert volumes == pytest.approx({"color-0": (400 - 100) * 2, "color-1": 100 * 2})
+    assert all(is_closed(body.triangles) for body in bodies)
+
+
+def test_the_document_order_decides_what_is_covered_whatever_the_stack_order() -> None:
+    # White is drawn on top of gray; light_to_dark makes gray the higher color.
+    document = parse_svg(contract_svg(40, 20, [("#808080", [SQUARE]), ("#ffffff", [PLACED])]))
+
+    bodies = build_bodies(
+        document, StlOptions(width_mm=40, base_mm=0, layer_mm=1, stack_order="light_to_dark")
+    )
+
+    volumes = {body.name: signed_volume(body.triangles) for body in bodies}
+    assert volumes == pytest.approx({"color-1": 100 * 1, "color-0": (400 - 100) * 2})
