@@ -57,8 +57,11 @@ def test_magnet_pocket_goes_to_the_widest_spot() -> None:
     pocket = magnet_pocket(DESIGN, 10)
 
     assert pocket is not None
-    assert pocket.centroid.x == pytest.approx(20, abs=0.1)
+    # Any point of the middle line is as far from the edge as possible (GEOS versions
+    # pick different ones): 10 mm from the long sides.
     assert pocket.centroid.y == pytest.approx(10, abs=0.1)
+    assert DESIGN.boundary.distance(pocket.centroid) == pytest.approx(10, abs=0.1)
+    assert DESIGN.contains(pocket)
     assert magnet_pocket(DESIGN, 0) is None
     assert magnet_pocket(Polygon(), 10) is None
 
