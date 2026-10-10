@@ -216,13 +216,23 @@ def test_outline_base_grows_by_the_margin() -> None:
 
 
 def test_rounded_base_has_round_corners() -> None:
+    options = StlOptions(width_mm=40, base_mm=1, base_shape="rounded", base_margin_mm=2)
+
+    base = _base(options, [("#000000", [FRAME]), ("#ff0000", [DOT])])
+
+    # 44x24 plate with corner radius 0.15 x 20 + 2 = 5 mm, which still covers the
+    # square corner of FRAME at the design's bounding box corner
+    assert signed_volume(base) == pytest.approx(44 * 24 - (4 - np.pi) * 25, rel=1e-3)
+    assert (base[..., 0].min(), base[..., 0].max()) == pytest.approx((-2, 42))
+
+
+def test_rounded_base_without_margin_keeps_square_design_corners() -> None:
     options = StlOptions(width_mm=40, base_mm=1, base_shape="rounded")
 
     base = _base(options, [("#000000", [FRAME]), ("#ff0000", [DOT])])
 
-    # 40x20 rectangle with corner radius 0.15 x 20 = 3 mm
-    assert signed_volume(base) == pytest.approx(800 - (4 - np.pi) * 9, rel=1e-3)
-    assert (base[..., 0].min(), base[..., 0].max()) == pytest.approx((0, 40))
+    # FRAME fills the bounding box corner: round corners would cut it off
+    assert signed_volume(base) == pytest.approx(800, rel=1e-3)
 
 
 def test_circle_base_encloses_the_whole_design() -> None:

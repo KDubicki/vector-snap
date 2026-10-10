@@ -18,6 +18,8 @@ BaseShape = Literal["outline", "rectangle", "rounded", "circle"]
 
 # Corner radius of the "rounded" base plate, relative to its shorter side.
 ROUNDED_CORNER_RATIO = 0.15
+# Share of the largest corner radius that still covers a design reaching into a corner.
+CORNER_FIT = 0.98
 # Width of the ring around the hanging loop's hole (mm).
 LOOP_WALL_MM = 2.0
 # Minimum plastic around (and above) a magnet pocket (mm).
@@ -65,6 +67,17 @@ def base_outline(silhouette: BaseGeometry, shape: BaseShape, margin_mm: float) -
         return rectangle
     # Concentric with a corner of the design's bounding box, so the margin stays even.
     radius = ROUNDED_CORNER_RATIO * min(maxx - minx, maxy - miny) + margin_mm
+    rounded = _rounded(rectangle, radius)
+    if rounded.covers(silhouette):
+        return rounded
+    # The design reaches into a corner: a corner radius r keeps the bounding box corner
+    # (margin m inside the plate's corner) covered while (r - m)·√2 ≤ r, i.e. up to
+    # (2 + √2)·m; a little less, as the arc is approximated by a polygon inside it.
+    radius = min(radius, CORNER_FIT * (2 + math.sqrt(2)) * margin_mm)
+    return _rounded(rectangle, radius) if radius > 0 else rectangle
+
+
+def _rounded(rectangle: Polygon, radius: float) -> BaseGeometry:
     return rectangle.buffer(-radius, join_style="mitre").buffer(radius, quad_segs=QUAD_SEGS)
 
 

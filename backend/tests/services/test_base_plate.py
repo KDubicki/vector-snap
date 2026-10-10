@@ -71,3 +71,19 @@ def test_magnet_pocket_needs_room_for_its_wall() -> None:
 
     with pytest.raises(InvalidParameters, match=f"at most {fits:.1f} mm"):
         magnet_pocket(DESIGN, fits + 1)
+
+
+def test_rounded_plate_keeps_designs_that_reach_into_the_corners() -> None:
+    # A rectangular design fills its bounding box: with a plain rounded plate its corners
+    # would stick out of the plate.
+    without_margin = base_outline(DESIGN, "rounded", 0)
+    assert without_margin.equals(DESIGN)  # no margin: no room for round corners
+
+    with_margin = base_outline(DESIGN, "rounded", 1)
+    assert with_margin.covers(DESIGN)
+    assert with_margin.area < 42 * 22  # still rounded
+
+    roundish = Point(20, 10).buffer(10)  # far from the corners: the full radius
+    full = base_outline(roundish, "rounded", 0)
+    assert full.covers(roundish)
+    assert full.area < 20 * 20 - 3  # corner radius 3 mm (15 % of 20)

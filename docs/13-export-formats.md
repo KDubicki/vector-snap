@@ -147,8 +147,11 @@ Model construction:
   same with corners rounded concentrically (radius 15 % of the shorter side plus the
   margin), or the smallest enclosing circle — plus the margin, filling gaps and
   transparent areas: signs, coasters, badges. The circle is a 128-gon circumscribing the
-  true circle, so no part of the design sticks out. Leaving out every color is
-  `422 INVALID_PARAMETERS`.
+  true circle, so no part of the design sticks out. Round corners must not cut off a
+  design that reaches into a corner of its bounding box (e.g. a rectangular
+  background): the corner radius is then limited to just under (2 + √2) × the margin,
+  the largest radius that still covers that corner — with no margin the plate keeps
+  square corners. Leaving out every color is `422 INVALID_PARAMETERS`.
 - The model is built as **bodies** (base plate, one per color) — the STL contains them
   all; the same bodies feed other 3D formats.
 - Output is binary STL (`model/stl`), units mm.
