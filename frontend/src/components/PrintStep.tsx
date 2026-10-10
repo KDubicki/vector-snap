@@ -16,6 +16,7 @@ import {
   printOptions,
   printedGroups,
   suggestFilaments,
+  testCard,
   validatePrint,
   type BaseShape,
   type PrintSettings,
@@ -152,20 +153,33 @@ export function PrintStep() {
     setView('model');
   };
 
-  const run = async (format: 'stl' | '3mf') => {
+  const run = async (
+    format: 'stl' | '3mf',
+    source = { svg, options, name: exportFileName(file?.name, format) },
+  ) => {
     const controller = new AbortController();
     exportController.current = controller;
     setStatus('exporting');
     setError(null);
     try {
-      const blob = await exportFile(format, svg, options, controller.signal);
-      download(blob, exportFileName(file?.name, format));
+      const blob = await exportFile(format, source.svg, source.options, controller.signal);
+      download(blob, source.name);
     } catch (caught) {
       if (!controller.signal.aborted) setError(errorMessage(caught, 'Export failed'));
     } finally {
       exportController.current = null;
       setStatus('idle');
     }
+  };
+
+  /** A small print of every mixed color, to check the predictions with real filaments. */
+  const runTestCard = () => {
+    const card = testCard(editor, print);
+    void run('3mf', {
+      svg: serializeSvg(card.doc),
+      options: printOptions(card.doc, card.settings),
+      name: exportFileName(file?.name, 'test-card.3mf'),
+    });
   };
 
   const showPlan = async () => {
@@ -399,7 +413,13 @@ export function PrintStep() {
         </fieldset>
 
         {mixed && !errors.filaments && (
-          <MixTable groups={printedGroups(editor, print)} plan={mix} filaments={print.filaments} />
+          <MixTable
+            groups={printedGroups(editor, print)}
+            plan={mix}
+            filaments={print.filaments}
+            busy={invalid || status !== 'idle'}
+            onTestCard={runTestCard}
+          />
         )}
 
         <div className="field print-raise">

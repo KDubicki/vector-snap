@@ -13,6 +13,7 @@ import {
   setShapeRaise,
   sharedRaise,
   suggestFilaments,
+  testCard,
   typicalTd,
   validatePrint,
   type PrintSettings,
@@ -218,6 +219,44 @@ describe('mixed colors', () => {
       validatePrint(doc, mixed({ filaments: [{ color: '#ffffff', td: 0 }] })).filaments,
     ).toMatch('TD above 0');
     expect(validatePrint(doc, mixed())).toEqual({});
+  });
+
+  it('builds a test card with one patch per printed color and the same recipes', () => {
+    const current = mixed({ magnetMm: 10, loopHoleMm: 3, shapeRaise: { 'p-1-0': 2 } });
+    const card = testCard(doc, current);
+
+    expect(card.doc).toMatchObject({ width: 22, height: 10 });
+    expect(card.doc.groups.map((group) => [group.paletteIndex, group.fill])).toEqual([
+      [0, '#ffffff'],
+      [1, '#ff0000'],
+    ]);
+    expect(card.doc.groups[1].shapes[0].d).toBe('M12,0 H22 V10 H12 Z');
+    expect(card.settings).toMatchObject({
+      widthMm: 22,
+      baseShape: 'rectangle',
+      magnetMm: 0,
+      loopHoleMm: 0,
+      shapeRaise: {},
+    });
+    expect(validatePrint(card.doc, card.settings)).toEqual({});
+    const stacks = (d: typeof doc, s: PrintSettings) => printOptions(d, s).color_stacks;
+    expect(stacks(card.doc, card.settings)).toBe(stacks(doc, current));
+  });
+
+  it('wraps test card patches into rows', () => {
+    const many: EditorDoc = {
+      ...doc,
+      groups: Array.from({ length: 6 }, (_, i) => ({
+        paletteIndex: i,
+        fill: `#0000${(i * 40).toString(16).padStart(2, '0')}`,
+        shapes: [{ id: `s${i}`, d: 'M0,0 H1 V1 Z' }],
+      })),
+    };
+
+    const card = testCard(many, mixed());
+
+    expect(card.doc).toMatchObject({ width: 46, height: 22 });
+    expect(card.doc.groups[5].shapes[0].d).toBe('M12,12 H22 V22 H12 Z');
   });
 
   it('keeps the style and filaments when a project is chosen', () => {

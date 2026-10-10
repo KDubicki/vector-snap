@@ -337,3 +337,55 @@ export function nextSelection(selected: string[], id: string | null, additive: b
   if (!additive) return selected.length === 1 && selected[0] === id ? [] : [id];
   return selected.includes(id) ? selected.filter((item) => item !== id) : [...selected, id];
 }
+
+/** Test card: square patches (mm), in rows of this many. */
+export const CARD_PATCH_MM = 10;
+export const CARD_GAP_MM = 2;
+export const CARD_COLUMNS = 4;
+
+/**
+ * A small print with one square patch per mixed color, printed with the same recipes and
+ * heights — to compare the real colors of the loaded filaments with the predictions
+ * before printing the whole design. Patches follow the order of the colors in the panel,
+ * left to right and top to bottom.
+ */
+export function testCard(
+  doc: EditorDoc,
+  settings: PrintSettings,
+): { doc: EditorDoc; settings: PrintSettings } {
+  const groups = printedGroups(doc, settings);
+  const columns = Math.min(CARD_COLUMNS, Math.max(groups.length, 1));
+  const step = CARD_PATCH_MM + CARD_GAP_MM;
+  const rows = Math.ceil(groups.length / columns);
+  const card: EditorDoc = {
+    width: columns * step - CARD_GAP_MM,
+    height: Math.max(rows * step - CARD_GAP_MM, CARD_PATCH_MM),
+    groups: groups.map((group, index) => {
+      const x = (index % columns) * step;
+      const y = Math.floor(index / columns) * step;
+      return {
+        paletteIndex: group.paletteIndex,
+        fill: group.fill,
+        shapes: [
+          {
+            id: `card-${index}`,
+            d: `M${x},${y} H${x + CARD_PATCH_MM} V${y + CARD_PATCH_MM} H${x} Z`,
+          },
+        ],
+      };
+    }),
+  };
+  return {
+    doc: card,
+    settings: {
+      ...settings,
+      // One document unit is one millimetre.
+      widthMm: card.width,
+      baseShape: 'rectangle',
+      marginMm: CARD_GAP_MM,
+      loopHoleMm: 0,
+      magnetMm: 0,
+      shapeRaise: {},
+    },
+  };
+}

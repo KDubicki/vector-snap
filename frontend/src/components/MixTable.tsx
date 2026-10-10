@@ -1,10 +1,14 @@
 import type { ColorGroup } from '../editor/model';
 import { POOR_MATCH_DELTA_E, type Filament, type MixMatch } from '../lib/mixing';
+import { CARD_PATCH_MM } from '../lib/printPlan';
 
 interface MixTableProps {
   groups: ColorGroup[];
   plan: Map<number, MixMatch>;
   filaments: Filament[];
+  /** Disables the test card download (invalid settings or an export running). */
+  busy: boolean;
+  onTestCard: () => void;
 }
 
 function Chip({ filament, index, layers }: { filament: Filament; index: number; layers?: number }) {
@@ -17,7 +21,7 @@ function Chip({ filament, index, layers }: { filament: Filament; index: number; 
 }
 
 /** Per design color: the predicted print color and the filaments it is layered from. */
-export function MixTable({ groups, plan, filaments }: MixTableProps) {
+export function MixTable({ groups, plan, filaments, busy, onTestCard }: MixTableProps) {
   const poor = [...plan.values()].filter((match) => match.deltaE > POOR_MATCH_DELTA_E).length;
 
   return (
@@ -62,7 +66,14 @@ export function MixTable({ groups, plan, filaments }: MixTableProps) {
       </ul>
       <span className="hint">
         Thin layers (filament × layers, from the top) printed on a base filament. Predictions assume
-        the TDs above; print a small test to check them.
+        the TDs above; print the test card to check them with your filaments.
+      </span>
+      <button type="button" className="secondary" disabled={busy} onClick={onTestCard}>
+        Download test card (3MF)
+      </button>
+      <span className="hint">
+        One {CARD_PATCH_MM} mm patch per color, in this order (left to right, top to bottom),
+        printed with the same recipes — a few minutes and a few grams of filament.
       </span>
       {poor > 0 && (
         <span className="field-error">

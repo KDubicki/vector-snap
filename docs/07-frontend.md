@@ -162,6 +162,11 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
   `typicalTd`), which the user replaces with the real ones. The design view can show the
   predicted colors. Exports send `filaments` and `color_stacks` (`mixPlan`), so the 3MF
   has parts only in the filament colors. Projects keep the style and the filaments.
+- **Test card** (`testCard`): *Download test card (3MF)* exports one 10 mm square patch
+  per mixed color (rows of 4, in the order of the table, 1 document unit = 1 mm) on a
+  rectangular base, with the same recipes and heights but without loop, magnet or raised
+  elements — a quick print to compare the real colors with the predictions and adjust
+  the TDs before printing the design.
 - **Heights in printer layers**: printer layer height (0.08–0.28 mm), base plate and color
   height are whole layers (shown in mm too), so colors change exactly at a layer.
 - **Height per color**: include/leave out a color and give it extra layers, e.g. a logo
