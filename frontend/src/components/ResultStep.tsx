@@ -9,6 +9,7 @@ import { useConfirm } from './useConfirm';
 import { useDiscardGuard } from './useDiscardGuard';
 import { EditorPalettePanel } from './EditorPalettePanel';
 import { ExportPanel } from './ExportPanel';
+import { FragmentsPanel } from './FragmentsPanel';
 import { ShapeInspector } from './ShapeInspector';
 import { SmallShapesSelector } from './SmallShapesSelector';
 import { SvgEditor } from './SvgEditor';
@@ -71,6 +72,7 @@ export function ResultStep() {
         <ShapeInspector />
         <SmallShapesSelector />
         <EditorPalettePanel />
+        <FragmentsPanel />
         <div className="actions">
           <button type="button" className="secondary" onClick={() => goTo('palette')}>
             Back to colors

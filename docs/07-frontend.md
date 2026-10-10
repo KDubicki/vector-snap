@@ -110,6 +110,9 @@ tracing and export options). Narrower windows stack everything and scroll normal
 - ✅ Lasso tool: cut a freehand region out of a shape.
 - ✅ Select shapes smaller than an area (specks) to delete, recolor or move them at once.
 - ✅ Merge shapes and move them between color groups.
+- ✅ Move the selection (drag, arrow keys); scale, flip and rotate it.
+- ✅ **Fragments**: save the selection (with its colors) in a library kept in the browser,
+  rename and delete saved fragments ([08-svg-editor.md](08-svg-editor.md#fragments-)).
 - ✅ Export panel (STL, 3MF, lithophane, DXF, PDF, PNG) with per-color heights and a 3D
   preview with print statistics ([13-export-formats.md](13-export-formats.md)).
 - ✅ Delete shapes, undo/redo every edit (toolbar and keyboard).
@@ -181,19 +184,21 @@ App                         header with step indicator, error banner
 └── ResultStep              (step: result) — stats, download
     ├── SvgEditor           Paper.js canvas + view toolbar (docs/08)
     ├── ShapeInspector      selected shapes, selection color
-    └── EditorPalettePanel  color groups: recolor, select group
+    ├── EditorPalettePanel  color groups: recolor, select group
+    └── FragmentsPanel      save the selection as a fragment, saved fragments
 └── PrintStep               (step: print) — projects, heights, 3D preview, STL/3MF
 ```
 
 ## State
 
 A single Zustand store (`useAppStore`) holds UI state, server results and the async
-actions. It is composed of two slices: the conversion workflow (`src/state/store.ts`) and
+actions. It is composed of three slices: the conversion workflow (`src/state/store.ts`),
 the SVG editor (`src/state/editorSlice.ts` — document, selection, undo/redo history and
-the editing actions, see [08-svg-editor.md](08-svg-editor.md)):
+the editing actions, see [08-svg-editor.md](08-svg-editor.md)) and the fragment library
+(`src/state/fragmentsSlice.ts`):
 
 ```ts
-type AppState = WorkflowSlice & EditorSlice;
+type AppState = WorkflowSlice & EditorSlice & FragmentsSlice;
 
 interface WorkflowSlice {
   step: 'upload' | 'palette' | 'result';
@@ -223,7 +228,13 @@ interface EditorSlice {
   notice: string | null;                     // why an edit did nothing
   // actions: select, selectMany, selectAll, recolorSelection, resetSelectionColor,
   // recolorGroup, splitWithLine, cutWithLasso, deleteSelection, mergeSelection,
-  // moveSelectionToGroup, undo, redo
+  // moveSelectionToGroup, moveSelection, transformSelection, undo, redo
+}
+
+interface FragmentsSlice {
+  fragments: Fragment[];                     // newest first, kept by reset()
+  fragmentsStored: boolean;                  // false: storage unavailable or full
+  // actions: saveFragment, renameFragment, deleteFragment
 }
 ```
 

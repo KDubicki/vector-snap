@@ -418,6 +418,7 @@ select {
 }
 
 input[type='number'],
+input[type='text'],
 select {
   padding: 6px 8px;
   border: 1px solid var(--color-border);
@@ -1451,4 +1452,98 @@ select {
   min-width: 36px;
   text-align: center;
   font-variant-numeric: tabular-nums;
+}
+
+.fragments__save {
+  display: flex;
+  gap: 8px;
+}
+
+.fragments__save input {
+  flex: 1;
+  min-width: 0;
+}
+
+.fragments__warning {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--color-error-bg);
+  color: var(--color-error-text);
+  font-size: 0.85rem;
+}
+
+.fragments__list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 360px;
+  overflow: auto;
+}
+
+.fragment {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 6px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+.fragment__thumbnail {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  border-radius: 6px;
+  background-size: 8px 8px;
+  background-position:
+    0 0,
+    0 4px,
+    4px -4px,
+    -4px 0;
+}
+
+.fragment__body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.fragment__name {
+  width: 100%;
+  padding: 2px 6px;
+  font-weight: 600;
+}
+
+.fragment__name:not(:focus) {
+  border-color: transparent;
+  background: transparent;
+}
+
+.fragment__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.fragment__colors {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.fragment__colors .swatch {
+  width: 12px;
+  height: 12px;
+}
+
+.fragment__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
 }

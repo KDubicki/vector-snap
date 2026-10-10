@@ -17,6 +17,7 @@ import {
   openDocument,
   type EditorSlice,
 } from './editorSlice';
+import { createFragmentsSlice, type FragmentsSlice } from './fragmentsSlice';
 
 export type Step = 'upload' | 'palette' | 'result' | 'print';
 export type Status = 'idle' | 'quantizing' | 'vectorizing';
@@ -104,7 +105,7 @@ export interface WorkflowSlice {
   reset: () => void;
 }
 
-export type AppState = WorkflowSlice & EditorSlice;
+export type AppState = WorkflowSlice & EditorSlice & FragmentsSlice;
 
 const initialState = {
   step: 'upload' as Step,
@@ -150,6 +151,7 @@ function nextSignal(): AbortSignal {
 
 export const useAppStore = create<AppState>()((set, get, api) => ({
   ...createEditorSlice(set, get, api),
+  ...createFragmentsSlice(set, get, api),
   ...initialState,
 
   loadLimits: async () => {

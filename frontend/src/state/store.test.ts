@@ -492,6 +492,32 @@ describe('app store', () => {
     expect(store().editor!.groups[0].shapes[1].d).toBe('M10,0 L20,0 L20,10 Z');
   });
 
+  it('saves, renames and deletes fragments, kept after starting over', async () => {
+    useAppStore.setState({ quantized, fragments: [] });
+    vi.stubGlobal('fetch', respond(vectorized));
+    await store().runVectorize();
+
+    expect(store().saveFragment()).toBeNull(); // nothing selected
+    store().select('p-0-1');
+    const saved = store().saveFragment('  ');
+    expect(saved).toMatchObject({ name: 'Fragment 1', width: 10, height: 10 });
+    expect(saved!.shapes).toEqual([{ d: 'M0,0h10v10z', fill: '#ff0000' }]);
+    expect(store().fragmentsStored).toBe(true);
+
+    store().saveFragment('Corner');
+    expect(store().fragments.map((f) => f.name)).toEqual(['Corner', 'Fragment 1']);
+    store().renameFragment(saved!.id, 'Triangle');
+    store().renameFragment(saved!.id, ' ');
+    expect(store().fragments[1].name).toBe('Triangle');
+    expect(JSON.parse(localStorage.getItem('vectorsnap.fragments')!)).toHaveLength(2);
+
+    store().reset();
+    store().deleteFragment(store().fragments[0].id);
+    expect(store().fragments.map((f) => f.name)).toEqual(['Triangle']);
+    store().deleteFragment(saved!.id);
+    expect(localStorage.getItem('vectorsnap.fragments')).toBeNull();
+  });
+
   it('merges the selection into the largest shape', async () => {
     const svg =
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 10">' +

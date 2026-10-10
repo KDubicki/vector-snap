@@ -162,6 +162,37 @@ every transform is one undoable edit.
 - Moving does not cut or fill the shapes underneath: a moved shape leaves the area it
   covered showing whatever lies below (often a hole in the background shape).
 
+## Fragments ✅
+
+A **fragment** is a part of a design saved to be placed on other images later — a logo,
+a frame, a star. `src/lib/fragments.ts`, `src/state/fragmentsSlice.ts`, panel
+`FragmentsPanel`.
+
+- **Save** (`saveFragment(name?)`) — the selected shapes are copied with their effective
+  colors (own color or group color) and stacking order, and moved so the fragment's
+  bounding box starts at (0, 0) (`extractFragment()`). Size is kept in document px. An
+  empty name becomes "Fragment N".
+- **Library** — newest first; each entry shows a thumbnail (the fragment serialized with
+  `serializeSvg()`, one group per color, as an `<img>` data URL), shape and color counts.
+  Names are edited in place (Enter or leaving the field saves; an empty name keeps the
+  old one), Delete asks for confirmation.
+- **Storage** — `localStorage` key `vectorsnap.fragments` (JSON array). Reading skips
+  invalid entries (`validFragments()`), so damaged data never breaks the page. When the
+  library cannot be stored (private mode, blocked site data, quota exceeded), it still
+  works for the open page and the panel says that it will be lost on closing.
+- The library belongs to the browser, not to the image: starting with a new image keeps
+  it.
+
+```ts
+interface Fragment {
+  id: string;
+  name: string;
+  width: number;  height: number;          // document px
+  shapes: { d: string; fill: string }[];  // bottom to top, top-left at (0, 0)
+  createdAt: string;                      // ISO time
+}
+```
+
 ## Selecting small shapes ✅
 
 Tracing leaves specks and slivers that are tedious to click one by one. "Select shapes
