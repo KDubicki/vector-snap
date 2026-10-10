@@ -11,6 +11,8 @@ from app.schemas.export import (
     FilamentConflictModel,
     FilamentPlanResponse,
     FilamentStepModel,
+    parse_color_stacks,
+    parse_filaments,
     parse_layer_heights,
     parse_shape_heights,
 )
@@ -82,6 +84,17 @@ def stl_options(
     magnet_depth_mm: Annotated[
         float, Form(gt=0, le=20, description="Magnet pocket depth (below base_mm - 0.4)")
     ] = 2.0,
+    filaments: Annotated[
+        str,
+        Form(description='Mixed colors: loaded filaments, e.g. ["#ffffff", "#ff0000"]'),
+    ] = "[]",
+    color_stacks: Annotated[
+        str,
+        Form(
+            description="Mixed colors: per color its filaments from the top down, e.g. "
+            '{"0": {"base": 0, "top": [[1, 0.16]]}}'
+        ),
+    ] = "{}",
 ) -> StlOptions:
     """3D model options shared by STL and 3MF."""
     return StlOptions(
@@ -100,6 +113,8 @@ def stl_options(
         loop_hole_mm=loop_hole_mm,
         magnet_mm=magnet_mm,
         magnet_depth_mm=magnet_depth_mm,
+        filaments=parse_filaments(filaments),
+        color_stacks=parse_color_stacks(color_stacks),
     )
 
 

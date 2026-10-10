@@ -173,6 +173,46 @@ def test_3mf_gives_raised_shapes_their_own_part(client: TestClient) -> None:
     assert 'name="color-1"' not in model  # its only shape is raised
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("filaments", '["red"]'),
+        ("filaments", '{"0": "#ffffff"}'),
+        ("filaments", "nope"),
+        ("color_stacks", '{"0": {"top": []}}'),
+        ("color_stacks", '{"0": {"base": -1}}'),
+        ("color_stacks", '{"0": {"base": 0, "top": [[1, 0]]}}'),
+        ("color_stacks", '{"0": {"base": 0, "top": [[true, 0.1]]}}'),
+        ("color_stacks", '{"x": {"base": 0}}'),
+        ("color_stacks", "[]"),
+    ],
+)
+def test_stl_rejects_invalid_mixed_colors(client: TestClient, field: str, value: str) -> None:
+    response = _post(client, "stl", {field: value})
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "INVALID_PARAMETERS"
+
+
+def test_3mf_with_mixed_colors_has_one_part_per_filament_and_height(client: TestClient) -> None:
+    stacks = '{"0": {"base": 0}, "1": {"base": 0, "top": [[1, 0.4]]}}'
+    response = _post(
+        client,
+        "3mf",
+        {"filaments": '["#FFFFFF", "#ff0000"]', "color_stacks": stacks, "layered": "false"},
+    )
+
+    assert response.status_code == 200
+    with zipfile.ZipFile(io.BytesIO(response.content)) as package:
+        model = package.read("3D/3dmodel.model").decode()
+    assert 'name="base"' in model
+    assert 'name="filament-1-0-1mm"' in model
+    assert 'name="filament-1-0-0.6mm"' in model
+    assert 'name="filament-2-0.6-1mm"' in model
+    assert 'displaycolor="#FF0000FF"' in model
+    assert 'name="color-' not in model
+
+
 def test_stl_with_every_color_left_out(client: TestClient) -> None:
     response = _post(client, "stl", {"layer_heights": '{"0": 0, "1": 0}'})
 

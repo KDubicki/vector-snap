@@ -4,6 +4,7 @@ import pytest
 from app.core.errors import InvalidParameters
 from app.services.export_stl import (
     Body,
+    ColorStack,
     StackOrder,
     StlOptions,
     build_bodies,
@@ -11,6 +12,7 @@ from app.services.export_stl import (
     relative_luminance,
     snap_to_layers,
     stack_layers,
+    stack_slabs,
 )
 from app.services.svg_geometry import VectorDocument, parse_svg
 from tests.vectors import contract_svg, is_closed, read_binary_stl, signed_volume
@@ -461,3 +463,55 @@ def test_the_document_order_decides_what_is_covered_whatever_the_stack_order() -
 
     volumes = {body.name: signed_volume(body.triangles) for body in bodies}
     assert volumes == pytest.approx({"color-1": 100 * 1, "color-0": (400 - 100) * 2})
+
+
+def test_stack_slabs_put_thin_layers_on_top_of_the_base_filament() -> None:
+    stack = ColorStack(base=0, top=((2, 0.16), (1, 0.08)))
+
+    assert stack_slabs(stack, 0.8, 0.08) == [(2, 0.64, 0.8), (1, 0.56, 0.64), (0, 0.0, 0.56)]
+    # thicknesses snap to printer layers; a low color keeps the topmost layers
+    assert stack_slabs(ColorStack(0, ((1, 0.1),)), 0.4, 0.08) == [(1, 0.32, 0.4), (0, 0.0, 0.32)]
+    assert stack_slabs(stack, 0.1, 0) == [(2, 0.0, 0.1)]
+    assert stack_slabs(ColorStack(3), 1, 0.2) == [(3, 0.0, 1)]
+
+
+MIXED = StlOptions(
+    width_mm=40,
+    base_mm=1,
+    layer_mm=1,
+    layered=False,
+    filaments=("#ffffff", "#ff0000"),
+    color_stacks={0: ColorStack(base=0), 1: ColorStack(base=0, top=((1, 0.4),))},
+)
+
+
+def test_mixed_colors_give_one_body_per_filament_and_height_range() -> None:
+    document = parse_svg(contract_svg(40, 20, [("#000000", [FRAME]), ("#00ff00", [DOT])]))
+
+    bodies = build_bodies(document, MIXED)
+
+    assert [(body.name, body.color) for body in bodies] == [
+        ("base", "#ffffff"),
+        ("filament-1-0-0.6mm", "#ffffff"),
+        ("filament-1-0-1mm", "#ffffff"),
+        ("filament-2-0.6-1mm", "#ff0000"),
+    ]
+    volumes = [signed_volume(body.triangles) for body in bodies]
+    # base under both (400 x 1), DOT: 0.6 white + 0.4 red, FRAME: 1.0 white
+    assert volumes == pytest.approx([400, 100 * 0.6, 300 * 1, 100 * 0.4])
+    assert all(is_closed(body.triangles) for body in bodies)
+
+
+def test_mixed_colors_need_a_stack_of_loaded_filaments_for_every_color() -> None:
+    document = parse_svg(contract_svg(40, 20, [("#000000", [FRAME]), ("#00ff00", [DOT])]))
+
+    with pytest.raises(InvalidParameters, match="no filaments for color 1"):
+        build_bodies(document, StlOptions(filaments=("#ffffff",), color_stacks={0: ColorStack(0)}))
+    with pytest.raises(InvalidParameters, match="not loaded"):
+        build_bodies(
+            document,
+            StlOptions(
+                filaments=("#ffffff",),
+                color_stacks={0: ColorStack(0), 1: ColorStack(0, ((1, 0.2),))},
+            ),
+        )

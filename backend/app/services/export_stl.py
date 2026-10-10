@@ -66,6 +66,19 @@ _TRIANGLE_DTYPE = np.dtype(
 
 
 @dataclass(frozen=True)
+class ColorStack:
+    """Filaments of one color from its top surface down (mixed colors).
+
+    `top` lists (filament index, thickness in mm) from the top surface down: thin layers
+    of translucent filament over `base`, which fills the rest of the color's height.
+    Seen from above they blend into colors the filaments do not have on their own.
+    """
+
+    base: int
+    top: tuple[tuple[int, float], ...] = ()
+
+
+@dataclass(frozen=True)
 class StlOptions:
     width_mm: float = 100.0
     base_mm: float = 1.0
@@ -92,6 +105,11 @@ class StlOptions:
     # Round pocket in the underside of the base plate for a magnet (diameter, depth; mm).
     magnet_mm: float = 0.0
     magnet_depth_mm: float = 2.0
+    # Mixed colors: the loaded filaments ("#rrggbb", the first one prints the base plate)
+    # and per palette index the filaments of that color (`ColorStack`). Bodies are then
+    # one per filament and height range instead of one per color.
+    filaments: tuple[str, ...] = ()
+    color_stacks: Mapping[int, ColorStack] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -403,6 +421,8 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
     included = _parts(document, options)
     if not included:
         raise InvalidParameters("Nothing to export: every color has height 0.")
+    if options.filaments:
+        _check_stacks(included, options)
 
     base = base_height(options)
     if options.loop_hole_mm > 0 and base <= 0:
@@ -430,21 +450,92 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
             for polygon in _without_pinches(silhouette)
         ]
         if parts:
-            bodies.append(Body("base", included[0].layer.fill, np.concatenate(parts)))
-    for part, geometry in zip(included, _visible(document, included), strict=True):
-        top = base + part.height
-        shapes = _without_pinches(printable(geometry, options.min_feature_mm))
-        prisms = [_prism(polygon, base, top) for polygon in shapes]
-        if prisms:
-            name = f"color-{part.layer.palette_index}"
-            if part.own_height:
-                name += f"-{part.height:g}mm"
-            bodies.append(Body(name, part.layer.fill, np.concatenate(prisms)))
+            base_color = options.filaments[0] if options.filaments else included[0].layer.fill
+            bodies.append(Body("base", base_color, np.concatenate(parts)))
+    visible = _visible(document, included)
+    make_bodies = _filament_bodies if options.filaments else _color_bodies
+    bodies.extend(make_bodies(included, visible, base, options))
     if not bodies:
         raise InvalidParameters(
             f"Nothing to export: every shape is thinner than {options.min_feature_mm:g} mm.",
             {"field": "min_feature_mm"},
         )
+    return bodies
+
+
+def _color_bodies(
+    parts: list[_Part], visible: list[BaseGeometry], base: float, options: StlOptions
+) -> list[Body]:
+    """One body per color and height."""
+    bodies: list[Body] = []
+    for part, geometry in zip(parts, visible, strict=True):
+        shapes = _without_pinches(printable(geometry, options.min_feature_mm))
+        prisms = [_prism(polygon, base, base + part.height) for polygon in shapes]
+        if prisms:
+            name = f"color-{part.layer.palette_index}"
+            if part.own_height:
+                name += f"-{part.height:g}mm"
+            bodies.append(Body(name, part.layer.fill, np.concatenate(prisms)))
+    return bodies
+
+
+def _check_stacks(parts: list[_Part], options: StlOptions) -> None:
+    """Every included color needs a stack of loaded filaments."""
+    for part in parts:
+        index = part.layer.palette_index
+        stack = options.color_stacks.get(index)
+        if stack is None:
+            raise InvalidParameters(
+                f"`color_stacks` has no filaments for color {index}.",
+                {"field": "color_stacks", "key": str(index)},
+            )
+        if any(
+            not 0 <= f < len(options.filaments) for f in (stack.base, *(f for f, _ in stack.top))
+        ):
+            raise InvalidParameters(
+                f"`color_stacks` of color {index} uses a filament that is not loaded.",
+                {"field": "color_stacks", "key": str(index)},
+            )
+
+
+def stack_slabs(
+    stack: ColorStack, height: float, print_layer_mm: float
+) -> list[tuple[int, float, float]]:
+    """(filament, bottom, top) ranges above the base of a color `height` mm tall.
+
+    The top layers come first (snapped to printer layers); a color too low for all of them
+    keeps the topmost ones, the base filament fills what is left below.
+    """
+    slabs: list[tuple[int, float, float]] = []
+    top = height
+    for filament, thickness in stack.top:
+        if top <= 0:
+            break
+        bottom = max(0.0, round(top - snap_to_layers(thickness, print_layer_mm), 6))
+        slabs.append((filament, bottom, top))
+        top = bottom
+    if top > 0:
+        slabs.append((stack.base, 0.0, top))
+    return slabs
+
+
+def _filament_bodies(
+    parts: list[_Part], visible: list[BaseGeometry], base: float, options: StlOptions
+) -> list[Body]:
+    """One body per filament and height range, from every color that has it there."""
+    slabs: dict[tuple[int, float, float], list[BaseGeometry]] = {}
+    for part, geometry in zip(parts, visible, strict=True):
+        stack = options.color_stacks[part.layer.palette_index]
+        for slab in stack_slabs(stack, part.height, options.print_layer_mm):
+            slabs.setdefault(slab, []).append(geometry)
+    bodies: list[Body] = []
+    for filament, bottom, top in sorted(slabs, key=lambda slab: (slab[1], slab[2], slab[0])):
+        geometry = unary_union(slabs[filament, bottom, top])
+        shapes = _without_pinches(printable(geometry, options.min_feature_mm))
+        prisms = [_prism(polygon, base + bottom, base + top) for polygon in shapes]
+        if prisms:
+            name = f"filament-{filament + 1}-{bottom:g}-{top:g}mm"
+            bodies.append(Body(name, options.filaments[filament], np.concatenate(prisms)))
     return bodies
 
 

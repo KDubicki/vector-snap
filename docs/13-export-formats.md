@@ -52,6 +52,8 @@ curl -F svg=@logo.svg -F width_mm=120 -F base_mm=1.5 -F layer_mm=0.8 \
 | `layered` | `true` | `true`: layer *n* (bottom to top) is *n × layer_mm* high (relief, easy color changes by height); `false`: all layers share one height |
 | `layer_heights` | `{}` | JSON object `{"<paletteIndex>": mm}` overriding the height above the base per color (0 < h ≤ 100); **`0` leaves a color out** (e.g. print a logo without its background). Colors not listed follow `layer_mm` / `layered` |
 | `shape_heights` | `{}` | JSON object `{"<shape id>": mm}` (ids from the SVG, e.g. `p-2-0`) giving **single elements** their own height above the base, overriding their color — raised details on a flat multi-color print. `0` leaves the shape out, unknown ids are ignored, heights snap to `print_layer_mm` |
+| `filaments` | `[]` | **Mixed colors**: JSON list of the loaded filaments `["#rrggbb", ...]` (up to 16; e.g. the 4 AMS slots). The first one prints the base plate. With filaments, bodies are made per filament (see [Mixed colors](#mixed-colors-filament-stacks)) |
+| `color_stacks` | `{}` | With `filaments`: per palette index `{"base": f, "top": [[f, mm], ...]}` — filament indices; `top` lists thin layers from the top surface down (up to 8), `base` fills the rest of the color's height. Every included color needs one |
 | `stack_order` | `document` | Bottom-to-top order of the colors for automatic heights: `document` (as in the SVG — largest coverage at the bottom), `light_to_dark` or `dark_to_light` |
 | `loop_hole_mm` | `0` | Hanging loop on top of the base plate with a hole of this diameter (0–20 mm) — keyrings, ornaments, hooks; needs `base_mm > 0`. `0` = no loop |
 | `magnet_mm` | `0` | Round pocket in the underside of the base plate for a magnet (0–50 mm diameter; add ≈0.2 mm clearance, e.g. `10.2` for a 10 mm magnet). `0` = none |
@@ -81,6 +83,20 @@ Model construction:
   closed prism. Shapes at their color's height merge with it; a shape keeps its own
   height even when its color is left out (`layer_heights` 0), and the base plate covers
   only included shapes. The filament plan sees raised parts like any other body.
+- <a id="mixed-colors-filament-stacks"></a>**Mixed colors** (`filaments`, `color_stacks`):
+  with only a few filaments (e.g. 4 AMS slots), thin layers of translucent filament
+  printed over another filament blend into new colors when seen from above ("filament
+  painting", as in HueForge: a thin red layer over white looks pink). Each color is
+  printed as its stack: `top` layers from the top surface down (thicknesses snapped to
+  `print_layer_mm`), the `base` filament below them up to the color's base — a color too
+  low for all top layers keeps the topmost ones. Bodies are then one per **filament and
+  height range** — `filament-<n>-<bottom>-<top>mm` (heights above the base plate, `n`
+  1-based) — the union of every color that has that filament there, colored with the
+  filament. So a 3MF has parts in the loaded filament colors only and a slicer maps
+  them to the slots by color. The base plate is printed with the first filament.
+  Choosing the stacks (which filaments and how thick) is up to the client; the 3D print
+  step predicts the blend from each filament's transmission distance (TD)
+  ([07-frontend.md](07-frontend.md)).
 - Rings that touch at a single point — shapes meeting at a corner, or a hole touching
   its outline or another hole (valid polygons, common in traced photos) — would give a
   vertical edge shared by four triangles, which slicers and lib3mf report as
@@ -152,7 +168,7 @@ curl -F svg=@logo.svg -F base_mm=1 -F layer_heights='{"0": 0}' \
 
 Same options and the same bodies as STL (`width_mm`, `base_mm`, `base_shape`,
 `base_margin_mm`, `stack_order`, `loop_hole_mm`, `magnet_mm`, `magnet_depth_mm`, `layer_mm`, `layered`, `layer_heights`, `shape_heights`, `mirror`, `min_feature_mm`,
-`print_layer_mm`), but packaged so a slicer keeps the colors apart — STL has no
+`print_layer_mm`, `filaments`, `color_stacks`), but packaged so a slicer keeps the colors apart — STL has no
 notion of parts or colors.
 
 - [3MF core specification](https://3mf.io/specification/) package: `[Content_Types].xml`,
