@@ -365,6 +365,9 @@ between the lithophane and the colored formats closes the other preview):
   preview is opened. The canvas size comes from an observed wrapper element (see the
   HiDPI note in [08-svg-editor.md](08-svg-editor.md#testing)); renderer, controls,
   geometries and materials are disposed on close.
+- The WebGL-free part — parsing, statistics, laying the model on the plate, disposing —
+  lives in `src/lib/modelScene.ts` and is tested on real STL / 3MF data generated in the
+  tests (`src/test/models.ts`); `ModelPreview` itself is tested with a stand-in renderer.
 
 The result step has an **Export to other formats** panel: choose STL, 3MF, DXF, PDF or PNG, adjust
 its options (number, checkbox and choice options, validated in the browser with the same

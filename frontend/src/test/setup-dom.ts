@@ -16,15 +16,23 @@ if (typeof HTMLDialogElement !== 'undefined' && !HTMLDialogElement.prototype.sho
   };
 }
 
-// jsdom 25 has no Blob.text(), which every supported browser has.
+// jsdom 25 has no Blob.text() / arrayBuffer(), which every supported browser has.
+function readBlob<T>(read: (reader: FileReader) => void): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as T);
+    reader.onerror = () => reject(reader.error);
+    read(reader);
+  });
+}
 if (typeof Blob !== 'undefined' && !Blob.prototype.text) {
   Blob.prototype.text = function text(this: Blob) {
-    return new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result));
-      reader.onerror = () => reject(reader.error);
-      reader.readAsText(this);
-    });
+    return readBlob<string>((reader) => reader.readAsText(this));
+  };
+}
+if (typeof Blob !== 'undefined' && !Blob.prototype.arrayBuffer) {
+  Blob.prototype.arrayBuffer = function arrayBuffer(this: Blob) {
+    return readBlob<ArrayBuffer>((reader) => reader.readAsArrayBuffer(this));
   };
 }
 

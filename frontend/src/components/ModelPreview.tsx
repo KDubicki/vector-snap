@@ -1,69 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { ThreeMFLoader } from 'three/addons/loaders/3MFLoader.js';
-import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { errorMessage } from '../api/client';
 import { formatElapsed, useElapsedSeconds } from '../lib/elapsed';
+import { FILAMENTS, formatMillimetres, solidWeight, type Filament } from '../lib/meshStats';
 import {
-  FILAMENTS,
-  formatMillimetres,
-  meshVolume,
-  solidWeight,
-  type Filament,
-} from '../lib/meshStats';
+  disposeModel,
+  measure,
+  parseModel,
+  placeOnPlate,
+  type ModelKind,
+  type ModelStats,
+} from '../lib/modelScene';
 
 /** A model to show: 3MF keeps the color parts, STL (lithophane) is one plain part. */
 export interface PreviewRequest {
-  kind: '3mf' | 'stl';
+  kind: ModelKind;
   load: (signal: AbortSignal) => Promise<Blob>;
-}
-
-/** Light, slightly warm plastic: the usual white filament for lithophanes. */
-const STL_COLOR = 0xf1ede4;
-
-function parseModel(kind: PreviewRequest['kind'], buffer: ArrayBuffer): THREE.Group {
-  if (kind === '3mf') return new ThreeMFLoader().parse(buffer);
-  const material = new THREE.MeshStandardMaterial({ color: STL_COLOR, roughness: 0.8 });
-  const group = new THREE.Group();
-  group.add(new THREE.Mesh(new STLLoader().parse(buffer), material));
-  return group;
-}
-
-interface ModelStats {
-  size: [number, number, number];
-  volume: number;
-  parts: number;
-  triangles: number;
-}
-
-/** Statistics in model coordinates (millimetres, z up) before the view rotation. */
-function measure(model: THREE.Object3D): ModelStats {
-  model.updateMatrixWorld(true);
-  const size = new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3());
-  let volume = 0;
-  let parts = 0;
-  let triangles = 0;
-  model.traverse((object) => {
-    if (!(object instanceof THREE.Mesh)) return;
-    const geometry = (object.geometry as THREE.BufferGeometry).clone();
-    geometry.applyMatrix4(object.matrixWorld);
-    const index = geometry.getIndex();
-    volume += meshVolume(geometry.getAttribute('position').array, index ? index.array : null);
-    triangles += (index ? index.count : geometry.getAttribute('position').count) / 3;
-    parts += 1;
-    geometry.dispose();
-  });
-  return { size: [size.x, size.y, size.z], volume, parts, triangles };
-}
-
-function dispose(object: THREE.Object3D): void {
-  object.traverse((child) => {
-    if (!(child instanceof THREE.Mesh)) return;
-    child.geometry.dispose();
-    const materials = Array.isArray(child.material) ? child.material : [child.material];
-    materials.forEach((material) => material.dispose());
-  });
 }
 
 /**
@@ -128,14 +81,9 @@ export default function ModelPreview({
         setStats(measure(model));
 
         // 3MF and STL are z-up, three.js is y-up: lay the model on the build plate.
-        model.rotation.x = -Math.PI / 2;
-        model.updateMatrixWorld(true);
-        const box = new THREE.Box3().setFromObject(model);
-        const center = box.getCenter(new THREE.Vector3());
-        model.position.set(-center.x, -box.min.y, -center.z);
+        const size = placeOnPlate(model);
         scene.add(model);
 
-        const size = box.getSize(new THREE.Vector3());
         const extent = Math.max(size.x, size.z, 1);
         const grid = new THREE.GridHelper(extent * 1.4, 14, 0x888888, 0x444444);
         scene.add(grid);
@@ -155,7 +103,7 @@ export default function ModelPreview({
       observer.disconnect();
       renderer.setAnimationLoop(null);
       controls.dispose();
-      if (model) dispose(model);
+      if (model) disposeModel(model);
       renderer.dispose();
       renderer.domElement.remove();
     };
