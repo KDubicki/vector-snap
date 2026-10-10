@@ -11,7 +11,13 @@ import {
   resetShapeColors,
 } from '../editor/operations';
 import { cutWithRegion, splitAlongLine } from '../editor/split';
-import { transformShapes, translation } from '../editor/transform';
+import {
+  shapesBounds,
+  transformMatrix,
+  transformShapes,
+  translation,
+  type SelectionTransform,
+} from '../editor/transform';
 import type { AppState } from './store';
 
 /** SVG editor state of the result step (docs/08-svg-editor.md). */
@@ -55,6 +61,8 @@ export interface EditorActions {
    * are one undo step.
    */
   moveSelection: (dx: number, dy: number) => void;
+  /** Scale, flip or rotate the selected shapes around their center. */
+  transformSelection: (kind: SelectionTransform) => void;
   undo: () => void;
   redo: () => void;
   /** Record that the current document was downloaded, so it has no unsaved edits. */
@@ -243,6 +251,14 @@ export const createEditorSlice: StateCreator<AppState, [], [], EditorSlice> = (s
           )
         : {},
     ),
+
+  transformSelection: (kind) =>
+    set((state) => {
+      const bounds = state.editor && shapesBounds(state.editor, state.selection);
+      if (!state.editor || !bounds) return {};
+      const matrix = transformMatrix(kind, bounds);
+      return commit(state, transformShapes(state.editor, state.selection, matrix));
+    }),
 
   undo: () =>
     set((state) => {

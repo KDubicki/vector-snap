@@ -54,6 +54,7 @@ Status: ✅ implemented · 🔜 planned.
 | Clear selection | `Esc` | | ✅ |
 | Knife (line split) | `K` / toolbar | Draw a freehand or straight (`Shift`) line; fully crossed shapes are split (see [Knife](#knife-line-cut-)). `Space`+drag pans, `Esc` cancels the line. | ✅ |
 | Lasso | `L` / toolbar | Draw a freehand region; the part of the target shape inside it becomes a separate shape and gets selected (see [Lasso](#lasso-region-cut-)). | ✅ |
+| Scale / flip / rotate | inspector | Smaller, Larger (10 % steps), mirror horizontally or vertically, rotate 90° around the selection center. | ✅ |
 | Recolor | inspector / color groups panel | Recolor the selection or a whole palette group (see [Recoloring](#recoloring)). | ✅ |
 | Eyedropper | `I` | Pick a color from a shape as the current color. | 🔜 |
 | Merge | `M` / toolbar | Unite the selected shapes into one (see [Merging and moving](#merging-and-moving-shapes-)). | ✅ |
@@ -154,6 +155,10 @@ every transform is one undoable edit.
   drag selects the clicked shape as before; `Esc` or a cancelled pointer restores the
   original position. Arrow keys nudge by 1 document px (`Shift`: 10 px); consecutive
   nudges coalesce into one undo step.
+- **Scale, flip, rotate** (`transformSelection(kind)`) — inspector buttons *Smaller* /
+  *Larger* (÷/× 1.1), *Flip ↔*, *Flip ↕* and *Rotate 90°* (clockwise) transform the
+  selection around the center of its bounding box (`transformMatrix()`); the inspector
+  shows the selection size in document px.
 - Moving does not cut or fill the shapes underneath: a moved shape leaves the area it
   covered showing whatever lies below (often a hole in the background shape).
 

@@ -1,11 +1,21 @@
 import { findShape, shapeFill } from '../editor/model';
+import { shapesBounds, type SelectionTransform } from '../editor/transform';
 import { useAppStore } from '../state/store';
 
-/** Details and color of the current selection (FR-33). */
+const TRANSFORMS: { kind: SelectionTransform; label: string; title: string }[] = [
+  { kind: 'smaller', label: 'Smaller', title: 'Shrink the selection by 10%' },
+  { kind: 'larger', label: 'Larger', title: 'Enlarge the selection by 10%' },
+  { kind: 'flip-x', label: 'Flip ↔', title: 'Mirror the selection horizontally' },
+  { kind: 'flip-y', label: 'Flip ↕', title: 'Mirror the selection vertically' },
+  { kind: 'rotate', label: 'Rotate 90°', title: 'Rotate the selection 90° clockwise' },
+];
+
+/** Details, color and placement of the current selection (FR-33). */
 export function ShapeInspector() {
   const editor = useAppStore((s) => s.editor);
   const selection = useAppStore((s) => s.selection);
-  const { recolorSelection, resetSelectionColor, moveSelectionToGroup } = useAppStore.getState();
+  const { recolorSelection, resetSelectionColor, moveSelectionToGroup, transformSelection } =
+    useAppStore.getState();
 
   if (!editor) return null;
   if (selection.length === 0) {
@@ -18,6 +28,7 @@ export function ShapeInspector() {
   const hasOwnColor = shapes.some(({ shape }) => shape.fill !== undefined);
   const groupsOfSelection = new Set(shapes.map(({ group }) => group.paletteIndex));
   const currentGroup = groupsOfSelection.size === 1 ? [...groupsOfSelection][0] : null;
+  const bounds = shapesBounds(editor, selection);
 
   return (
     <div className="field">
@@ -55,6 +66,29 @@ export function ShapeInspector() {
               title={group.fill}
               onClick={() => moveSelectionToGroup(group.paletteIndex)}
             />
+          ))}
+        </div>
+      </div>
+      <div className="transform">
+        <span className="hint">
+          Size{' '}
+          {bounds && (
+            <output aria-label="Selection size">
+              {Math.round(bounds.width)} × {Math.round(bounds.height)} px
+            </output>
+          )}
+        </span>
+        <div className="transform__buttons" role="group" aria-label="Transform selection">
+          {TRANSFORMS.map(({ kind, label, title }) => (
+            <button
+              key={kind}
+              type="button"
+              className="secondary"
+              title={title}
+              onClick={() => transformSelection(kind)}
+            >
+              {label}
+            </button>
           ))}
         </div>
       </div>

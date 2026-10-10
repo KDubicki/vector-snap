@@ -469,7 +469,7 @@ describe('app store', () => {
     expect(store().selection).toEqual(['p-0-0.a']);
   });
 
-  it('moves the selection; nudges are one undo step', async () => {
+  it('moves and transforms the selection; nudges are one undo step', async () => {
     useAppStore.setState({ quantized });
     vi.stubGlobal('fetch', respond(vectorized));
     await store().runVectorize();
@@ -486,6 +486,10 @@ describe('app store', () => {
     expect(store().history.past).toHaveLength(1);
     store().undo();
     expect(first()).toBe(original);
+
+    store().transformSelection('flip-x');
+    expect(first()).not.toBe(original);
+    expect(store().editor!.groups[0].shapes[1].d).toBe('M10,0 L20,0 L20,10 Z');
   });
 
   it('merges the selection into the largest shape', async () => {

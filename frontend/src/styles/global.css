@@ -915,6 +915,27 @@ select {
   cursor: move;
 }
 
+.transform {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.transform output {
+  font-variant-numeric: tabular-nums;
+}
+
+.transform__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.transform__buttons button {
+  padding: 4px 10px;
+  font-size: 0.85rem;
+}
+
 .move-to-group {
   display: flex;
   flex-direction: column;
