@@ -285,7 +285,9 @@ interface FragmentsSlice {
 - Only one request is in flight at a time; starting a new one aborts the previous one,
   and aborted requests never surface as errors.
 - Pure logic lives in `src/lib/` (color conversion, recoloring, base64) and `src/state/`,
-  and is unit-tested with Vitest; components are covered by E2E tests (planned).
+  and is unit-tested with Vitest; components get component tests with React Testing
+  Library (`src/components/*.test.tsx`, see
+  [10-development-workflow.md](10-development-workflow.md#testing-strategy)).
 - The editor document is an immutable `EditorDoc` in the store; Paper.js only renders it.
 
 ## API client (`src/api/client.ts`)

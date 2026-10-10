@@ -86,6 +86,12 @@ BREAKING CHANGE: clients must send `palette_size` instead of `colors`.
   content negotiation.
 - **Frontend unit tests** — palette editing logic, undo/redo commands, API client error
   mapping.
+- **Frontend component tests** — React Testing Library + user-event in `jsdom`
+  (`src/components/*.test.tsx`, files marked `// @vitest-environment jsdom`): render a
+  component with the real store, act like a user (click, type, upload) and assert what is
+  shown and what changed in the store. `src/test/setup-dom.ts` adds the jest-dom
+  matchers, unmounts after each test and fills jsdom gaps (modal `<dialog>`,
+  `Blob.text()`); `src/test/fixtures.ts` has a small sample design.
 - **Editor geometry tests** — split produces shapes whose total area equals the original
   (within tolerance).
 - **E2E (later)** — Playwright: upload → quantize → vectorize → split → download.
