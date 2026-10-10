@@ -117,6 +117,7 @@ export function quantize(
   }
   if (params.smooth !== undefined) form.append('smooth', String(params.smooth));
   if (params.upscale !== undefined) form.append('upscale', String(params.upscale));
+  if (params.filaments?.length) form.append('filaments', JSON.stringify(params.filaments));
   return request<QuantizeResponse>('/quantize', { method: 'POST', body: form, signal });
 }
 

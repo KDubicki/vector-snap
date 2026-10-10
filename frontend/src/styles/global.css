@@ -456,7 +456,7 @@ select {
 
 .palette li {
   display: grid;
-  grid-template-columns: 36px 72px 1fr auto auto auto;
+  grid-template-columns: 36px minmax(72px, auto) 1fr auto auto auto;
   align-items: center;
   gap: 8px;
 }
@@ -1701,4 +1701,82 @@ select {
   gap: 6px;
   margin-left: 8px;
   color: var(--color-text);
+}
+
+.palette__hex {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.palette__hex small {
+  overflow: hidden;
+  color: var(--color-muted);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.filament-library__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.filament-library__list li {
+  display: inline-flex;
+  align-items: center;
+}
+
+.filament-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px 3px 4px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  font-size: 0.8rem;
+  opacity: 0.55;
+  cursor: pointer;
+}
+
+.filament-chip[aria-pressed='true'] {
+  border-color: var(--color-accent);
+  opacity: 1;
+}
+
+.filament-chip .swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+}
+
+.filament-chip__remove {
+  margin-left: 2px;
+  font-size: 1rem;
+}
+
+.filament-library__add {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filament-library__add input[type='color'] {
+  width: 36px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: none;
+}
+
+.filament-library__add input[type='text'] {
+  flex: 1;
+  min-width: 0;
 }

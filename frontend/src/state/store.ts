@@ -3,12 +3,19 @@ import { errorMessage, getLimits, quantize, suggestColors, vectorize } from '../
 import { base64ToBlob } from '../lib/base64';
 import { finalPalette } from '../lib/color';
 import {
+  ownedColors,
+  readFilamentLibrary,
+  saveFilamentLibrary,
+  type FilamentLibrary,
+} from '../lib/filamentLibrary';
+import {
   DEFAULT_PRINT,
   KEPT_BY_PROJECTS,
   applyProject,
   type PrintSettings,
   type ProjectId,
 } from '../lib/printPlan';
+import { browserStorage } from '../lib/theme';
 import { DEFAULT_TRACING } from '../lib/tracing';
 import type {
   Limits,
@@ -67,7 +74,11 @@ export interface WorkflowSlice {
     smooth: number;
     upscale: boolean;
     locked: string[];
+    /** Filament colors offered (`filaments` algorithm), joined; '' otherwise. */
+    filaments: string;
   } | null;
+  /** Filaments to choose the palette from (`filaments` algorithm); kept across images. */
+  filamentLibrary: FilamentLibrary;
   /** Color count suggested for `file` by the backend, once requested. */
   suggestedColors: number | null;
   suggesting: boolean;
@@ -89,6 +100,8 @@ export interface WorkflowSlice {
   setAlgorithm: (algorithm: QuantizeAlgorithm) => void;
   setSmooth: (smooth: number) => void;
   setUpscale: (upscale: boolean) => void;
+  /** Replace the filament library (stored in the browser). */
+  setFilamentLibrary: (library: FilamentLibrary) => void;
   /** Ask the backend for a good color count for the current file and apply it. */
   suggestColors: () => Promise<void>;
   /** Lock a color into the palette; ignored when it is locked already or no slot is free. */
@@ -158,6 +171,7 @@ function nextSignal(): AbortSignal {
 export const useAppStore = create<AppState>()((set, get, api) => ({
   ...createEditorSlice(set, get, api),
   ...createFragmentsSlice(set, get, api),
+  filamentLibrary: readFilamentLibrary(browserStorage()),
   ...initialState,
 
   loadLimits: async () => {
@@ -197,6 +211,10 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
   setAlgorithm: (algorithm) => set({ algorithm }),
   setSmooth: (smooth) => set({ smooth }),
   setUpscale: (upscale) => set({ upscale }),
+  setFilamentLibrary: (filamentLibrary) => {
+    saveFilamentLibrary(browserStorage(), filamentLibrary);
+    set({ filamentLibrary });
+  },
 
   suggestColors: async () => {
     const { file } = get();
@@ -263,14 +281,21 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
   runQuantize: async () => {
     const { file, colors, algorithm, smooth, upscale, locked, quantizedFor } = get();
     if (!file) return;
+    const offered = algorithm === 'filaments' ? ownedColors(get().filamentLibrary) : [];
+    const filaments = offered.join(',');
     if (
       quantizedFor?.file === file &&
       quantizedFor.colors === colors &&
       quantizedFor.algorithm === algorithm &&
       quantizedFor.smooth === smooth &&
       quantizedFor.upscale === upscale &&
-      quantizedFor.locked === locked
+      quantizedFor.locked === locked &&
+      quantizedFor.filaments === filaments
     ) {
+      return;
+    }
+    if (algorithm === 'filaments' && !offered.length) {
+      set({ error: 'Choose at least one filament to pick the colors from.' });
       return;
     }
     const signal = nextSignal();
@@ -278,13 +303,13 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
     try {
       const quantized = await quantize(
         file,
-        { colors, algorithm, smooth, upscale, locked_colors: locked },
+        { colors, algorithm, smooth, upscale, locked_colors: locked, filaments: offered },
         signal,
       );
       // Overrides refer to palette indices of the previous result, so they are dropped.
       set({
         quantized,
-        quantizedFor: { file, colors, algorithm, smooth, upscale, locked },
+        quantizedFor: { file, colors, algorithm, smooth, upscale, locked, filaments },
         overrides: {},
         transparent: [],
         vectorized: null,

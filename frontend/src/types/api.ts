@@ -1,6 +1,6 @@
 // Mirrors the backend OpenAPI schema (docs/05-api-specification.md).
 
-export type QuantizeAlgorithm = 'kmeans' | 'median_cut';
+export type QuantizeAlgorithm = 'kmeans' | 'median_cut' | 'filaments';
 export type TracingMode = 'spline' | 'polygon';
 export type Stacking = 'stacked' | 'cutout';
 
@@ -34,6 +34,8 @@ export interface QuantizeParams {
   smooth?: number;
   /** Enlarge images under 1024 px (up to 4x) before quantizing, for smoother outlines. */
   upscale?: boolean;
+  /** `filaments` algorithm: the available filament colors to choose the palette from. */
+  filaments?: string[];
 }
 
 export interface QuantizeResponse {

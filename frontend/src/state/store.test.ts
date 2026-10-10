@@ -125,6 +125,30 @@ describe('app store', () => {
     expect(forms.map((form) => form.get('upscale'))).toEqual(['true', 'false']);
   });
 
+  it('chooses the palette from the available filaments', async () => {
+    const fetch = respond(quantized);
+    vi.stubGlobal('fetch', fetch);
+    store().selectFile(file);
+    store().setAlgorithm('filaments');
+    store().setFilamentLibrary({ owned: ['#f7f7f5', '#1b1b1b'], custom: [] });
+
+    await store().runQuantize();
+    const form = fetch.mock.calls[0][1].body as FormData;
+    expect(form.get('algorithm')).toBe('filaments');
+    expect(JSON.parse(String(form.get('filaments')))).toEqual(['#f7f7f5', '#1b1b1b']);
+    expect(JSON.parse(localStorage.getItem('vectorsnap.filament-library')!).owned).toHaveLength(2);
+
+    await store().runQuantize(); // unchanged: no new request
+    store().setFilamentLibrary({ owned: ['#f7f7f5'], custom: [] });
+    await store().runQuantize();
+    expect(fetch).toHaveBeenCalledTimes(2);
+
+    store().setFilamentLibrary({ owned: [], custom: [] });
+    await store().runQuantize();
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(store().error).toMatch('Choose at least one filament');
+  });
+
   it('locks colors up to the palette size and re-quantizes with them', async () => {
     store().selectFile(file);
     store().setColors(2);

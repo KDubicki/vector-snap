@@ -52,6 +52,33 @@ describe('PaletteStep', () => {
     expect(screen.getByRole('radio', { name: 'Strong' })).toHaveAttribute('aria-checked', 'true');
   });
 
+  it('picks the palette from my filaments and names its colors', async () => {
+    const user = userEvent.setup();
+    useAppStore.setState({
+      file,
+      quantized: {
+        ...QUANTIZED,
+        palette: [
+          { index: 0, hex: '#f7f7f5', coverage: 0.7 },
+          { index: 1, hex: '#c12e1f', coverage: 0.3 },
+        ],
+      },
+    });
+    vi.stubGlobal('fetch', fetchResponses(QUANTIZED));
+    render(<PaletteStep />);
+    expect(screen.queryByText('Available filaments')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('radio', { name: 'My filaments' }));
+    expect(store().algorithm).toBe('filaments');
+    expect(screen.getByText('Available filaments')).toBeInTheDocument();
+    expect(screen.getByText(/chosen from the filaments you have/)).toBeInTheDocument();
+    expect(screen.getByText('Red', { selector: 'small' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'None' }));
+    expect(store().filamentLibrary.owned).toEqual([]);
+    await user.click(screen.getByRole('button', { name: 'All' }));
+  });
+
   it('removes the background and converts to SVG', async () => {
     const user = userEvent.setup();
     useAppStore.setState({ file, quantized: QUANTIZED });

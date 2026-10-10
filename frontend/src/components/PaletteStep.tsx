@@ -1,8 +1,10 @@
 import { useEffect, useMemo } from 'react';
 import { finalPalette } from '../lib/color';
+import { filamentName } from '../lib/filamentLibrary';
 import { useObjectUrl } from '../lib/useObjectUrl';
 import { useAppStore } from '../state/store';
 import { ColorCountSelector } from './ColorCountSelector';
+import { FilamentLibraryPanel } from './FilamentLibraryPanel';
 import { LockedColors } from './LockedColors';
 import { PaletteEditor } from './PaletteEditor';
 import { QuantizedPreview } from './QuantizedPreview';
@@ -11,6 +13,12 @@ import { useConfirm } from './useConfirm';
 import { useDiscardGuard } from './useDiscardGuard';
 
 const QUANTIZE_DEBOUNCE_MS = 400;
+
+const METHODS = [
+  { value: 'kmeans', label: 'Perceptual (k-means)' },
+  { value: 'median_cut', label: 'Fast (median cut)' },
+  { value: 'filaments', label: 'My filaments' },
+] as const;
 
 const SMOOTH_LEVELS = [
   { value: 0, label: 'Off' },
@@ -34,6 +42,7 @@ export function PaletteStep() {
   const transparent = useAppStore((s) => s.transparent);
   const tracing = useAppStore((s) => s.tracing);
   const status = useAppStore((s) => s.status);
+  const filamentLibrary = useAppStore((s) => s.filamentLibrary);
   const actions = useAppStore.getState();
   const { confirm, dialog } = useConfirm();
   const guard = useDiscardGuard(confirm);
@@ -45,7 +54,7 @@ export function PaletteStep() {
     if (!file) return;
     const timer = setTimeout(() => void useAppStore.getState().runQuantize(), QUANTIZE_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [file, colors, algorithm, smooth, upscale, locked]);
+  }, [file, colors, algorithm, smooth, upscale, locked, filamentLibrary]);
 
   const originalPalette = useMemo(() => quantized?.palette.map((c) => c.hex) ?? [], [quantized]);
   const targetPalette = useMemo(
@@ -95,7 +104,7 @@ export function PaletteStep() {
         <div className="field">
           <span>Method</span>
           <div className="segmented" role="radiogroup" aria-label="Quantization method">
-            {(['kmeans', 'median_cut'] as const).map((value) => (
+            {METHODS.map(({ value, label }) => (
               <button
                 key={value}
                 type="button"
@@ -104,11 +113,23 @@ export function PaletteStep() {
                 className={algorithm === value ? 'active' : ''}
                 onClick={() => actions.setAlgorithm(value)}
               >
-                {value === 'kmeans' ? 'Perceptual (k-means)' : 'Fast (median cut)'}
+                {label}
               </button>
             ))}
           </div>
+          <span className="hint">
+            {algorithm === 'filaments'
+              ? 'For 3D printing: the palette is chosen from the filaments you have, used exactly — no near-duplicate shades, unneeded filaments are left out.'
+              : 'Averages the image into new colors, which may not exist as filament.'}
+          </span>
         </div>
+        {algorithm === 'filaments' && (
+          <FilamentLibraryPanel
+            library={filamentLibrary}
+            maxColors={colors}
+            onChange={actions.setFilamentLibrary}
+          />
+        )}
         <div className="field">
           <span>Smooth regions</span>
           <div className="segmented" role="radiogroup" aria-label="Smooth regions">
@@ -159,6 +180,7 @@ export function PaletteStep() {
             onChange={actions.setOverride}
             onReset={actions.resetOverride}
             onResetAll={actions.resetOverrides}
+            colorName={(hex) => filamentName(filamentLibrary, hex)}
           />
         )}
         <LockedColors

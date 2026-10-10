@@ -18,6 +18,8 @@ interface PaletteEditorProps {
   onChange: (index: number, hex: string) => void;
   onReset: (index: number) => void;
   onResetAll: () => void;
+  /** Name of a color (e.g. the filament it matches), shown next to its hex. */
+  colorName?: (hex: string) => string | null;
 }
 
 function RemoveIcon({ removed }: { removed: boolean }) {
@@ -55,6 +57,7 @@ export function PaletteEditor({
   onChange,
   onReset,
   onResetAll,
+  colorName,
 }: PaletteEditorProps) {
   const changed = Object.keys(overrides).length > 0;
   const lastVisible = transparent.length + 1 >= palette.length;
@@ -95,7 +98,10 @@ export function PaletteEditor({
                 aria-label={`Palette color ${color.index + 1}: ${hex}`}
                 onChange={(event) => onChange(color.index, event.target.value)}
               />
-              <code>{hex}</code>
+              <span className="palette__hex">
+                <code>{hex}</code>
+                {colorName?.(hex) && <small>{colorName(hex)}</small>}
+              </span>
               {color.coverage !== undefined && (
                 <span className="coverage" title="Share of the image">
                   <span style={{ width: `${Math.max(color.coverage * 100, 1)}%` }} />

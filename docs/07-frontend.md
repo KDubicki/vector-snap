@@ -69,7 +69,16 @@ tracing and export options). Narrower windows stack everything and scroll normal
   the limits and the number of locked colors); a hint shows the suggestion with a "use
   it" link once the count is changed. Runs with its own `AbortController`, so it never
   cancels a quantization in flight.
-- **Method**: perceptual (k-means) / fast (median cut).
+- **Method**: perceptual (k-means) / fast (median cut) / **My filaments** — for 3D
+  printing the palette is chosen from real filament colors
+  (`algorithm: 'filaments'`, see
+  [06](06-image-processing-pipeline.md#filaments-for-3d-printing)): the
+  `FilamentLibraryPanel` lists 24 common PLA colors (approximate) and the user's own,
+  as chips to tick what is on the shelf (All / None) plus a color + name form for exact
+  spool colors. The library (`lib/filamentLibrary.ts`) is stored in the browser
+  (`vectorsnap.filament-library`) and kept across images; changing it re-runs the
+  quantization. The color count becomes a maximum — only the filaments the image needs
+  are used — and palette rows show the filament name under the hex.
 - **Smooth regions**: Off / Light / Medium / Strong, sent as `smooth` 0–3 (default
   Light). Removes specks and jagged edges, which matters most for photos and 3D prints;
   changing it re-quantizes like the other parameters.
