@@ -12,6 +12,7 @@ dependencies = [
     "pillow>=10.4",
     "numpy>=2.0",
     "scikit-learn>=1.5",
+    "scipy>=1.13",
     "vtracer>=0.6",
     "lxml>=5.3",
     "svgelements>=1.9",

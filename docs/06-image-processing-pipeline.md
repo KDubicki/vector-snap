@@ -153,11 +153,22 @@ traced separately: its mask is rendered black-on-white and passed to **vtracer**
 
 | Stacking | Layer mask | Result |
 |----------|-----------|--------|
-| `cutout` (default) | pixels of this color only | Non-overlapping shapes; holes are real holes |
+| `cutout` (default) | pixels of this color, plus a 1 px overlap onto the layers below it | Shapes meet without gaps; holes are real holes |
 | `stacked` | pixels of this color **and every layer above it** | Lower layers extend under upper ones → no seams between colors; shapes overlap |
 
 Colors without any pixels of their own are skipped. Transparent pixels are never part of
 any mask.
+
+In `cutout` mode, two steps keep the traced shapes free of gaps:
+
+- **Specks are absorbed first.** vtracer drops patches smaller than `filter_speckle`²
+  pixels (4-connected). Traced color by color, a dropped speck would leave a hole in the
+  color around it, so such specks take the color of the nearest larger region before
+  tracing (`absorb_specks`).
+- **Upper layers overlap lower ones by one pixel.** Each color is smoothed on its own,
+  so two neighbouring outlines never follow exactly the same curve; with a 1 px overlap,
+  the layer drawn on top covers the seam. 3D exports cut the overlap out of the lower
+  layer (see [13-export-formats.md](13-export-formats.md)), so parts never intersect.
 
 | vtracer option | Source |
 |----------------|--------|
@@ -168,8 +179,8 @@ any mask.
 **Why `cutout` matters for editing:** in `stacked` mode a shape lies on top of the layers
 below it, so splitting or deleting it would reveal the color beneath. `cutout` makes
 splitting and recoloring behave intuitively, which is why it is the default.
-In `cutout` + `spline` mode, adjacent colors are smoothed independently, so hairline
-seams may be visible at some zoom levels; `polygon` mode or `stacked` avoid them.
+Because of the 1 px overlap, deleting a shape in `cutout` mode leaves a hole that is
+1 px smaller than the shape.
 
 ## 6. SVG post-processing (`services/svg_postprocess.py`)
 

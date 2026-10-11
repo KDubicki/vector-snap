@@ -199,8 +199,8 @@ def _visible(document: VectorDocument, parts: list[_Part]) -> list[BaseGeometry]
 
     Shapes above in the document (later layers) own their footprint, as in the SVG: a
     shape moved or a fragment placed onto other shapes would otherwise print as bodies
-    overlapping in the same space (slicers resolve that inconsistently). Traced designs
-    rarely overlap, so they are left as they are.
+    overlapping in the same space (slicers resolve that inconsistently). Traced colors
+    overlap the ones below them by a pixel, so their seams have no gaps.
     """
     order = {id(layer): position for position, layer in enumerate(document.layers)}
     by_drawing = sorted(range(len(parts)), key=lambda i: order[id(parts[i].layer)])

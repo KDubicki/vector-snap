@@ -135,8 +135,9 @@ Model construction:
   assumed equal to the layer height.
 - **Overlapping shapes** — bodies never overlap: a shape drawn above another one in the
   document (a later layer) owns its footprint, and that area is cut out of the parts
-  below it (`_visible()`), whatever the `stack_order` or heights. Traced designs barely
-  overlap, but shapes moved in the editor, placed fragments and `stacked` tracing do; as
+  below it (`_visible()`), whatever the `stack_order` or heights. Traced colors overlap
+  the ones below them by 1 px (no gaps between colors), and shapes moved in the editor,
+  placed fragments and `stacked` tracing overlap too; as
   overlapping bodies a slicer would assign the shared space to one part or the other
   unpredictably (especially with all colors at one height for AMS printers).
 - The base plate (`base_shape=outline`) is the union of the **included** layers, so

@@ -14,6 +14,7 @@ import numpy as np
 import vtracer
 from numpy.typing import NDArray
 from PIL import Image
+from scipy import ndimage
 
 from app.services.image_io import TRANSPARENT_LABEL
 
@@ -57,12 +58,41 @@ def _mask_png(mask: NDArray[np.bool_]) -> bytes:
     return buffer.getvalue()
 
 
+def absorb_specks(
+    label_rank: NDArray[np.int64], opaque: NDArray[np.bool_], filter_speckle: int
+) -> NDArray[np.int64]:
+    """Give specks that vtracer would drop the color of the nearest larger region.
+
+    vtracer discards patches of fewer than `filter_speckle`² pixels (4-connected). Traced
+    per color, such a speck would leave a hole in the color around it; merged into its
+    neighbour first, the hole is never there.
+    """
+    if filter_speckle <= 1:
+        return label_rank
+    small = np.zeros_like(opaque)
+    for position in np.unique(label_rank[opaque]):
+        components, count = ndimage.label(label_rank == position)
+        sizes = np.bincount(components.ravel(), minlength=count + 1)
+        tiny = sizes < filter_speckle * filter_speckle
+        tiny[0] = False  # background of the component labelling
+        small |= tiny[components]
+    kept = opaque & ~small
+    if not small.any() or not kept.any():
+        return label_rank
+    _, (rows, columns) = ndimage.distance_transform_edt(~kept, return_indices=True)
+    result = label_rank.copy()
+    result[small] = label_rank[rows[small], columns[small]]
+    return result
+
+
 def trace(
     labels: NDArray[np.uint8], palette: NDArray[np.uint8], options: TracingOptions
 ) -> list[TracedLayer]:
     """Trace every color layer, bottom (largest coverage) to top.
 
-    - cutout: each layer covers only its own pixels, so shapes never overlap.
+    - cutout: each layer covers its own pixels and overlaps the layers below it by one
+      pixel. Colors are smoothed independently, so without the overlap their outlines
+      would leave thin gaps between them; the layer drawn on top hides it.
     - stacked: each layer also covers all layers above it, so lower layers extend under
       upper ones and no seams can appear between colors.
     """
@@ -72,14 +102,23 @@ def trace(
     for position, indices in enumerate(groups):
         rank[indices] = position
     label_rank = rank[labels]
+    used = np.zeros(len(groups) + 1, dtype=np.bool_)
+    used[np.unique(label_rank)] = True
+    if options.stacking == "cutout":
+        label_rank = absorb_specks(label_rank, opaque, options.filter_speckle)
 
     layers: list[TracedLayer] = []
     for position, indices in enumerate(groups):
-        own_pixels = label_rank == position
-        if not own_pixels.any():
+        if not used[position]:
             # Unused color: in stacked mode it would otherwise become a hidden background.
             continue
-        mask = opaque & (label_rank >= position) if options.stacking == "stacked" else own_pixels
+        own_pixels = label_rank == position
+        if options.stacking == "stacked":
+            mask = opaque & (label_rank >= position)
+        else:
+            mask = own_pixels | (
+                ndimage.binary_dilation(own_pixels) & opaque & (label_rank < position)
+            )
         raw_svg: str = vtracer.convert_raw_image_to_svg(
             _mask_png(mask),
             img_format="png",
