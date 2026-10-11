@@ -173,6 +173,17 @@ def test_stl_rejects_invalid_shape_heights(client: TestClient, heights: str) -> 
     assert response.json()["error"]["code"] == "INVALID_PARAMETERS"
 
 
+def test_stl_parts_come_as_a_zip_of_stl_files(client: TestClient) -> None:
+    response = _post(client, "stl-parts", {"base_mm": "1"})
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/zip"
+    assert 'filename="vectorsnap.zip"' in response.headers["content-disposition"]
+    with zipfile.ZipFile(io.BytesIO(response.content)) as archive:
+        names = archive.namelist()
+    assert names[0].startswith("01-base-") and names[-1] == "colors.txt"
+
+
 def test_3mf_gives_raised_shapes_their_own_part(client: TestClient) -> None:
     response = _post(client, "3mf", {"shape_heights": '{"p-1-0": 3}'})
 

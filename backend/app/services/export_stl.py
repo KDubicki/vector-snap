@@ -10,10 +10,13 @@ edge; colors can be stacked in document order or by brightness. A hanging loop c
 added at the top of the base plate and a magnet pocket in its underside.
 Coordinates are converted to millimetres and the y axis is flipped (SVG y points down,
 STL z-up models are viewed from above with y up). The meshes come from `mesh`, the base
-plate from `base_plate`. See docs/13-export-formats.md.
+plate from `base_plate`. `export_stl_parts` puts every body in an STL file of its own.
+See docs/13-export-formats.md.
 """
 
+import io
 import math
+import zipfile
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Literal
@@ -372,3 +375,21 @@ def _filament_bodies(
 def export_stl(document: VectorDocument, options: StlOptions) -> bytes:
     """Extrude every color layer and return a binary STL (units: millimetres)."""
     return write_binary_stl([body.triangles for body in build_bodies(document, options)])
+
+
+def export_stl_parts(document: VectorDocument, options: StlOptions) -> bytes:
+    """One binary STL per body (base plate, rim, each color and height) in a ZIP.
+
+    For slicers and printers that do not read colored 3MF parts: load all files as one
+    multi-part object and give each part its filament. File names keep the bodies'
+    bottom-to-top order and color; `colors.txt` lists them.
+    """
+    buffer = io.BytesIO()
+    lines = []
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        for number, body in enumerate(build_bodies(document, options), start=1):
+            name = f"{number:02d}-{body.name}-{body.color[1:]}.stl"
+            archive.writestr(name, write_binary_stl([body.triangles]))
+            lines.append(f"{name}\t{body.color}")
+        archive.writestr("colors.txt", "\n".join(lines) + "\n")
+    return buffer.getvalue()

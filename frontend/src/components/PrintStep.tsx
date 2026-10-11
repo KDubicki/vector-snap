@@ -77,10 +77,10 @@ export function PrintStep() {
     setView('model');
   };
 
-  const run = (format: 'stl' | '3mf') =>
+  const run = (format: 'stl' | '3mf' | 'stl-parts') =>
     job.run(
       (signal) => exportFile(format, svg, options, signal),
-      exportFileName(file?.name, format),
+      exportFileName(file?.name, format === 'stl-parts' ? 'parts.zip' : format),
     );
 
   /** A small print of every mixed color, to check the predictions with real filaments. */
@@ -247,10 +247,18 @@ export function PrintStep() {
             Download STL
           </button>
         </div>
+        <button
+          type="button"
+          className="link"
+          disabled={invalid || job.exporting}
+          onClick={() => void run('stl-parts')}
+        >
+          STL per color (ZIP)
+        </button>
         <span className="hint">
           {mixed
             ? `3MF parts come only in the ${print.filaments.length} filament colors: assign each to the AMS slot with that filament.`
-            : '3MF keeps one part per color, so the slicer assigns AMS slots automatically.'}
+            : '3MF keeps one part per color, so the slicer assigns AMS slots automatically. Slicers without 3MF colors: load the ZIP’s STL files together as one multi-part object.'}
         </span>
         {job.exporting && (
           <ExportProgress what="the model" elapsed={job.elapsed} onCancel={job.cancel} />

@@ -198,6 +198,20 @@ notion of parts or colors.
   the STL export with the same options.
 - A 440-shape document: 1.8 MB (STL: 8.8 MB) in ≈2 s.
 
+## STL per part (ZIP)
+
+```bash
+curl -F svg=@logo.svg -F base_mm=1 http://localhost:8000/api/v1/export/stl-parts -o logo.zip
+```
+
+Same options and bodies as STL and 3MF, but **one binary STL per body** in a ZIP
+(`export_stl_parts`), for slicers and printers that do not read colored 3MF parts: load
+all files at once as one multi-part object (they share one coordinate system, so they
+stay aligned) and give each part its filament. Files are numbered bottom to top and
+named after the body and its color — `01-base-1d2b53.stl`, `02-color-0-1d2b53.stl`,
+`03-rim-1d2b53.stl` … — and `colors.txt` lists every file with its `#rrggbb` color.
+The 3D print step offers it as **STL per color (ZIP)**.
+
 ## Lithophane
 
 `app/services/lithophane.py`. A thin plate whose thickness follows the **brightness of

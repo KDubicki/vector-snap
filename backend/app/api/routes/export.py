@@ -20,7 +20,7 @@ from app.services.base_plate import BaseShape
 from app.services.export_3mf import export_3mf
 from app.services.export_dxf import DxfOptions, export_dxf
 from app.services.export_pdf import PageSize, PdfOptions, export_pdf
-from app.services.export_stl import StackOrder, StlOptions, export_stl
+from app.services.export_stl import StackOrder, StlOptions, export_stl, export_stl_parts
 from app.services.filament_plan import filament_plan
 from app.services.image_io import decode_image
 from app.services.lithophane import LithophaneOptions, export_lithophane
@@ -139,6 +139,17 @@ async def export_to_stl(document: UploadedSvg, options: ModelOptions) -> Respons
     """Extrude every color layer into a 3D model for printing (units: millimetres)."""
     content = await run_in_threadpool(export_stl, document, options)
     return _attachment(content, "model/stl", "stl")
+
+
+@router.post(
+    "/stl-parts",
+    response_class=Response,
+    responses={200: {"content": {"application/zip": {}}, "description": "ZIP of STL files"}},
+)
+async def export_to_stl_parts(document: UploadedSvg, options: ModelOptions) -> Response:
+    """Like STL, but one file per part (base, rim, each color) — for any multi-part slicer."""
+    content = await run_in_threadpool(export_stl_parts, document, options)
+    return _attachment(content, "application/zip", "zip")
 
 
 @router.post(

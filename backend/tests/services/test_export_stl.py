@@ -1,3 +1,6 @@
+import io
+import zipfile
+
 import numpy as np
 import pytest
 
@@ -9,6 +12,7 @@ from app.services.export_stl import (
     StlOptions,
     build_bodies,
     export_stl,
+    export_stl_parts,
     relative_luminance,
     snap_to_layers,
     stack_layers,
@@ -582,3 +586,27 @@ def test_mixed_colors_need_a_stack_of_loaded_filaments_for_every_color() -> None
                 color_stacks={0: ColorStack(0), 1: ColorStack(0, ((1, 0.2),))},
             ),
         )
+
+
+def test_stl_parts_put_every_body_in_a_file_of_its_own() -> None:
+    document = parse_svg(contract_svg(40, 20, [("#000000", [FRAME]), ("#ff0000", [DOT])]))
+    options = StlOptions(width_mm=40, base_mm=1, layer_mm=1, layered=False)
+
+    with zipfile.ZipFile(io.BytesIO(export_stl_parts(document, options))) as archive:
+        names = archive.namelist()
+        files = {name: read_binary_stl(archive.read(name)) for name in names[:-1]}
+        colors = archive.read("colors.txt").decode()
+
+    assert names == [
+        "01-base-000000.stl",
+        "02-color-0-000000.stl",
+        "03-color-1-ff0000.stl",
+        "colors.txt",
+    ]
+    assert colors.splitlines()[2] == "03-color-1-ff0000.stl\t#ff0000"
+    assert all(is_closed(triangles) for triangles in files.values())
+    assert signed_volume(files["03-color-1-ff0000.stl"]) == pytest.approx(100)
+    together = np.concatenate(list(files.values()))
+    assert signed_volume(together) == pytest.approx(
+        signed_volume(_export(options, [("#000000", [FRAME]), ("#ff0000", [DOT])]))
+    )
