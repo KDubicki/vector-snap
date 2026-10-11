@@ -1,6 +1,7 @@
 import type { ColorGroup } from '../editor/model';
 import {
   autoLayerHeight,
+  hasCustomHeights,
   stackPositions,
   type ColorHeight,
   type ExportValues,
@@ -12,15 +13,21 @@ interface ColorHeightsTableProps {
   values: ExportValues;
   error: string | null;
   onChange: (paletteIndex: number, change: Partial<ColorHeight>) => void;
+  /** Clear every color's own height. */
+  onReset: () => void;
 }
 
-/** Per-color extrusion heights for 3D exports; an empty height means "automatic". */
+/**
+ * Per-color extrusion heights for 3D exports; an empty height means "automatic". The model
+ * starts flat, and a height raises a color above the others.
+ */
 export function ColorHeightsTable({
   groups,
   heights,
   values,
   error,
   onChange,
+  onReset,
 }: ColorHeightsTableProps) {
   const positions = stackPositions(
     groups.map((group) => group.fill),
@@ -66,6 +73,16 @@ export function ColorHeightsTable({
           );
         })}
       </ul>
+      <span className="hint">
+        {values.layered
+          ? 'Colors are stacked as a relief; enter a height to set a color yourself.'
+          : 'All colors share one height, so the model is flat. Enter a height to raise a color above the others.'}
+      </span>
+      {hasCustomHeights(heights) && (
+        <button type="button" className="link" onClick={onReset}>
+          Reset heights
+        </button>
+      )}
       {error && <span className="field-error">{error}</span>}
     </fieldset>
   );

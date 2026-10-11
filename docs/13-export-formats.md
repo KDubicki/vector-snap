@@ -337,6 +337,13 @@ For STL and 3MF the panel also lists every color with an *include* checkbox and 
 when one is set); this becomes `layer_heights`. Leaving out
 every color disables the export with an explanation.
 
+The model starts **flat**: the panel sends `layered=false` until *Stack colors at
+increasing heights (relief)* is ticked, so the first preview shows every color at the
+same height. A height entered for a color raises it above the others, and **Reset
+heights** makes the model flat again. The 3D print step works the same way: colors start
+level, extra layers raise a color or selected elements, and **Make all colors flat
+again** clears the color raises.
+
 ### Filament changes
 
 For STL and 3MF, **Plan filament changes** shows the plan for the current options: the

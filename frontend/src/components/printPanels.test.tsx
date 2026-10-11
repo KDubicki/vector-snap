@@ -102,6 +102,32 @@ describe('PrintColorsTable', () => {
     fireEvent.change(screen.getByLabelText('Extra layers for #ff0000'), { target: { value: '' } });
     expect(onChange).toHaveBeenLastCalledWith({ colorRaise: { 1: 0 } });
   });
+
+  it('makes raised colors flat again', async () => {
+    const onChange = vi.fn();
+    const flat = settings();
+    const { rerender } = render(
+      <PrintColorsTable
+        doc={doc}
+        settings={flat}
+        colors={heightPlan(doc, flat).colors}
+        onChange={onChange}
+      />,
+    );
+    expect(screen.queryByText('Make all colors flat again')).not.toBeInTheDocument();
+
+    const raised = settings({ colorRaise: { 1: 2 } });
+    rerender(
+      <PrintColorsTable
+        doc={doc}
+        settings={raised}
+        colors={heightPlan(doc, raised).colors}
+        onChange={onChange}
+      />,
+    );
+    await userEvent.click(screen.getByText('Make all colors flat again'));
+    expect(onChange).toHaveBeenLastCalledWith({ colorRaise: {} });
+  });
 });
 
 describe('RaisedElementsPanel', () => {

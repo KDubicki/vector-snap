@@ -170,6 +170,7 @@ describe('ColorHeightsTable', () => {
         values={defaultValues(stl)}
         error="Include at least one color."
         onChange={onChange}
+        onReset={vi.fn()}
       />,
     );
 

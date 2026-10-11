@@ -237,6 +237,17 @@ export function ExportPanel() {
             }));
             setPlan(null);
           }}
+          onReset={() => {
+            setColorSettings((all) =>
+              Object.fromEntries(
+                Object.entries(all).map(([index, setting]) => [
+                  index,
+                  { ...setting, height: null },
+                ]),
+              ),
+            );
+            setPlan(null);
+          }}
         />
       )}
       {job.error && (

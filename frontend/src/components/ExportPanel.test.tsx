@@ -65,6 +65,27 @@ describe('ExportPanel', () => {
     expect(JSON.parse(String(options.layer_heights))).toEqual({ '0': 0, '1': 3 });
   });
 
+  it('starts with a flat model and resets raised colors to flat', async () => {
+    const u = user();
+    vi.mocked(exportFile).mockResolvedValue(new Blob(['stl']));
+    await renderPanel();
+
+    expect(screen.getByLabelText(/Stack colors at increasing heights/)).not.toBeChecked();
+    expect(screen.getByLabelText('#ff0000')).toHaveAttribute('placeholder', 'auto 1');
+    expect(screen.getByText(/the model is flat/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Reset heights' })).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('#ff0000'), { target: { value: '3' } });
+    await u.click(screen.getByRole('button', { name: 'Reset heights' }));
+    expect(screen.getByLabelText('#ff0000')).toHaveValue(null);
+    await u.click(screen.getByRole('button', { name: 'Export STL' }));
+
+    await waitFor(() => expect(exportFile).toHaveBeenCalled());
+    const [, , options] = vi.mocked(exportFile).mock.calls[0];
+    expect(options.layered).toBe(false);
+    expect(JSON.parse(String(options.layer_heights))).toEqual({});
+  });
+
   it('summarizes collapsed sections and blocks invalid exports', async () => {
     const u = user();
     await renderPanel();

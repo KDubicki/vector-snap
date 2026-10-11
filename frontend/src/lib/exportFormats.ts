@@ -116,12 +116,13 @@ const MODEL_OPTIONS: ExportOption[] = [
   {
     type: 'number',
     name: 'layer_mm',
-    label: 'Height per layer',
+    label: 'Color height',
     unit: 'mm',
     default: 1,
     min: 0.1,
     max: 100,
     step: 0.2,
+    hint: 'Height of every color above the base plate (each step when stacking colors).',
   },
   {
     type: 'choice',
@@ -206,8 +207,8 @@ const MODEL_OPTIONS: ExportOption[] = [
   {
     type: 'boolean',
     name: 'layered',
-    label: 'Stack colors at increasing heights',
-    default: true,
+    label: 'Stack colors at increasing heights (relief)',
+    default: false,
   },
   {
     type: 'boolean',
@@ -222,7 +223,7 @@ export const EXPORT_FORMATS: ExportFormat[] = [
     id: 'stl',
     label: 'STL',
     extension: 'stl',
-    description: '3D model for printing — each color layer is extruded to its own height.',
+    description: '3D model for printing — flat by default; raise any color to its own height.',
     options: MODEL_OPTIONS,
     perColorHeights: true,
   },
@@ -504,6 +505,11 @@ export function layerHeightsJson(colors: ColorHeight[]): string {
     .filter((color) => !color.included || color.height !== null)
     .map((color) => [String(color.paletteIndex), color.included ? color.height : 0]);
   return JSON.stringify(Object.fromEntries(entries));
+}
+
+/** Whether any color has a height of its own (the model is no longer flat). */
+export function hasCustomHeights(colors: ColorHeight[]): boolean {
+  return colors.some((color) => color.height !== null);
 }
 
 /** Validation message for per-color heights, or `null` when they are valid. */

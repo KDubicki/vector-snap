@@ -11,6 +11,7 @@ import {
   layerHeightsJson,
   validate,
   validateColorHeights,
+  hasCustomHeights,
 } from './exportFormats';
 
 const stl = EXPORT_FORMATS.find((format) => format.id === 'stl')!;
@@ -29,7 +30,7 @@ describe('export formats', () => {
       magnet_depth_mm: 2,
       min_feature_mm: 0,
       print_layer_mm: 0,
-      layered: true,
+      layered: false,
       mirror: false,
     });
   });
@@ -204,6 +205,11 @@ describe('per-color heights', () => {
       'greater than 0',
     );
     expect(validateColorHeights([{ paletteIndex: 0, included: true, height: 2 }])).toBeNull();
+  });
+
+  it('tells whether any color has a height of its own', () => {
+    expect(hasCustomHeights([{ paletteIndex: 0, included: false, height: null }])).toBe(false);
+    expect(hasCustomHeights([{ paletteIndex: 0, included: true, height: 2 }])).toBe(true);
   });
 
   it('snaps heights to whole printer layers like the backend', () => {

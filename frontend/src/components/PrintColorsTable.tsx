@@ -70,7 +70,14 @@ export function PrintColorsTable({
             );
           })}
       </ul>
-      <span className="hint">Extra layers raise a whole color above the others.</span>
+      <span className="hint">
+        The model starts flat: extra layers raise a whole color above the others.
+      </span>
+      {Object.values(print.colorRaise).some((layers) => layers > 0) && (
+        <button type="button" className="link" onClick={() => update({ colorRaise: {} })}>
+          Make all colors flat again
+        </button>
+      )}
       {error && <span className="field-error">{error}</span>}
     </fieldset>
   );
