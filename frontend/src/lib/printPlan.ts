@@ -5,7 +5,7 @@
  */
 
 import type { EditorDoc } from '../editor/model';
-import { deltaE, isHexColor, toLab } from './color';
+import { deltaE, isHexColor, relativeLuminance, toLab } from './color';
 import { MAGNET_ROOF_MM } from './exportFormats';
 import { bestRecipe, colorStacks, type Filament, type MixMatch } from './mixing';
 
@@ -315,6 +315,31 @@ export function suggestFilaments(doc: EditorDoc, count = MAX_FILAMENTS): Filamen
     }
   }
   return colors.map((color) => ({ color, td: typicalTd(color) }));
+}
+
+/** Which colors an automatic relief puts on top. */
+export type ReliefOrder = 'dark' | 'light';
+
+/**
+ * Extra layers for an automatic relief: the printed colors ranked by brightness, each
+ * `step` layers above the previous one, the lowest at its normal height. With `dark` on
+ * top, outlines and text usually stand out; equally bright colors keep the document order.
+ */
+export function reliefRaise(
+  doc: EditorDoc,
+  settings: PrintSettings,
+  order: ReliefOrder,
+  step = 1,
+): Record<number, number> {
+  const sign = order === 'dark' ? -1 : 1;
+  const ranked = printedGroups(doc, settings)
+    .map((group, position) => ({
+      paletteIndex: group.paletteIndex,
+      position,
+      key: sign * (isHexColor(group.fill) ? relativeLuminance(group.fill) : 0),
+    }))
+    .sort((a, b) => a.key - b.key || a.position - b.position);
+  return Object.fromEntries(ranked.map((item, rank) => [item.paletteIndex, rank * step]));
 }
 
 /** Set the extra layers of some shapes; 0 (or less) removes them. */

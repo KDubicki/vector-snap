@@ -192,8 +192,11 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
   the TDs before printing the design.
 - **Heights in printer layers**: printer layer height (0.08–0.28 mm), base plate and color
   height are whole layers (shown in mm too), so colors change exactly at a layer.
-- **Height per color**: include/leave out a color and give it extra layers, e.g. a logo
-  raised 3 layers above the rest.
+- **Height per color**: the model starts flat; include/leave out a color and give it
+  extra layers, e.g. a logo raised 3 layers above the rest. **Automatic relief** (dark
+  on top / light on top, `reliefRaise` in `src/lib/printPlan.ts`) ranks the printed
+  colors by brightness and raises each one layer above the previous one; the values can
+  be adjusted afterwards, and **Make all colors flat again** clears them.
 - **Raised elements**: the design view is a clickable map (`ElementMap`, the shapes of
   the edited document): click selects an element, Shift/Ctrl/Cmd+click adds or removes,
   clicking empty space clears. The panel raises the selection by whole layers (− / +),

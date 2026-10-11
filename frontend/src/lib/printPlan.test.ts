@@ -10,6 +10,7 @@ import {
   mixedChange,
   nextSelection,
   printOptions,
+  reliefRaise,
   setShapeRaise,
   sharedRaise,
   suggestFilaments,
@@ -268,5 +269,26 @@ describe('mixed colors', () => {
 
   it('keeps the style and filaments when a project is chosen', () => {
     expect(applyProject(mixed(), 'magnet')).toMatchObject({ style: 'mixed', filaments });
+  });
+});
+
+describe('reliefRaise', () => {
+  const three: EditorDoc = {
+    ...doc,
+    groups: [
+      ...doc.groups.slice(0, 2),
+      { paletteIndex: 2, fill: '#000000', shapes: [{ id: 'p-2-0', d: 'M0,0 H5 V5 H0 Z' }] },
+      { paletteIndex: 3, fill: '#000000', shapes: [{ id: 'p-3-0', d: 'M5,0 H9 V5 H5 Z' }] },
+    ],
+  };
+
+  it('raises darker colors one step above lighter ones', () => {
+    expect(reliefRaise(three, settings(), 'dark')).toEqual({ 0: 0, 1: 1, 2: 2, 3: 3 });
+    expect(reliefRaise(three, settings(), 'light', 2)).toEqual({ 2: 0, 3: 2, 1: 4, 0: 6 });
+  });
+
+  it('leaves out colors that are not printed', () => {
+    expect(reliefRaise(three, settings({ excluded: [1] }), 'dark')).toEqual({ 0: 0, 2: 1, 3: 2 });
+    expect(reliefRaise(doc, settings(), 'dark')).toEqual({ 0: 0, 1: 1 });
   });
 });

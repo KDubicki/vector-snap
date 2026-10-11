@@ -1426,6 +1426,7 @@ select {
   gap: 12px;
 }
 
+.print-relief,
 .print-raise__actions {
   display: flex;
   flex-wrap: wrap;

@@ -127,6 +127,11 @@ describe('PrintColorsTable', () => {
     );
     await userEvent.click(screen.getByText('Make all colors flat again'));
     expect(onChange).toHaveBeenLastCalledWith({ colorRaise: {} });
+
+    await userEvent.click(screen.getByRole('button', { name: 'dark on top' }));
+    expect(onChange).toHaveBeenLastCalledWith({ colorRaise: { 0: 0, 1: 1 } });
+    await userEvent.click(screen.getByRole('button', { name: 'light on top' }));
+    expect(onChange).toHaveBeenLastCalledWith({ colorRaise: { 1: 0, 0: 1 } });
   });
 });
 

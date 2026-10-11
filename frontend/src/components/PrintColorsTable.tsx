@@ -1,5 +1,5 @@
 import type { EditorDoc } from '../editor/model';
-import { layersToMm, type PrintSettings } from '../lib/printPlan';
+import { layersToMm, reliefRaise, type PrintSettings } from '../lib/printPlan';
 
 interface PrintColorsTableProps {
   doc: EditorDoc;
@@ -73,6 +73,23 @@ export function PrintColorsTable({
       <span className="hint">
         The model starts flat: extra layers raise a whole color above the others.
       </span>
+      <div className="print-relief" role="group" aria-label="Automatic relief">
+        <span className="hint">Automatic relief, one layer per color:</span>
+        <button
+          type="button"
+          className="link"
+          onClick={() => update({ colorRaise: reliefRaise(editor, print, 'dark') })}
+        >
+          dark on top
+        </button>
+        <button
+          type="button"
+          className="link"
+          onClick={() => update({ colorRaise: reliefRaise(editor, print, 'light') })}
+        >
+          light on top
+        </button>
+      </div>
       {Object.values(print.colorRaise).some((layers) => layers > 0) && (
         <button type="button" className="link" onClick={() => update({ colorRaise: {} })}>
           Make all colors flat again
