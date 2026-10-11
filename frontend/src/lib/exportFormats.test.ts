@@ -25,6 +25,8 @@ describe('export formats', () => {
       base_margin_mm: 0,
       layer_mm: 1,
       stack_order: 'document',
+      rim_mm: 0,
+      rim_height_mm: 0,
       loop_hole_mm: 0,
       magnet_mm: 0,
       magnet_depth_mm: 2,
@@ -45,6 +47,8 @@ describe('export formats', () => {
         base_margin_mm: -1,
         layer_mm: 1,
         stack_order: 'document',
+        rim_mm: 0,
+        rim_height_mm: 0,
         loop_hole_mm: 0,
         magnet_mm: 0,
         magnet_depth_mm: 2,
@@ -69,6 +73,15 @@ describe('export formats', () => {
     expect(validate(stl, values)).toEqual({});
     expect(validate(stl, { ...values, base_mm: 0 })).toEqual({
       loop_hole_mm: 'A hanging loop needs a base plate.',
+    });
+  });
+
+  it('requires a base plate for a raised rim', () => {
+    const values = { ...defaultValues(stl), rim_mm: 2 };
+
+    expect(validate(stl, values)).toEqual({});
+    expect(validate(stl, { ...values, base_mm: 0 })).toEqual({
+      rim_mm: 'A rim needs a base plate.',
     });
   });
 

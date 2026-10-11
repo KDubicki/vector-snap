@@ -44,6 +44,8 @@ export interface PrintSettings {
   colorLayers: number;
   baseShape: BaseShape;
   marginMm: number;
+  /** Width of a raised rim along the base plate's edge (mm), as high as the colors; 0 = none. */
+  rimMm: number;
   /** Hanging loop hole diameter (mm); 0 = no loop. */
   loopHoleMm: number;
   /** Magnet pocket diameter (mm); 0 = none. */
@@ -80,6 +82,7 @@ const COMMON: ProjectSettings = {
   colorLayers: 2,
   baseShape: 'outline',
   marginMm: 0,
+  rimMm: 0,
   loopHoleMm: 0,
   magnetMm: 0,
   magnetDepthMm: 2,
@@ -194,6 +197,7 @@ export function validatePrint(doc: EditorDoc, settings: PrintSettings): Record<s
   if (!(settings.colorLayers >= 1)) errors.colorLayers = 'At least 1 layer.';
   if (!(settings.baseLayers >= 0)) errors.baseLayers = 'Cannot be negative.';
   if (settings.loopHoleMm > 0 && base <= 0) errors.loopHoleMm = 'A hanging loop needs a base.';
+  if (settings.rimMm > 0 && base <= 0) errors.rimMm = 'A rim needs a base.';
   if (settings.magnetMm > 0 && settings.magnetDepthMm > base - MAGNET_ROOF_MM + 1e-9) {
     const layers = Math.ceil((settings.magnetDepthMm + MAGNET_ROOF_MM) / settings.layerMm - 1e-9);
     errors.magnetDepthMm = `Needs a base of at least ${layers} layers (${layersToMm(layers, settings.layerMm)} mm).`;
@@ -238,6 +242,8 @@ export function printOptions(
     base_shape: settings.baseShape,
     base_margin_mm: settings.marginMm,
     stack_order: 'document',
+    rim_mm: settings.rimMm,
+    rim_height_mm: 0,
     loop_hole_mm: settings.loopHoleMm,
     magnet_mm: settings.magnetMm,
     magnet_depth_mm: settings.magnetDepthMm,
@@ -383,6 +389,7 @@ export function testCard(
       widthMm: card.width,
       baseShape: 'rectangle',
       marginMm: CARD_GAP_MM,
+      rimMm: 0,
       loopHoleMm: 0,
       magnetMm: 0,
       shapeRaise: {},

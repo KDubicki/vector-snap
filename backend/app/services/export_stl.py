@@ -5,9 +5,9 @@ multi-color design prints as a relief (or, with `layered=False`, all colors shar
 height). Heights can be set per color (0 leaves a color out) and the model mirrored;
 details thinner than the nozzle can be removed before extrusion, and heights can be
 rounded to whole printer layers. The base plate follows the design's outline or is a
-rectangle, rounded rectangle or circle around it; colors can be stacked in document order
-or by brightness. A hanging loop can be added at the top of the base plate and a magnet
-pocket in its underside.
+rectangle, rounded rectangle or circle around it, optionally with a raised rim along its
+edge; colors can be stacked in document order or by brightness. A hanging loop can be
+added at the top of the base plate and a magnet pocket in its underside.
 Coordinates are converted to millimetres and the y axis is flipped (SVG y points down,
 STL z-up models are viewed from above with y up). The meshes come from `mesh`, the base
 plate from `base_plate`. See docs/13-export-formats.md.
@@ -20,7 +20,7 @@ from typing import Literal
 
 import numpy as np
 from numpy.typing import NDArray
-from shapely import affinity, make_valid, unary_union
+from shapely import Polygon, affinity, make_valid, unary_union
 from shapely.geometry.base import BaseGeometry
 
 from app.core.errors import InvalidParameters
@@ -30,6 +30,7 @@ from app.services.base_plate import (
     base_outline,
     magnet_pocket,
     printable,
+    rim,
     with_loop,
 )
 from app.services.mesh import prism, without_pinches, write_binary_stl
@@ -81,6 +82,10 @@ class StlOptions:
     base_shape: BaseShape = "outline"
     base_margin_mm: float = 0.0
     stack_order: StackOrder = "document"
+    # Raised rim along the edge of the base plate: width and height above the base (mm);
+    # a height of 0 makes it as high as the tallest color. Colors under it are cut away.
+    rim_mm: float = 0.0
+    rim_height_mm: float = 0.0
     # Hole diameter of a hanging loop on top of the base plate (keyrings, hooks); 0 = none.
     loop_hole_mm: float = 0.0
     # Round pocket in the underside of the base plate for a magnet (diameter, depth; mm).
@@ -236,6 +241,8 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
         raise InvalidParameters(
             "A hanging loop needs a base plate (base_mm > 0).", {"field": "loop_hole_mm"}
         )
+    if options.rim_mm > 0 and base <= 0:
+        raise InvalidParameters("A rim needs a base plate (base_mm > 0).", {"field": "rim_mm"})
     if options.magnet_mm > 0 and options.magnet_depth_mm > base - MAGNET_ROOF_MM + 1e-9:
         raise InvalidParameters(
             f"A {options.magnet_depth_mm:g} mm deep magnet pocket needs a base plate of at "
@@ -243,11 +250,14 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
             {"field": "magnet_depth_mm"},
         )
     bodies: list[Body] = []
+    border: BaseGeometry = Polygon()
+    base_color = options.filaments[0] if options.filaments else included[0].layer.fill
     if base > 0:
         silhouette = printable(
             unary_union([part.geometry for part in included]), options.min_feature_mm
         )
         silhouette = base_outline(silhouette, options.base_shape, options.base_margin_mm)
+        border = rim(silhouette, options.rim_mm)
         silhouette = with_loop(silhouette, options.loop_hole_mm)
         pocket = magnet_pocket(silhouette, options.magnet_mm)
         parts = [
@@ -257,11 +267,14 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
             for polygon in without_pinches(silhouette)
         ]
         if parts:
-            base_color = options.filaments[0] if options.filaments else included[0].layer.fill
             bodies.append(Body("base", base_color, np.concatenate(parts)))
     visible = _visible(document, included)
+    if not border.is_empty:
+        visible = [_repaired(geometry.difference(border)) for geometry in visible]
     make_bodies = _filament_bodies if options.filaments else _color_bodies
     bodies.extend(make_bodies(included, visible, base, options))
+    if not border.is_empty:
+        bodies.extend(_rim_body(border, included, base, base_color, options))
     if not bodies:
         raise InvalidParameters(
             f"Nothing to export: every shape is thinner than {options.min_feature_mm:g} mm.",
@@ -284,6 +297,16 @@ def _color_bodies(
                 name += f"-{part.height:g}mm"
             bodies.append(Body(name, part.layer.fill, np.concatenate(prisms)))
     return bodies
+
+
+def _rim_body(
+    border: BaseGeometry, parts: list[_Part], base: float, color: str, options: StlOptions
+) -> list[Body]:
+    """The rim, in the base plate's color, as high as asked or as the tallest color."""
+    height = options.rim_height_mm or max(part.height for part in parts)
+    top = base + snap_to_layers(height, options.print_layer_mm)
+    prisms = [prism(polygon, base, top) for polygon in without_pinches(border)]
+    return [Body("rim", color, np.concatenate(prisms))] if prisms else []
 
 
 def _check_stacks(parts: list[_Part], options: StlOptions) -> None:

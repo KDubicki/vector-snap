@@ -55,6 +55,8 @@ curl -F svg=@logo.svg -F width_mm=120 -F base_mm=1.5 -F layer_mm=0.8 \
 | `filaments` | `[]` | **Mixed colors**: JSON list of the loaded filaments `["#rrggbb", ...]` (up to 16; e.g. the 4 AMS slots). The first one prints the base plate. With filaments, bodies are made per filament (see [Mixed colors](#mixed-colors-filament-stacks)) |
 | `color_stacks` | `{}` | With `filaments`: per palette index `{"base": f, "top": [[f, mm], ...]}` — filament indices; `top` lists thin layers from the top surface down (up to 8), `base` fills the rest of the color's height. Every included color needs one |
 | `stack_order` | `document` | Bottom-to-top order of the colors for automatic heights: `document` (as in the SVG — largest coverage at the bottom), `light_to_dark` or `dark_to_light` |
+| `rim_mm` | `0` | Raised rim along the outer edge of the base plate, this wide (0–50 mm) — coasters, signs, badges; needs `base_mm > 0`. `0` = no rim |
+| `rim_height_mm` | `0` | Rim height above the base plate (0–100 mm); `0` = as high as the tallest color |
 | `loop_hole_mm` | `0` | Hanging loop on top of the base plate with a hole of this diameter (0–20 mm) — keyrings, ornaments, hooks; needs `base_mm > 0`. `0` = no loop |
 | `magnet_mm` | `0` | Round pocket in the underside of the base plate for a magnet (0–50 mm diameter; add ≈0.2 mm clearance, e.g. `10.2` for a 10 mm magnet). `0` = none |
 | `magnet_depth_mm` | `2` | Pocket depth (0–20 mm); at least 0.4 mm of base plate must remain above it |
@@ -109,6 +111,12 @@ Model construction:
   stringy blobs, while the remaining shapes keep their exact outline and sharp corners.
   The base plate is filtered the same way. If nothing is left, the export is
   `422 INVALID_PARAMETERS`.
+- **Raised rim** (`rim_mm`, `rim_height_mm`): a band along the outer edge of the base
+  plate (after shape and margin, before the hanging loop), extruded from the top of the
+  plate as one `rim` body in the base plate's color (the first filament with mixed
+  colors). Holes in the plate get no rim. Colors under the band are cut away, so bodies
+  never overlap; give the plate a margin at least as wide as the rim to keep the whole
+  design visible. Without a base plate the export is `422 INVALID_PARAMETERS`.
 - **Hanging loop** (`loop_hole_mm`): a ring with a 2 mm wall around the hole is added
   to the base plate, centered on the plate's top edge — on the topmost point closest to
   the middle — and reaching half a wall into the plate so it is solidly joined. The hole
@@ -171,7 +179,7 @@ curl -F svg=@logo.svg -F base_mm=1 -F layer_heights='{"0": 0}' \
 ```
 
 Same options and the same bodies as STL (`width_mm`, `base_mm`, `base_shape`,
-`base_margin_mm`, `stack_order`, `loop_hole_mm`, `magnet_mm`, `magnet_depth_mm`, `layer_mm`, `layered`, `layer_heights`, `shape_heights`, `mirror`, `min_feature_mm`,
+`base_margin_mm`, `stack_order`, `rim_mm`, `rim_height_mm`, `loop_hole_mm`, `magnet_mm`, `magnet_depth_mm`, `layer_mm`, `layered`, `layer_heights`, `shape_heights`, `mirror`, `min_feature_mm`,
 `print_layer_mm`, `filaments`, `color_stacks`), but packaged so a slicer keeps the colors apart — STL has no
 notion of parts or colors.
 

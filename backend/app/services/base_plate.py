@@ -1,5 +1,5 @@
-"""Base plate of 3D exports: its outline around the design, a hanging loop, a magnet
-pocket, and the removal of details too thin to print (millimetres).
+"""Base plate of 3D exports: its outline around the design, a raised rim, a hanging loop,
+a magnet pocket, and the removal of details too thin to print (millimetres).
 
 See docs/13-export-formats.md.
 """
@@ -7,7 +7,14 @@ See docs/13-export-formats.md.
 import math
 from typing import Literal
 
-from shapely import Point, Polygon, box, minimum_bounding_circle, minimum_bounding_radius
+from shapely import (
+    Point,
+    Polygon,
+    box,
+    minimum_bounding_circle,
+    minimum_bounding_radius,
+    unary_union,
+)
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import nearest_points, polylabel
 
@@ -79,6 +86,20 @@ def base_outline(silhouette: BaseGeometry, shape: BaseShape, margin_mm: float) -
 
 def _rounded(rectangle: Polygon, radius: float) -> BaseGeometry:
     return rectangle.buffer(-radius, join_style="mitre").buffer(radius, quad_segs=QUAD_SEGS)
+
+
+def rim(outline: BaseGeometry, width_mm: float) -> BaseGeometry:
+    """Band `width_mm` wide along the inside of the base plate's `outline` (millimetres).
+
+    Raised above the plate, it frames the design like the edge of a coaster or a sign. It
+    follows outer edges only: holes in the plate stay open without a rim of their own.
+    Empty when no rim is requested.
+    """
+    if width_mm <= 0 or outline.is_empty:
+        return Polygon()
+    shells = unary_union([Polygon(part.exterior) for part in polygons(outline)])
+    band = shells.difference(shells.buffer(-width_mm, quad_segs=QUAD_SEGS))
+    return band.intersection(outline)
 
 
 def with_loop(outline: BaseGeometry, hole_mm: float) -> BaseGeometry:

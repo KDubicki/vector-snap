@@ -201,6 +201,7 @@ describe('BasePlateFields', () => {
     expect(onChange).toHaveBeenLastCalledWith({ baseShape: 'circle' });
     for (const [label, key] of [
       ['Border around the design (mm)', 'marginMm'],
+      ['Raised rim (mm)', 'rimMm'],
       ['Hanging loop hole (mm)', 'loopHoleMm'],
       ['Magnet pocket diameter (mm)', 'magnetMm'],
       ['Drop details thinner than (mm)', 'nozzleMm'],

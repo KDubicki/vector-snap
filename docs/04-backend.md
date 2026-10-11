@@ -46,7 +46,7 @@ backend/
 │       ├── svg_geometry.py     # parse contract SVG, flatten curves, polygons (exports)
 │       ├── export_stl.py       # SVG → STL (heights, parts, 3D bodies)
 │       ├── mesh.py             # closed prisms, manifold fixes, binary STL
-│       ├── base_plate.py       # plate outline, hanging loop, magnet pocket, detail filter
+│       ├── base_plate.py       # plate outline, rim, hanging loop, magnet pocket, detail filter
 │       ├── export_3mf.py       # SVG → 3MF (one colored part per color)
 │       ├── export_dxf.py       # SVG → DXF (outlines per color layer)
 │       └── export_pdf.py       # SVG → PDF (exact curves)

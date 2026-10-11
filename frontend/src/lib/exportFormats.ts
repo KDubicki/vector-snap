@@ -61,7 +61,7 @@ export interface ExportFormat {
 export const MAGNET_ROOF_MM = 0.4;
 
 /** Collapsed groups of the less common 3D options (the rest is always shown):
- * shape, margin, loop and magnet; color order, detail removal and layer snapping. */
+ * shape, margin, rim, loop and magnet; color order, detail removal and layer snapping. */
 const BASE_EXTRAS = 'Base plate extras';
 const PRINT_TUNING = 'Print tuning';
 
@@ -136,6 +136,32 @@ const MODEL_OPTIONS: ExportOption[] = [
       { value: 'dark_to_light', label: 'Dark to light' },
     ],
     hint: 'Which colors are stacked higher; the bottom color also prints the base plate.',
+  },
+  {
+    type: 'number',
+    name: 'rim_mm',
+    section: BASE_EXTRAS,
+    label: 'Raised rim width',
+    unit: 'mm',
+    default: 0,
+    min: 0,
+    max: 50,
+    step: 0.5,
+    hint: 'A frame along the edge of the base plate (coasters, signs); colors under it are cut away. 0 = none.',
+    check: (value, values) =>
+      value > 0 && !(Number(values.base_mm) > 0) ? 'A rim needs a base plate.' : null,
+  },
+  {
+    type: 'number',
+    name: 'rim_height_mm',
+    section: BASE_EXTRAS,
+    label: 'Raised rim height',
+    unit: 'mm',
+    default: 0,
+    min: 0,
+    max: 100,
+    step: 0.2,
+    hint: 'Above the base plate. 0 = as high as the tallest color.',
   },
   {
     type: 'number',

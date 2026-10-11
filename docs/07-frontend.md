@@ -201,7 +201,8 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
   elements get a dashed outline, the selection an accent outline. Raises are stored per
   shape id and sent as `shape_heights` (color height + extra layers), so the backend
   prints them as their own parts — e.g. letters 3 layers above a flat AMS sign.
-- **Base plate**: shape (outline, rectangle, rounded, circle), border, hanging loop,
+- **Base plate**: shape (outline, rectangle, rounded, circle), border, raised rim (as
+  high as the colors), hanging loop,
   magnet pocket (depth checked against the base), detail filter (nozzle width).
 - Summary of the total height, **Download 3MF** (one part per color → AMS slots in the
   slicer) or **STL**, a 3D preview (marked stale when settings change) and cancellable

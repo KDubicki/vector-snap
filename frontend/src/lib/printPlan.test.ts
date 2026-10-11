@@ -94,6 +94,8 @@ describe('print plan', () => {
       print_layer_mm: 0.2,
       min_feature_mm: 0.4,
       stack_order: 'document',
+      rim_mm: 0,
+      rim_height_mm: 0,
       mirror: false,
     });
     expect(JSON.parse(String(options.layer_heights))).toEqual({ '0': 0, '1': 0.4, '2': 0 });
@@ -136,6 +138,10 @@ describe('print plan', () => {
     expect(validatePrint(doc, settings({ loopHoleMm: 4, baseLayers: 0 }))).toEqual({
       loopHoleMm: 'A hanging loop needs a base.',
     });
+    expect(validatePrint(doc, settings({ rimMm: 2, baseLayers: 0 }))).toEqual({
+      rimMm: 'A rim needs a base.',
+    });
+    expect(printOptions(doc, settings({ rimMm: 2 }))).toMatchObject({ rim_mm: 2 });
   });
 });
 
@@ -235,6 +241,7 @@ describe('mixed colors', () => {
       widthMm: 22,
       baseShape: 'rectangle',
       magnetMm: 0,
+      rimMm: 0,
       loopHoleMm: 0,
       shapeRaise: {},
     });

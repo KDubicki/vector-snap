@@ -318,6 +318,63 @@ def test_hanging_loop_needs_a_base_plate() -> None:
         _export(StlOptions(base_mm=0, loop_hole_mm=4), [("#000000", [FRAME])])
 
 
+def _bodies(options: StlOptions, groups: list[tuple[str, list[str]]]) -> dict[str, Body]:
+    document = parse_svg(contract_svg(40, 20, groups))
+    return {body.name: body for body in build_bodies(document, options)}
+
+
+def test_rim_frames_the_base_plate_as_high_as_the_tallest_color() -> None:
+    options = StlOptions(
+        width_mm=40,
+        base_mm=1,
+        layer_mm=0.6,
+        layered=False,
+        base_shape="rectangle",
+        base_margin_mm=3,
+        rim_mm=2,
+    )
+
+    bodies = _bodies(options, [("#000000", [FRAME]), ("#ff0000", [DOT])])
+
+    rim = bodies["rim"].triangles
+    assert is_closed(rim)
+    assert bodies["rim"].color == "#000000"  # the base plate's color
+    assert (rim[..., 2].min(), rim[..., 2].max()) == pytest.approx((1, 1.6))
+    # 46 x 26 plate minus its 42 x 22 inside, 0.6 mm high; the design stays clear of it
+    assert signed_volume(rim) == pytest.approx((46 * 26 - 42 * 22) * 0.6)
+    assert signed_volume(bodies["color-0"].triangles) == pytest.approx(300 * 0.6)
+
+
+def test_rim_height_can_be_set_and_cuts_away_the_colors_under_it() -> None:
+    options = StlOptions(width_mm=40, base_mm=1, layer_mm=0.6, rim_mm=1, rim_height_mm=2)
+
+    bodies = _bodies(options, [("#000000", [FRAME])])
+
+    assert bodies["rim"].triangles[..., 2].max() == pytest.approx(3)
+    # outline plate = the 20 x 20 frame: the rim takes its outer 1 mm band, not the hole's
+    assert signed_volume(bodies["rim"].triangles) == pytest.approx((400 - 324) * 2)
+    remaining = 300 - (400 - 324)
+    assert signed_volume(bodies["color-0"].triangles) == pytest.approx(remaining * 0.6)
+
+
+def test_rim_uses_the_base_filament_with_mixed_colors() -> None:
+    options = StlOptions(
+        width_mm=40,
+        base_mm=1,
+        layer_mm=1,
+        rim_mm=1,
+        filaments=("#ffffff", "#ff0000"),
+        color_stacks={0: ColorStack(base=1)},
+    )
+
+    assert _bodies(options, [("#000000", [FRAME])])["rim"].color == "#ffffff"
+
+
+def test_rim_needs_a_base_plate() -> None:
+    with pytest.raises(InvalidParameters, match="rim needs a base plate"):
+        _export(StlOptions(base_mm=0, rim_mm=2), [("#000000", [FRAME])])
+
+
 def test_magnet_pocket_is_recessed_into_the_underside_of_the_base() -> None:
     square = "M0,0 L20,0 L20,20 L0,20 Z"
     options = StlOptions(width_mm=40, base_mm=3, magnet_mm=10, magnet_depth_mm=2)

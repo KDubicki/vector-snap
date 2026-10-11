@@ -76,6 +76,12 @@ def stl_options(
     stack_order: Annotated[
         StackOrder, Form(description="Bottom-to-top color order: document or by brightness")
     ] = "document",
+    rim_mm: Annotated[
+        float, Form(ge=0, le=50, description="Raised rim along the base plate's edge; 0 = none")
+    ] = 0.0,
+    rim_height_mm: Annotated[
+        float, Form(ge=0, le=100, description="Rim height above the base; 0 = tallest color")
+    ] = 0.0,
     loop_hole_mm: Annotated[
         float, Form(ge=0, le=20, description="Hanging loop hole diameter on the base; 0 = none")
     ] = 0.0,
@@ -111,6 +117,8 @@ def stl_options(
         base_shape=base_shape,
         base_margin_mm=base_margin_mm,
         stack_order=stack_order,
+        rim_mm=rim_mm,
+        rim_height_mm=rim_height_mm,
         loop_hole_mm=loop_hole_mm,
         magnet_mm=magnet_mm,
         magnet_depth_mm=magnet_depth_mm,

@@ -14,7 +14,7 @@ interface BasePlateFieldsProps {
   onChange: (change: Partial<PrintSettings>) => void;
 }
 
-/** Base plate shape, border, hanging loop, magnet pocket and detail filter. */
+/** Base plate shape, border, raised rim, hanging loop, magnet pocket and detail filter. */
 export function BasePlateFields({
   settings: print,
   errors,
@@ -46,6 +46,17 @@ export function BasePlateFields({
           max={100}
           step={0.5}
           onChange={(marginMm) => update({ marginMm })}
+        />
+        <NumberField
+          id="print-rim"
+          label="Raised rim (mm)"
+          value={print.rimMm}
+          min={0}
+          max={50}
+          step={0.5}
+          hint="A frame this wide along the plate's edge, as high as the colors. 0 = none."
+          error={errors.rimMm}
+          onChange={(rimMm) => update({ rimMm })}
         />
         <NumberField
           id="print-loop"

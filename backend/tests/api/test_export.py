@@ -58,6 +58,8 @@ def test_stl_defaults(client: TestClient) -> None:
         ({"stack_order": "random"}, "VALIDATION_ERROR"),
         ({"loop_hole_mm": "21"}, "VALIDATION_ERROR"),
         ({"loop_hole_mm": "4", "base_mm": "0"}, "INVALID_PARAMETERS"),
+        ({"rim_mm": "-1"}, "VALIDATION_ERROR"),
+        ({"rim_mm": "2", "base_mm": "0"}, "INVALID_PARAMETERS"),
         ({"magnet_mm": "51"}, "VALIDATION_ERROR"),
         ({"magnet_mm": "8", "magnet_depth_mm": "2"}, "INVALID_PARAMETERS"),  # base 1 mm
     ],
@@ -67,6 +69,14 @@ def test_rejects_invalid_options(client: TestClient, form: dict[str, str], code:
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == code
+
+
+def test_stl_rim(client: TestClient) -> None:
+    form = {"width_mm": "40", "base_mm": "1", "layer_mm": "1", "rim_mm": "1", "rim_height_mm": "3"}
+
+    triangles = read_binary_stl(_post(client, "stl", form).content)
+
+    assert triangles[..., 2].max() == pytest.approx(4)
 
 
 def test_stl_base_shape_and_margin(client: TestClient) -> None:
