@@ -3,8 +3,9 @@
 Keeps routes thin and lets other entry points (CLI, workers) reuse the same flow.
 """
 
+import logging
 import time
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Literal
 
 import numpy as np
@@ -31,6 +32,12 @@ from app.services.svg_postprocess import build_svg
 from app.services.vectorization import TracingOptions, trace
 
 Algorithm = Literal["kmeans", "median_cut", "filaments"]
+
+logger = logging.getLogger(__name__)
+
+
+def _ms(started: float) -> int:
+    return round((time.perf_counter() - started) * 1000)
 
 
 @dataclass(frozen=True)
@@ -62,7 +69,10 @@ def quantize_image(
     `upscale` enlarges small images first (see `decode_image`). The `filaments` algorithm
     picks the palette from the given filament colors.
     """
+    started = time.perf_counter()
     image = decode_image(data, max_dimension, upscale=upscale)
+    decode_ms = _ms(started)
+    started = time.perf_counter()
     if algorithm == "filaments":
         result = quantize_filaments(image, filaments or [], colors, locked_colors=locked_colors)
     elif algorithm == "median_cut":
@@ -75,14 +85,43 @@ def quantize_image(
             max_working_size=max_working_size,
             seed=seed,
         )
-    return image, smooth_regions(result, smooth)
+    result = smooth_regions(result, smooth)
+    logger.info(
+        "quantized image",
+        extra={
+            "width": image.width,
+            "height": image.height,
+            "colors": colors,
+            "algorithm": algorithm,
+            "locked_colors": len(locked_colors or []),
+            "smooth": smooth,
+            "upscale": upscale,
+            "decode_ms": decode_ms,
+            "quantize_ms": _ms(started),
+        },
+    )
+    return image, result
 
 
 def suggest_colors(
     data: bytes, *, min_colors: int, max_colors: int, max_dimension: int
 ) -> ColorSuggestion:
+    started = time.perf_counter()
     image = decode_image(data, max_dimension)
-    return suggest_color_count(image, min_colors=min_colors, max_colors=max_colors)
+    decode_ms = _ms(started)
+    started = time.perf_counter()
+    suggestion = suggest_color_count(image, min_colors=min_colors, max_colors=max_colors)
+    logger.info(
+        "suggested color count",
+        extra={
+            "width": image.width,
+            "height": image.height,
+            "suggested_colors": suggestion.colors,
+            "decode_ms": decode_ms,
+            "suggest_ms": _ms(started),
+        },
+    )
+    return suggestion
 
 
 # A border color counts as background when it covers at least this share of the border.
@@ -130,6 +169,7 @@ def vectorize_image(
     indices stay stable.
     """
     started = time.perf_counter()
+    decode_ms = None  # one-shot mode: quantize_image logs decoding and quantizing
     if colors is not None:
         _, quantized = quantize_image(
             data, colors=colors, algorithm=algorithm, max_dimension=max_dimension
@@ -144,6 +184,7 @@ def vectorize_image(
                 {"field": "colors"},
             ) from exc
         labels, palette = indexed.labels, indexed.palette
+        decode_ms = _ms(started)
 
     if palette_override is not None:
         if len(palette_override) != len(palette):
@@ -166,8 +207,22 @@ def vectorize_image(
             )
 
     height, width = labels.shape
+    trace_started = time.perf_counter()
     document = build_svg(
         trace(labels, palette, options), palette, width, height, precision=options.path_precision
+    )
+    logger.info(
+        "vectorized image",
+        extra={
+            "width": width,
+            "height": height,
+            "colors": len(palette),
+            "transparent": len(transparent or []),
+            **asdict(options),
+            "path_count": document.path_count,
+            **({"decode_ms": decode_ms} if decode_ms is not None else {}),
+            "trace_ms": _ms(trace_started),
+        },
     )
     counts = np.bincount(labels[labels != TRANSPARENT_LABEL], minlength=len(palette))
     return VectorizeResult(
@@ -177,5 +232,5 @@ def vectorize_image(
         palette=palette,
         coverage=counts[: len(palette)] / max(int(counts.sum()), 1),
         path_count=document.path_count,
-        duration_ms=round((time.perf_counter() - started) * 1000),
+        duration_ms=_ms(started),
     )

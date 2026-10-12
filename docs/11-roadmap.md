@@ -13,7 +13,7 @@
 - [x] vtracer integration (per-color binary layers), `/vectorize` in indexed and one-shot mode (FR-20…FR-25)
 - [x] SVG post-processing & sanitization
 - [x] Error envelope, request ids
-- [ ] Structured JSON logging with step durations
+- [x] Structured JSON logging with step durations
 - [x] Unit + API tests
 
 ## Milestone 2 — Frontend MVP

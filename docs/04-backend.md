@@ -124,5 +124,8 @@ exception handler into a uniform JSON body:
   uvicorn's own logs go through the same handler; its access log is replaced by one
   `app.access` line per request with `method`, `path`, `status` and `duration_ms`
   (crashed requests are logged as `500`; health checks only at `debug` level).
-- Planned: each processing request also logs input dimensions, parameters and step
-  durations (`decode_ms`, `quantize_ms`, `trace_ms`).
+- Processing steps (`app.services.pipeline`) log input dimensions, parameters and step
+  durations under the same request id: `quantized image` (`colors`, `algorithm`,
+  `decode_ms`, `quantize_ms`, ...), `vectorized image` (tracing options, `path_count`,
+  `decode_ms` for an indexed PNG, `trace_ms`; one-shot requests log the quantizing as its
+  own line first) and `suggested color count` (`decode_ms`, `suggest_ms`).
