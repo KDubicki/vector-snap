@@ -3,7 +3,7 @@ import math
 import pytest
 
 from app.core.errors import InvalidSvg
-from app.services.svg_geometry import flatten, parse_svg, polygons, to_polygon
+from app.services.svg_geometry import curve_path, flatten, parse_svg, polygons, to_polygon
 from tests.vectors import SVG_NS, contract_svg
 
 SQUARE = "M0,0 L10,0 L10,10 L0,10 Z"
@@ -106,3 +106,19 @@ def test_polygons_flattens_multi_part_geometry() -> None:
 
     assert len(polygons(geometry)) == 2
     assert polygons(to_polygon([])) == []
+
+
+def test_curve_path_keeps_curves_and_converts_quadratics_and_arcs_to_cubic() -> None:
+    commands = curve_path("M0,0 l10,0 C10,5 5,10 0,10 Q-6,4 0,0 z M20,0 A5,5 0 0 1 30,0")
+
+    assert [c for c, _ in commands[:6]] == ["M", "L", "C", "C", "Z", "M"]
+    assert commands[1][1] == [(10, 0)]
+    assert commands[2][1] == [(10, 5), (5, 10), (0, 10)]
+    # quadratic (0,10) -> (-6,4) -> (0,0): controls 2/3 of the way to the control point
+    assert commands[3][1] == pytest.approx([(-4, 6), (-4, 8 / 3), (0, 0)])
+    arc = commands[6:]
+    assert arc and all(c == "C" for c, _ in arc)
+    assert arc[-1][1][-1] == pytest.approx((30, 0))
+    assert all(
+        math.hypot(x - 25, y) == pytest.approx(5, abs=0.01) for _, p in arc for x, y in p[-1:]
+    )

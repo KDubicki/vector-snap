@@ -139,6 +139,45 @@ def flatten(d: str, tolerance: float = DEFAULT_TOLERANCE) -> list[NDArray[np.flo
     return rings
 
 
+Point = tuple[float, float]
+# ("M", [end]), ("L", [end]), ("C", [control1, control2, end]) or ("Z", []).
+PathCommand = tuple[str, list[Point]]
+
+
+def curve_path(d: str) -> list[PathCommand]:
+    """Path data as moves, lines, cubic Béziers and closes, without flattening.
+
+    Quadratic curves are converted exactly to cubic ones, arcs by cubic approximation,
+    so formats with only cubic curves (PDF, PostScript) keep the exact shape.
+    """
+    commands: list[PathCommand] = []
+    for segment in svgelements.Path(d):
+        if isinstance(segment, svgelements.Move):
+            commands.append(("M", [_xy(segment.end)]))
+        elif isinstance(segment, svgelements.Close):
+            commands.append(("Z", []))
+        elif isinstance(segment, svgelements.Line):
+            commands.append(("L", [_xy(segment.end)]))
+        elif isinstance(segment, svgelements.CubicBezier):
+            commands.append(("C", [_xy(segment.control1), _xy(segment.control2), _xy(segment.end)]))
+        elif isinstance(segment, svgelements.QuadraticBezier):
+            start, control, end = segment.start, segment.control, segment.end
+            commands.append(
+                (
+                    "C",
+                    [
+                        _xy(start + (control - start) * (2 / 3)),
+                        _xy(end + (control - end) * (2 / 3)),
+                        _xy(end),
+                    ],
+                )
+            )
+        elif isinstance(segment, svgelements.Arc):
+            for curve in segment.as_cubic_curves():
+                commands.append(("C", [_xy(curve.control1), _xy(curve.control2), _xy(curve.end)]))
+    return commands
+
+
 def to_polygon(rings: list[NDArray[np.float64]]) -> BaseGeometry:
     """Combine rings with even-odd semantics (holes are rings inside other rings)."""
     geometry: BaseGeometry = Polygon()
