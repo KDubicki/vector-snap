@@ -95,7 +95,8 @@ describe('PaletteStep', () => {
 
   it('asks before replacing an edited SVG', async () => {
     const user = userEvent.setup();
-    vi.stubGlobal('fetch', fetchResponses(VECTORIZED));
+    // The palette step re-quantizes 400 ms after mounting; slow runners get there mid-test.
+    vi.stubGlobal('fetch', fetchResponses(VECTORIZED, QUANTIZED));
     useAppStore.setState({ file, quantized: QUANTIZED });
     await store().runVectorize();
     store().select('p-0-0');
