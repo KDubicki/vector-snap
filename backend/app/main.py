@@ -10,7 +10,7 @@ from app.core.logging import configure_logging, request_id_middleware
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    configure_logging(settings.log_level)
+    configure_logging(settings.log_level, json_logs=settings.is_production)
 
     app = FastAPI(
         title="VectorSnap API",

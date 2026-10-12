@@ -117,5 +117,12 @@ exception handler into a uniform JSON body:
 - `GET /api/v1/health/ready` — readiness (dependencies importable, thread pool available).
 - Every request gets an `X-Request-ID` (taken from the incoming header or generated) that
   is echoed in the response and included in every log line.
-- Logs: JSON in production, human-readable in development. Each processing request logs
-  input dimensions, parameters and step durations (`decode_ms`, `quantize_ms`, `trace_ms`).
+- Logs (`app/core/logging.py`): one JSON object per line in production
+  (`VECTORSNAP_ENV=production`: `time`, `level`, `logger`, `message`, `request_id` plus
+  any extra fields), human-readable lines in development
+  (`... INFO app.access [<request id>] POST /api/v1/quantize 200 duration_ms=812`).
+  uvicorn's own logs go through the same handler; its access log is replaced by one
+  `app.access` line per request with `method`, `path`, `status` and `duration_ms`
+  (crashed requests are logged as `500`; health checks only at `debug` level).
+- Planned: each processing request also logs input dimensions, parameters and step
+  durations (`decode_ms`, `quantize_ms`, `trace_ms`).
