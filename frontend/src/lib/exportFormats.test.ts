@@ -177,6 +177,16 @@ describe('export formats', () => {
     });
   });
 
+  it('offers EPS with width and margin options', () => {
+    const eps = EXPORT_FORMATS.find((format) => format.id === 'eps')!;
+
+    expect(eps.extension).toBe('eps');
+    expect(defaultValues(eps)).toEqual({ width_mm: 100, margin_mm: 0 });
+    expect(validate(eps, { width_mm: 100, margin_mm: -1 })).toEqual({
+      margin_mm: expect.any(String),
+    });
+  });
+
   it('builds file names from the source file', () => {
     expect(exportFileName('logo.final.png', 'stl')).toBe('logo.final.stl');
     expect(exportFileName(undefined, 'dxf')).toBe('vectorsnap.dxf');

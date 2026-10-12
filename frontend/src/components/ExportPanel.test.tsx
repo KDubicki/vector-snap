@@ -168,4 +168,17 @@ describe('ExportPanel', () => {
     await u.click(screen.getByRole('button', { name: 'Export DXF' }));
     await waitFor(() => expect(download).toHaveBeenCalledWith(expect.any(Blob), 'logo.dxf'));
   });
+
+  it('exports EPS with its width and margin', async () => {
+    const u = user();
+    vi.mocked(exportFile).mockResolvedValue(new Blob(['%!PS']));
+    await renderPanel();
+
+    await u.click(screen.getByRole('radio', { name: 'EPS' }));
+    await u.click(screen.getByRole('button', { name: 'Export EPS' }));
+
+    await waitFor(() => expect(download).toHaveBeenCalledWith(expect.any(Blob), 'logo.eps'));
+    expect(vi.mocked(exportFile).mock.calls[0][0]).toBe('eps');
+    expect(vi.mocked(exportFile).mock.calls[0][2]).toEqual({ width_mm: 100, margin_mm: 0 });
+  });
 });
