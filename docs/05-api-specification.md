@@ -22,6 +22,7 @@ Responses are JSON unless stated otherwise. Errors use the format described in
 | `POST` | `/api/v1/export/3mf` | SVG → multi-color 3MF ([details](13-export-formats.md#3mf)) |
 | `POST` | `/api/v1/export/dxf` | SVG → DXF outlines per color ([details](13-export-formats.md#dxf)) |
 | `POST` | `/api/v1/export/pdf` | SVG → vector PDF ([details](13-export-formats.md#pdf)) |
+| `POST` | `/api/v1/export/eps` | SVG → Encapsulated PostScript ([details](13-export-formats.md#eps)) |
 | `POST` | `/api/v1/export/filament-plan` | Filament changes for single-extruder prints ([details](13-export-formats.md#filament-change-plan)) |
 
 ---
@@ -244,6 +245,7 @@ Formats, options and geometry are described in [13-export-formats.md](13-export-
 | `lithophane` | `model/stl` | Takes `image` (the JPEG/PNG upload) instead of `svg`. `width_mm` (0–1000, default 100), `min_thickness_mm` (0.2–10, 0.8), `max_thickness_mm` (0.2–20, 3; > `min_thickness_mm`), `resolution_mm` (0.05–5, 0.2; at most 1,000,000 grid points), `frame_mm` (0–50, 0), `invert` (bool, false) |
 | `dxf` | `image/vnd.dxf` | `width_mm` (0–10000, default 100), `fill` (bool, false) |
 | `pdf` | `application/pdf` | `page` (`fit` \| `a4` \| `letter`, default `fit`), `width_mm` (0–10000, 100), `margin_mm` (0–100, 10) |
+| `eps` | `application/postscript` | `width_mm` (0–10000, default 100), `margin_mm` (0–100, 0) |
 
 Errors: `413 FILE_TOO_LARGE`, `422 INVALID_SVG` (not well-formed, not SVG, no
 viewBox/size, no shapes), `422 VALIDATION_ERROR` (options out of range).

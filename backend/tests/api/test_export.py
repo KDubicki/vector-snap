@@ -335,3 +335,19 @@ def test_lithophane_rejects_invalid_options(
 
     assert response.status_code == 422
     assert response.json()["error"]["details"]["field"] == field
+
+
+def test_exports_eps(client: TestClient) -> None:
+    response = _post(client, "eps", {"width_mm": "40", "margin_mm": "2"})
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/postscript"
+    assert 'filename="vectorsnap.eps"' in response.headers["content-disposition"]
+    assert response.content.startswith(b"%!PS-Adobe-3.0 EPSF-3.0")
+
+
+def test_eps_rejects_a_negative_margin(client: TestClient) -> None:
+    response = _post(client, "eps", {"margin_mm": "-1"})
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"

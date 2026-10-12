@@ -14,6 +14,7 @@ of the microservice can use it too.
 | Lithophane (STL) | `POST /api/v1/export/lithophane` | Backlit photo plate made from the **original image** | ✅ |
 | DXF | `POST /api/v1/export/dxf` | Laser cutters, vinyl plotters, CNC | ✅ |
 | PDF | `POST /api/v1/export/pdf` | Print, documents | ✅ |
+| EPS | `POST /api/v1/export/eps` | Design tools, print shops, older layout software | ✅ |
 | Filament plan | `POST /api/v1/export/filament-plan` | Filament changes for multi-color prints on one extruder (JSON) | ✅ |
 
 All endpoints except the lithophane take `multipart/form-data` with an `svg` file in the
@@ -334,6 +335,29 @@ curl -F svg=@logo.svg -F page=a4 -F margin_mm=15 \
   render the same as in the browser.
 - Tests render the PDF with pdfium and check pixel colors (shape, hole, background),
   page size and centering, and inspect path segments to make sure Béziers are kept.
+
+## EPS
+
+```bash
+curl -F svg=@logo.svg -F width_mm=80 \
+     http://localhost:8000/api/v1/export/eps -o logo.eps
+```
+
+| Option | Default | Meaning |
+|--------|---------|---------|
+| `width_mm` | `100` | Drawing width; height follows the aspect ratio |
+| `margin_mm` | `0` | Empty space around the drawing inside the bounding box |
+
+- Encapsulated PostScript (EPSF-3.0, LanguageLevel 2), written directly: a short prolog
+  of one-letter procedures, then one filled path per shape; the fill color is only set
+  when it changes. `%%BoundingBox` (whole points, rounded up) and `%%HiResBoundingBox`
+  match the drawing plus margins.
+- Same curves as the PDF (`curve_path` in `svg_geometry.py`): cubic Béziers stay curves,
+  quadratic curves are converted exactly, arcs via cubic approximation; holes are
+  subpaths filled with the **nonzero** rule, like SVG.
+- Tests check the header, bounding box, colors, the mm → point mapping with the y flip
+  and that curves stay `curveto`. The output was checked once by rendering it with
+  Ghostscript (`-dEPSCrop`): shape, hole and background match the PDF test.
 
 ## Frontend
 

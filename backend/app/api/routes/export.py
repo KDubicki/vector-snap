@@ -19,6 +19,7 @@ from app.schemas.export import (
 from app.services.base_plate import BaseShape
 from app.services.export_3mf import export_3mf
 from app.services.export_dxf import DxfOptions, export_dxf
+from app.services.export_eps import EpsOptions, export_eps
 from app.services.export_pdf import PageSize, PdfOptions, export_pdf
 from app.services.export_stl import StackOrder, StlOptions, export_stl, export_stl_parts
 from app.services.filament_plan import filament_plan
@@ -244,3 +245,19 @@ async def export_to_pdf(
     options = PdfOptions(page=page, width_mm=width_mm, margin_mm=margin_mm)
     content = await run_in_threadpool(export_pdf, document, options)
     return _attachment(content, "application/pdf", "pdf")
+
+
+@router.post(
+    "/eps",
+    response_class=Response,
+    responses={200: {"content": {"application/postscript": {}}, "description": "EPS"}},
+)
+async def export_to_eps(
+    document: UploadedSvg,
+    width_mm: Annotated[float, Form(gt=0, le=10_000, description="Drawing width")] = 100.0,
+    margin_mm: Annotated[float, Form(ge=0, le=100, description="Margin around the drawing")] = 0.0,
+) -> Response:
+    """Encapsulated PostScript with exact curves for design and print tools."""
+    options = EpsOptions(width_mm=width_mm, margin_mm=margin_mm)
+    content = await run_in_threadpool(export_eps, document, options)
+    return _attachment(content, "application/postscript", "eps")
