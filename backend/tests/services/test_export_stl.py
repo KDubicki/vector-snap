@@ -106,6 +106,20 @@ def test_simplify_reduces_triangles_within_the_tolerance() -> None:
     assert signed_volume(simplified) == pytest.approx(signed_volume(exact), rel=0.05)
 
 
+def test_color_gap_keeps_neighbouring_colors_apart() -> None:
+    left, right = "M0,0 L10,0 L10,10 L0,10 Z", "M10,0 L20,0 L20,10 L10,10 Z"
+    document = parse_svg(contract_svg(40, 20, [("#000000", [left]), ("#ff0000", [right])]))
+
+    bodies = build_bodies(document, StlOptions(width_mm=40, base_mm=1, color_gap_mm=0.4))
+
+    base, black, red = (body.triangles for body in bodies)
+    assert signed_volume(base) == pytest.approx(200)  # the base plate keeps its outline
+    assert black[..., 0].max() == pytest.approx(9.8)
+    assert red[..., 0].min() == pytest.approx(10.2)
+    assert all(is_closed(t) for t in (black, red))
+    assert signed_volume(black) == pytest.approx(9.6 * 9.6 * 1)  # sharp corners
+
+
 def test_per_color_heights_override_the_default_rule() -> None:
     options = StlOptions(width_mm=40, base_mm=0, layer_mm=1, layer_heights={1: 4.5})
 

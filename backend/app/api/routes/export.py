@@ -68,6 +68,9 @@ def stl_options(
     simplify_mm: Annotated[
         float, Form(ge=0, le=2, description="Simplify outlines to this tolerance; 0 = exact")
     ] = 0.0,
+    color_gap_mm: Annotated[
+        float, Form(ge=0, le=2, description="Gap between neighbouring colors; 0 = none")
+    ] = 0.0,
     print_layer_mm: Annotated[
         float, Form(ge=0, le=1, description="Printer layer height; heights snap to it")
     ] = 0.0,
@@ -118,6 +121,7 @@ def stl_options(
         mirror=mirror,
         min_feature_mm=min_feature_mm,
         simplify_mm=simplify_mm,
+        color_gap_mm=color_gap_mm,
         print_layer_mm=print_layer_mm,
         base_shape=base_shape,
         base_margin_mm=base_margin_mm,

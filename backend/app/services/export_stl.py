@@ -4,11 +4,11 @@ Each color layer is extruded to its own height on top of an optional base plate,
 multi-color design prints as a relief (or, with `layered=False`, all colors share one
 height). Heights can be set per color (0 leaves a color out) and the model mirrored;
 details thinner than the nozzle can be removed and outlines simplified before extrusion,
-and heights can be rounded to whole printer layers. The base plate follows the design's
-outline or is a rectangle, rounded rectangle or circle around it, optionally with a
-raised rim along its edge; colors can be stacked in document order or by brightness. A
-hanging loop can be added at the top of the base plate and a magnet pocket in its
-underside.
+heights can be rounded to whole printer layers and colors kept apart by a gap. The base
+plate follows the design's outline or is a rectangle, rounded rectangle or circle around
+it, optionally with a raised rim along its edge; colors can be stacked in document order
+or by brightness. A hanging loop can be added at the top of the base plate and a magnet
+pocket in its underside.
 Coordinates are converted to millimetres and the y axis is flipped (SVG y points down,
 STL z-up models are viewed from above with y up). The meshes come from `mesh`, the base
 plate from `base_plate`. `export_stl_parts` puts every body in an STL file of its own.
@@ -83,6 +83,9 @@ class StlOptions:
     # Simplify outlines: drop points that deviate less than this from them (mm); fewer
     # triangles and smaller files for traced photos. 0 keeps the outlines exact.
     simplify_mm: float = 0.0
+    # Gap between neighbouring colors (mm): every color shrinks by half of it, for parts
+    # printed separately and fitted together (inlays, puzzles) or to stop colors bleeding.
+    color_gap_mm: float = 0.0
     # Printer layer height (mm): the base and every color end on a layer boundary; 0 = off.
     print_layer_mm: float = 0.0
     # Shape of the base plate and how far it extends beyond the design (mm).
@@ -281,6 +284,8 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
     visible = _visible(document, included)
     if not border.is_empty:
         visible = [_repaired(geometry.difference(border)) for geometry in visible]
+    if options.color_gap_mm > 0:
+        visible = [_with_gap(geometry, options.color_gap_mm) for geometry in visible]
     make_bodies = _filament_bodies if options.filaments else _color_bodies
     bodies.extend(make_bodies(included, visible, base, options))
     if not border.is_empty:
@@ -291,6 +296,11 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
             {"field": "min_feature_mm"},
         )
     return bodies
+
+
+def _with_gap(geometry: BaseGeometry, gap_mm: float) -> BaseGeometry:
+    """Shrink by half the gap, keeping corners sharp, so neighbours end `gap_mm` apart."""
+    return _repaired(geometry.buffer(-gap_mm / 2, join_style="mitre"))
 
 
 def _color_bodies(
