@@ -65,6 +65,9 @@ def stl_options(
     min_feature_mm: Annotated[
         float, Form(ge=0, le=10, description="Remove parts narrower than this (nozzle width)")
     ] = 0.0,
+    simplify_mm: Annotated[
+        float, Form(ge=0, le=2, description="Simplify outlines to this tolerance; 0 = exact")
+    ] = 0.0,
     print_layer_mm: Annotated[
         float, Form(ge=0, le=1, description="Printer layer height; heights snap to it")
     ] = 0.0,
@@ -114,6 +117,7 @@ def stl_options(
         shape_heights=parse_shape_heights(shape_heights),
         mirror=mirror,
         min_feature_mm=min_feature_mm,
+        simplify_mm=simplify_mm,
         print_layer_mm=print_layer_mm,
         base_shape=base_shape,
         base_margin_mm=base_margin_mm,

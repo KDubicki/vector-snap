@@ -89,6 +89,23 @@ def test_curved_shapes_are_closed_meshes() -> None:
     assert signed_volume(triangles) == pytest.approx(np.pi * 100, rel=0.02)
 
 
+def test_simplify_reduces_triangles_within_the_tolerance() -> None:
+    circle = (
+        "M10,0 C15.5,0 20,4.5 20,10 C20,15.5 15.5,20 10,20 C4.5,20 0,15.5 0,10 C0,4.5 4.5,0 10,0 Z"
+    )
+    exact = _export(StlOptions(width_mm=40, base_mm=0), [("#000000", [circle])])
+
+    simplified = _export(
+        StlOptions(width_mm=40, base_mm=0, simplify_mm=0.3), [("#000000", [circle])]
+    )
+
+    assert is_closed(simplified)
+    assert len(simplified) < len(exact) / 2
+    radii = np.hypot(simplified[..., 0] - 10, simplified[..., 1] - 10)
+    assert radii.max() == pytest.approx(10, abs=0.1)  # kept points lie on the curve
+    assert signed_volume(simplified) == pytest.approx(signed_volume(exact), rel=0.05)
+
+
 def test_per_color_heights_override_the_default_rule() -> None:
     options = StlOptions(width_mm=40, base_mm=0, layer_mm=1, layer_heights={1: 4.5})
 

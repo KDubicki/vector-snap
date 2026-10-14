@@ -3,11 +3,12 @@
 Each color layer is extruded to its own height on top of an optional base plate, so a
 multi-color design prints as a relief (or, with `layered=False`, all colors share one
 height). Heights can be set per color (0 leaves a color out) and the model mirrored;
-details thinner than the nozzle can be removed before extrusion, and heights can be
-rounded to whole printer layers. The base plate follows the design's outline or is a
-rectangle, rounded rectangle or circle around it, optionally with a raised rim along its
-edge; colors can be stacked in document order or by brightness. A hanging loop can be
-added at the top of the base plate and a magnet pocket in its underside.
+details thinner than the nozzle can be removed and outlines simplified before extrusion,
+and heights can be rounded to whole printer layers. The base plate follows the design's
+outline or is a rectangle, rounded rectangle or circle around it, optionally with a
+raised rim along its edge; colors can be stacked in document order or by brightness. A
+hanging loop can be added at the top of the base plate and a magnet pocket in its
+underside.
 Coordinates are converted to millimetres and the y axis is flipped (SVG y points down,
 STL z-up models are viewed from above with y up). The meshes come from `mesh`, the base
 plate from `base_plate`. `export_stl_parts` puts every body in an STL file of its own.
@@ -79,6 +80,9 @@ class StlOptions:
     mirror: bool = False
     # Remove parts narrower than this (mm), e.g. the nozzle width; 0 keeps everything.
     min_feature_mm: float = 0.0
+    # Simplify outlines: drop points that deviate less than this from them (mm); fewer
+    # triangles and smaller files for traced photos. 0 keeps the outlines exact.
+    simplify_mm: float = 0.0
     # Printer layer height (mm): the base and every color end on a layer boundary; 0 = off.
     print_layer_mm: float = 0.0
     # Shape of the base plate and how far it extends beyond the design (mm).
@@ -164,7 +168,10 @@ def _in_millimetres(
     result = to_millimetres(geometry, document, options.width_mm)
     if options.mirror:
         result = affinity.scale(result, xfact=-1, yfact=1, origin=(options.width_mm / 2, 0))
-    return _repaired(result)
+    result = _repaired(result)
+    if options.simplify_mm > 0:
+        result = _repaired(result.simplify(options.simplify_mm))
+    return result
 
 
 @dataclass(frozen=True)

@@ -64,6 +64,7 @@ curl -F svg=@logo.svg -F width_mm=120 -F base_mm=1.5 -F layer_mm=0.8 \
 | `mirror` | `false` | Mirror horizontally — for stamps or printing the top face down on the bed |
 | `print_layer_mm` | `0` | Printer layer height (≤ 1 mm): the base and every color are rounded to whole layers, so each color ends exactly on a layer boundary; `0` keeps the exact heights |
 | `min_feature_mm` | `0` | Remove every part narrower than this before extrusion — set it to the nozzle width (e.g. `0.4`); `0` keeps everything |
+| `simplify_mm` | `0` | Simplify outlines (0–2 mm): points closer than this to the simplified outline are dropped — far fewer triangles and smaller files for traced photos; `0` keeps the outlines exact |
 
 Model construction:
 
@@ -112,6 +113,12 @@ Model construction:
   stringy blobs, while the remaining shapes keep their exact outline and sharp corners.
   The base plate is filtered the same way. If nothing is left, the export is
   `422 INVALID_PARAMETERS`.
+- **Simplification** (`simplify_mm`): after scaling to millimetres, every color's outline
+  is simplified with Douglas-Peucker (`shapely` `simplify`, topology preserved) to the
+  tolerance, then repaired like other rounding damage. Curves traced from photos carry a
+  point every ¼ px; at 0.1–0.3 mm the print looks the same with a fraction of the
+  triangles. Colors are simplified independently, so seams between them may shift by up
+  to the tolerance (the base plate below stays closed).
 - **Raised rim** (`rim_mm`, `rim_height_mm`): a band along the outer edge of the base
   plate (after shape and margin, before the hanging loop), extruded from the top of the
   plate as one `rim` body in the base plate's color (the first filament with mixed
@@ -180,7 +187,7 @@ curl -F svg=@logo.svg -F base_mm=1 -F layer_heights='{"0": 0}' \
 ```
 
 Same options and the same bodies as STL (`width_mm`, `base_mm`, `base_shape`,
-`base_margin_mm`, `stack_order`, `rim_mm`, `rim_height_mm`, `loop_hole_mm`, `magnet_mm`, `magnet_depth_mm`, `layer_mm`, `layered`, `layer_heights`, `shape_heights`, `mirror`, `min_feature_mm`,
+`base_margin_mm`, `stack_order`, `simplify_mm`, `rim_mm`, `rim_height_mm`, `loop_hole_mm`, `magnet_mm`, `magnet_depth_mm`, `layer_mm`, `layered`, `layer_heights`, `shape_heights`, `mirror`, `min_feature_mm`,
 `print_layer_mm`, `filaments`, `color_stacks`), but packaged so a slicer keeps the colors apart — STL has no
 notion of parts or colors.
 
