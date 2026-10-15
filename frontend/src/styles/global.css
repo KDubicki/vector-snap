@@ -307,6 +307,9 @@ select {
   .workspace > .print-main {
     position: sticky;
     top: 16px;
+    /* Chrome may anchor scrolling to the sticky column; when focus leaves a field it then
+       scrolls the page on mousedown, and the click misses the button under the pointer. */
+    overflow-anchor: none;
   }
 }
 
