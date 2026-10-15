@@ -8,7 +8,8 @@ heights can be rounded to whole printer layers and colors kept apart by a gap. T
 plate follows the design's outline or is a rectangle, rounded rectangle or circle around
 it, optionally with a raised rim along its edge; colors can be stacked in document order
 or by brightness. A hanging loop can be added at the top of the base plate, a magnet
-pocket in its underside, and its first layer inset against elephant's foot.
+pocket in its underside, and its first layer inset against elephant's foot. With
+`relief="inlay"` the colors are set into the base plate instead, flush with its top.
 Coordinates are converted to millimetres and the y axis is flipped (SVG y points down,
 STL z-up models are viewed from above with y up). The meshes come from `mesh`, the base
 plate from `base_plate`. `export_stl_parts` puts every body in an STL file of its own.
@@ -49,6 +50,8 @@ from app.services.svg_geometry import (
 # Bottom-to-top order of the color layers: as in the SVG (largest coverage at the bottom)
 # or by brightness.
 StackOrder = Literal["document", "light_to_dark", "dark_to_light"]
+# Colors stand on the base plate (`raised`) or are set into it, flush with its top (`inlay`).
+Relief = Literal["raised", "inlay"]
 
 
 @dataclass(frozen=True)
@@ -92,6 +95,8 @@ class StlOptions:
     base_shape: BaseShape = "outline"
     base_margin_mm: float = 0.0
     stack_order: StackOrder = "document"
+    # `inlay`: every color is sunk its height into the base plate, flush with the top.
+    relief: Relief = "raised"
     # Raised rim along the edge of the base plate: width and height above the base (mm);
     # a height of 0 makes it as high as the tallest color. Colors under it are cut away.
     rim_mm: float = 0.0
@@ -264,14 +269,18 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
             "Elephant's foot compensation needs a base plate (base_mm > 0).",
             {"field": "elephant_foot_mm"},
         )
-    if options.magnet_mm > 0 and options.magnet_depth_mm > base - MAGNET_ROOF_MM + 1e-9:
+    # Top of the solid plate: inlaid colors take the plate's upper part.
+    plate_top = base - _deepest_inlay(included, base, options)
+    if options.magnet_mm > 0 and options.magnet_depth_mm > plate_top - MAGNET_ROOF_MM + 1e-9:
         raise InvalidParameters(
             f"A {options.magnet_depth_mm:g} mm deep magnet pocket needs a base plate of at "
-            f"least {options.magnet_depth_mm + MAGNET_ROOF_MM:g} mm.",
+            f"least {options.magnet_depth_mm + MAGNET_ROOF_MM:g} mm"
+            + (" below the inlaid colors." if plate_top < base else "."),
             {"field": "magnet_depth_mm"},
         )
     bodies: list[Body] = []
     border: BaseGeometry = Polygon()
+    silhouette: BaseGeometry = Polygon()
     base_color = options.filaments[0] if options.filaments else included[0].layer.fill
     if base > 0:
         silhouette = printable(
@@ -281,7 +290,9 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
         border = rim(silhouette, options.rim_mm)
         silhouette = with_loop(silhouette, options.loop_hole_mm)
         pocket = magnet_pocket(silhouette, options.magnet_mm)
-        parts = [_plate(polygon, base, pocket, options) for polygon in without_pinches(silhouette)]
+        parts = [
+            _plate(polygon, plate_top, pocket, options) for polygon in without_pinches(silhouette)
+        ]
         if parts:
             bodies.append(Body("base", base_color, np.concatenate(parts)))
     visible = _visible(document, included)
@@ -289,6 +300,8 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
         visible = [_repaired(geometry.difference(border)) for geometry in visible]
     if options.color_gap_mm > 0:
         visible = [_with_gap(geometry, options.color_gap_mm) for geometry in visible]
+    if plate_top < base:
+        bodies.extend(_inlay_bands(silhouette, included, visible, base, base_color, options))
     make_bodies = _filament_bodies if options.filaments else _color_bodies
     bodies.extend(make_bodies(included, visible, base, options))
     if not border.is_empty:
@@ -298,6 +311,52 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
             f"Nothing to export: every shape is thinner than {options.min_feature_mm:g} mm.",
             {"field": "min_feature_mm"},
         )
+    return bodies
+
+
+def _bottom(part: _Part, base: float, options: StlOptions) -> float:
+    """Where a part starts: on top of the base plate, or sunk its height into it."""
+    return base - part.height if options.relief == "inlay" else base
+
+
+def _deepest_inlay(parts: list[_Part], base: float, options: StlOptions) -> float:
+    """How deep the inlaid colors reach into the base plate (0 for raised colors)."""
+    if options.relief != "inlay":
+        return 0.0
+    deepest = max(part.height for part in parts)
+    if deepest > base - 1e-9:
+        raise InvalidParameters(
+            f"Inlaid colors need a base plate thicker than the deepest color ({deepest:g} mm); "
+            f"it is {base:g} mm.",
+            {"field": "base_mm"},
+        )
+    return deepest
+
+
+def _inlay_bands(
+    silhouette: BaseGeometry,
+    parts: list[_Part],
+    visible: list[BaseGeometry],
+    base: float,
+    color: str,
+    options: StlOptions,
+) -> list[Body]:
+    """The plate's upper part around inlaid colors: one body per depth band, each the
+    plate minus the colors reaching that deep (stacked closed prisms stay separate
+    bodies, as a body made of touching solids would not be manifold)."""
+    bodies: list[Body] = []
+    upper = 0.0
+    for depth in sorted({part.height for part in parts}):
+        reaching = [g for part, g in zip(parts, visible, strict=True) if part.height >= depth]
+        holes = printable(unary_union(reaching), options.min_feature_mm)
+        bottom, top = round(base - depth, 6), round(base - upper, 6)
+        prisms = [
+            prism(polygon, bottom, top)
+            for polygon in without_pinches(_repaired(silhouette.difference(holes)))
+        ]
+        if prisms:
+            bodies.append(Body(f"base-{bottom:g}-{top:g}mm", color, np.concatenate(prisms)))
+        upper = depth
     return bodies
 
 
@@ -347,7 +406,8 @@ def _color_bodies(
     bodies: list[Body] = []
     for part, geometry in zip(parts, visible, strict=True):
         shapes = without_pinches(printable(geometry, options.min_feature_mm))
-        prisms = [prism(polygon, base, base + part.height) for polygon in shapes]
+        bottom = _bottom(part, base, options)
+        prisms = [prism(polygon, bottom, bottom + part.height) for polygon in shapes]
         if prisms:
             name = f"color-{part.layer.palette_index}"
             if part.own_height:
@@ -413,7 +473,9 @@ def _filament_bodies(
     slabs: dict[tuple[int, float, float], list[BaseGeometry]] = {}
     for part, geometry in zip(parts, visible, strict=True):
         stack = options.color_stacks[part.layer.palette_index]
-        for slab in stack_slabs(stack, part.height, options.print_layer_mm):
+        lift = _bottom(part, base, options) - base  # heights above the plate's top
+        for filament, bottom, top in stack_slabs(stack, part.height, options.print_layer_mm):
+            slab = (filament, round(lift + bottom, 6), round(lift + top, 6))
             slabs.setdefault(slab, []).append(geometry)
     bodies: list[Body] = []
     for filament, bottom, top in sorted(slabs, key=lambda slab: (slab[1], slab[2], slab[0])):
@@ -421,7 +483,9 @@ def _filament_bodies(
         shapes = without_pinches(printable(geometry, options.min_feature_mm))
         prisms = [prism(polygon, base + bottom, base + top) for polygon in shapes]
         if prisms:
-            name = f"filament-{filament + 1}-{bottom:g}-{top:g}mm"
+            # Inlaid ranges are named by their depth below the plate's top.
+            span = f"{bottom:g}-{top:g}" if bottom >= 0 else f"inlay-{-top:g}-{-bottom:g}"
+            name = f"filament-{filament + 1}-{span}mm"
             bodies.append(Body(name, options.filaments[filament], np.concatenate(prisms)))
     return bodies
 

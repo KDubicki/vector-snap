@@ -19,7 +19,7 @@ from app.services.export_stl import (
     stack_slabs,
 )
 from app.services.svg_geometry import VectorDocument, parse_svg
-from tests.vectors import contract_svg, is_closed, read_binary_stl, signed_volume
+from tests.vectors import contract_svg, is_balanced, is_closed, read_binary_stl, signed_volume
 
 FRAME = "M0,0 L20,0 L20,20 L0,20 Z M5,5 L5,15 L15,15 L15,5 Z"  # 20x20 with a 10x10 hole
 DOT = "M30,0 L40,0 L40,10 L30,10 Z"
@@ -693,3 +693,59 @@ def test_stl_parts_put_every_body_in_a_file_of_its_own() -> None:
     assert signed_volume(together) == pytest.approx(
         signed_volume(_export(options, [("#000000", [FRAME]), ("#ff0000", [DOT])]))
     )
+
+
+def _z_range(body: Body) -> tuple[float, float]:
+    return float(body.triangles[..., 2].min()), float(body.triangles[..., 2].max())
+
+
+def test_inlay_sets_the_colors_flush_into_the_base_plate() -> None:
+    options = StlOptions(width_mm=40, base_mm=3, layer_mm=1, relief="inlay")
+
+    bodies = _bodies(options, [("#000000", [FRAME]), ("#ff0000", [DOT])])
+
+    # depths 1 (frame) and 2 (dot): solid plate below 1 mm, then the plate around the dot
+    assert list(bodies) == ["base", "base-1-2mm", "color-0", "color-1"]
+    assert all(is_closed(body.triangles) for body in bodies.values())
+    z = {name: _z_range(body) for name, body in bodies.items()}
+    assert z == {
+        "base": (0.0, 1.0),
+        "base-1-2mm": (1.0, 2.0),
+        "color-0": (2.0, 3.0),
+        "color-1": (1.0, 3.0),
+    }
+    assert signed_volume(bodies["base-1-2mm"].triangles) == pytest.approx(300)
+    everything = np.concatenate([body.triangles for body in bodies.values()])
+    assert is_balanced(everything)
+    assert signed_volume(everything) == pytest.approx(400 * 3)  # a flush, solid block
+
+
+def test_inlay_names_mixed_color_bodies_by_depth() -> None:
+    options = StlOptions(
+        width_mm=40,
+        base_mm=2,
+        layer_mm=1,
+        relief="inlay",
+        filaments=("#ffffff", "#ff0000"),
+        color_stacks={0: ColorStack(base=1, top=((0, 0.4),))},
+    )
+
+    bodies = _bodies(options, [("#000000", [FRAME])])
+
+    z = {name: _z_range(body) for name, body in bodies.items()}
+    assert z["filament-1-inlay-0-0.4mm"] == pytest.approx((1.6, 2))
+    assert z["filament-2-inlay-0.4-1mm"] == pytest.approx((1, 1.6))
+
+
+def test_inlay_needs_a_plate_thicker_than_the_deepest_color() -> None:
+    options = StlOptions(base_mm=2, layer_mm=1, relief="inlay")
+
+    with pytest.raises(InvalidParameters, match=r"deepest color \(2 mm\)"):
+        _export(options, [("#000000", [FRAME]), ("#ff0000", [DOT])])
+
+
+def test_inlay_keeps_the_magnet_pocket_below_the_colors() -> None:
+    options = StlOptions(base_mm=3, layer_mm=1, relief="inlay", magnet_mm=6, magnet_depth_mm=2)
+
+    with pytest.raises(InvalidParameters, match="below the inlaid colors"):
+        _export(options, [("#000000", [FRAME])])

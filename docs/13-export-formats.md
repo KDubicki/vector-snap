@@ -56,6 +56,7 @@ curl -F svg=@logo.svg -F width_mm=120 -F base_mm=1.5 -F layer_mm=0.8 \
 | `filaments` | `[]` | **Mixed colors**: JSON list of the loaded filaments `["#rrggbb", ...]` (up to 16; e.g. the 4 AMS slots). The first one prints the base plate. With filaments, bodies are made per filament (see [Mixed colors](#mixed-colors-filament-stacks)) |
 | `color_stacks` | `{}` | With `filaments`: per palette index `{"base": f, "top": [[f, mm], ...]}` — filament indices; `top` lists thin layers from the top surface down (up to 8), `base` fills the rest of the color's height. Every included color needs one |
 | `stack_order` | `document` | Bottom-to-top order of the colors for automatic heights: `document` (as in the SVG — largest coverage at the bottom), `light_to_dark` or `dark_to_light` |
+| `relief` | `raised` | `raised`: colors stand on the base plate; `inlay`: every color is sunk its height into the plate, flush with its top — a flat multi-color surface (coasters, signs, multi-material prints). The plate must be thicker than the deepest color |
 | `rim_mm` | `0` | Raised rim along the outer edge of the base plate, this wide (0–50 mm) — coasters, signs, badges; needs `base_mm > 0`. `0` = no rim |
 | `rim_height_mm` | `0` | Rim height above the base plate (0–100 mm); `0` = as high as the tallest color |
 | `loop_hole_mm` | `0` | Hanging loop on top of the base plate with a hole of this diameter (0–20 mm) — keyrings, ornaments, hooks; needs `base_mm > 0`. `0` = no loop |
@@ -152,6 +153,18 @@ Model construction:
   pocket can still reach above the step. Polygons too thin for the inset keep their
   bottom; a one-layer plate is inset entirely. Without a base plate the export is
   `422 INVALID_PARAMETERS`.
+- **Inlay** (`relief=inlay`): each color's height becomes its depth below the top of the
+  base plate, so the print has one flat top surface. The plate is the solid part below
+  the deepest color (named `base`, with the magnet pocket and elephant's foot) plus one
+  body per depth band, `base-<bottom>-<top>mm`, that is the plate minus the colors
+  reaching that deep; stacked solids stay separate bodies because one body made of
+  touching solids would not be manifold. Everything together fills the plate exactly
+  (tests check balanced edges and the volume). Mixed-color ranges are named by their
+  depth, `filament-<n>-inlay-<from>-<to>mm`. The plate must be thicker than the deepest
+  color and a magnet pocket must fit below it, otherwise the export is
+  `422 INVALID_PARAMETERS`. All colors end at the plate's top, so a single-extruder
+  filament plan cannot separate them (it reports a conflict): inlays are for
+  multi-material printers.
 - **Stack order** (`stack_order`): with `light_to_dark` / `dark_to_light` the colors are
   ranked by WCAG relative luminance (equally bright colors keep the document order)
   before automatic heights are assigned, so e.g. dark outlines and text end up on top
@@ -201,7 +214,7 @@ curl -F svg=@logo.svg -F base_mm=1 -F layer_heights='{"0": 0}' \
 ```
 
 Same options and the same bodies as STL (`width_mm`, `base_mm`, `base_shape`,
-`base_margin_mm`, `stack_order`, `simplify_mm`, `color_gap_mm`, `rim_mm`, `rim_height_mm`, `loop_hole_mm`, `magnet_mm`, `magnet_depth_mm`, `elephant_foot_mm`, `layer_mm`, `layered`, `layer_heights`, `shape_heights`, `mirror`, `min_feature_mm`,
+`base_margin_mm`, `stack_order`, `relief`, `simplify_mm`, `color_gap_mm`, `rim_mm`, `rim_height_mm`, `loop_hole_mm`, `magnet_mm`, `magnet_depth_mm`, `elephant_foot_mm`, `layer_mm`, `layered`, `layer_heights`, `shape_heights`, `mirror`, `min_feature_mm`,
 `print_layer_mm`, `filaments`, `color_stacks`), but packaged so a slicer keeps the colors apart — STL has no
 notion of parts or colors.
 
