@@ -8,6 +8,7 @@ import { BasePlateFields } from './BasePlateFields';
 import { ColorStylePicker } from './ColorStylePicker';
 import { LayerFields } from './LayerFields';
 import { PrintColorsTable } from './PrintColorsTable';
+import { PrinterTuningFields } from './PrinterTuningFields';
 import { ProjectPicker } from './ProjectPicker';
 import { RaisedElementsPanel } from './RaisedElementsPanel';
 
@@ -227,5 +228,60 @@ describe('BasePlateFields', () => {
     });
     expect(onChange).toHaveBeenLastCalledWith({ magnetDepthMm: 1.5 });
     expect(screen.getByText(/Needs a base of at least 12 layers/)).toBeInTheDocument();
+  });
+});
+
+describe('PrinterTuningFields', () => {
+  it('counts changed tuning and reports changes', async () => {
+    const onChange = vi.fn();
+    render(
+      <PrinterTuningFields
+        settings={settings({ simplifyMm: 0.1 })}
+        errors={{}}
+        onChange={onChange}
+      />,
+    );
+
+    expect(screen.getByText('1 changed')).toBeInTheDocument();
+    await userEvent.click(screen.getByText('Printer tuning'));
+    fireEvent.change(screen.getByLabelText("Elephant's foot compensation (mm)"), {
+      target: { value: '0.2' },
+    });
+    expect(onChange).toHaveBeenLastCalledWith({ elephantFootMm: 0.2 });
+    fireEvent.change(screen.getByLabelText('Gap between colors (mm)'), {
+      target: { value: '0.1' },
+    });
+    expect(onChange).toHaveBeenLastCalledWith({ colorGapMm: 0.1 });
+  });
+
+  it('flags an invalid setting on the collapsed section', () => {
+    render(
+      <PrinterTuningFields
+        settings={settings({ elephantFootMm: 0.2, baseLayers: 0 })}
+        errors={{ elephantFootMm: "Elephant's foot compensation needs a base." }}
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('1 to fix')).toBeInTheDocument();
+  });
+});
+
+describe('BasePlateFields inlay', () => {
+  it('sets the colors into the base and explains a too thin base', async () => {
+    const onChange = vi.fn();
+    render(
+      <BasePlateFields
+        settings={settings()}
+        errors={{ inlay: 'Needs a base of at least 3 layers (0.6 mm).' }}
+        onChange={onChange}
+      />,
+    );
+
+    const inlay = screen.getByLabelText('Set the colors into the base (flat top)');
+    expect(inlay).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByText('Needs a base of at least 3 layers (0.6 mm).')).toBeInTheDocument();
+    await userEvent.click(inlay);
+    expect(onChange).toHaveBeenLastCalledWith({ inlay: true });
   });
 });

@@ -206,7 +206,14 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
   prints them as their own parts — e.g. letters 3 layers above a flat AMS sign.
 - **Base plate**: shape (outline, rectangle, rounded, circle), border, raised rim (as
   high as the colors), hanging loop,
-  magnet pocket (depth checked against the base), detail filter (nozzle width).
+  magnet pocket (depth checked against the base), detail filter (nozzle width), and
+  **Set the colors into the base (flat top)** (`inlay`, sent as `relief=inlay`): colors
+  sink their height into the plate, which must then be thicker than the tallest color —
+  and a magnet pocket must fit below them; the total height is then the base alone.
+- **Printer tuning** (collapsed, with "n changed" / "1 to fix" on its header,
+  `PrinterTuningFields`): elephant's foot compensation (`elephant_foot_mm`, needs a
+  base), smooth outlines (`simplify_mm`) and gap between colors (`color_gap_mm`). These
+  belong to the printer, so projects keep them like the style and the filaments.
 - Summary of the total height, **Download 3MF** (one part per color → AMS slots in the
   slicer) or **STL**, a 3D preview (marked stale when settings change) and cancellable
   progress.
@@ -266,7 +273,8 @@ App                         header with step indicator, error banner
     ├── PrintColorsTable    include / extra layers per color
     ├── MixTable            recipes, predictions, test card (mixed)
     ├── RaisedElementsPanel raise the selected elements
-    └── BasePlateFields     shape, border, loop, magnet, detail filter
+    ├── BasePlateFields     shape, border, loop, magnet, inlay, detail filter
+    └── PrinterTuningFields elephant's foot, smooth outlines, gap between colors
 ```
 
 ## State

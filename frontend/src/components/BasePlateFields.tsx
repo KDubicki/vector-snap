@@ -14,7 +14,7 @@ interface BasePlateFieldsProps {
   onChange: (change: Partial<PrintSettings>) => void;
 }
 
-/** Base plate shape, border, raised rim, hanging loop, magnet pocket and detail filter. */
+/** Base plate shape, border, raised rim, hanging loop, magnet pocket, inlay and detail filter. */
 export function BasePlateFields({
   settings: print,
   errors,
@@ -90,6 +90,26 @@ export function BasePlateFields({
             error={errors.magnetDepthMm}
             onChange={(magnetDepthMm) => update({ magnetDepthMm })}
           />
+        )}
+        <div className="checkbox">
+          <input
+            id="print-inlay"
+            type="checkbox"
+            checked={print.inlay}
+            aria-invalid={Boolean(errors.inlay)}
+            aria-describedby={errors.inlay ? 'print-inlay-error' : 'print-inlay-hint'}
+            onChange={(event) => update({ inlay: event.target.checked })}
+          />
+          <label htmlFor="print-inlay">Set the colors into the base (flat top)</label>
+        </div>
+        <span id="print-inlay-hint" className="hint">
+          Colors sink their height into the plate, so the top is one flat surface — coasters and
+          signs on multi-color printers.
+        </span>
+        {errors.inlay && (
+          <span id="print-inlay-error" className="field-error">
+            {errors.inlay}
+          </span>
         )}
         <NumberField
           id="print-nozzle"

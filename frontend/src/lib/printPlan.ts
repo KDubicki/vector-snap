@@ -53,6 +53,12 @@ export interface PrintSettings {
   magnetDepthMm: number;
   /** Details thinner than this are dropped (mm): the nozzle width. */
   nozzleMm: number;
+  /** Colors sunk into the base plate, flush with its top (a flat surface). */
+  inlay: boolean;
+  /** Printer tuning (mm, 0 = off): first layer inset, outline smoothing, gap between colors. */
+  elephantFootMm: number;
+  simplifyMm: number;
+  colorGapMm: number;
   /** Extra layers per palette index, on top of the color height. */
   colorRaise: Record<number, number>;
   /** Palette indices left out of the model. */
@@ -70,6 +76,9 @@ export const KEPT_BY_PROJECTS = [
   'excluded',
   'shapeRaise',
   'filaments',
+  'elephantFootMm',
+  'simplifyMm',
+  'colorGapMm',
 ] as const;
 
 /** Settings a project applies. */
@@ -87,6 +96,7 @@ const COMMON: ProjectSettings = {
   magnetMm: 0,
   magnetDepthMm: 2,
   nozzleMm: 0.4,
+  inlay: false,
 };
 
 export interface Project {
@@ -137,6 +147,9 @@ export const DEFAULT_PRINT: PrintSettings = {
   excluded: [],
   shapeRaise: {},
   filaments: [],
+  elephantFootMm: 0,
+  simplifyMm: 0,
+  colorGapMm: 0,
 };
 
 /** Apply a project's settings; colors, style and filaments stay. Custom changes nothing. */
@@ -176,8 +189,12 @@ export function heightPlan(doc: EditorDoc, settings: PrintSettings) {
       if (raise !== 0) shapes.set(shape.id, Math.max(0, layers + raise));
     }
   });
-  const tops = [...colors.values(), ...shapes.values(), 0];
-  return { colors, shapes, totalLayers: settings.baseLayers + Math.max(...tops) };
+  const top = Math.max(...colors.values(), ...shapes.values(), 0);
+  // Inlaid colors sink into the base plate instead of standing on it.
+  const totalLayers = settings.inlay
+    ? Math.max(settings.baseLayers, top)
+    : settings.baseLayers + top;
+  return { colors, shapes, top, totalLayers };
 }
 
 /** Problems that would make the export fail, by settings field. */
@@ -198,9 +215,18 @@ export function validatePrint(doc: EditorDoc, settings: PrintSettings): Record<s
   if (!(settings.baseLayers >= 0)) errors.baseLayers = 'Cannot be negative.';
   if (settings.loopHoleMm > 0 && base <= 0) errors.loopHoleMm = 'A hanging loop needs a base.';
   if (settings.rimMm > 0 && base <= 0) errors.rimMm = 'A rim needs a base.';
-  if (settings.magnetMm > 0 && settings.magnetDepthMm > base - MAGNET_ROOF_MM + 1e-9) {
+  if (settings.elephantFootMm > 0 && base <= 0) {
+    errors.elephantFootMm = "Elephant's foot compensation needs a base.";
+  }
+  // Inlaid colors take the top of the base plate: it must be thicker than the tallest.
+  const inlaid = settings.inlay ? heightPlan(doc, settings).top : 0;
+  const needed = (layers: number) =>
+    `Needs a base of at least ${layers} layers (${layersToMm(layers, settings.layerMm)} mm).`;
+  if (settings.inlay && settings.baseLayers <= inlaid) errors.inlay = needed(inlaid + 1);
+  const solid = layersToMm(settings.baseLayers - inlaid, settings.layerMm);
+  if (settings.magnetMm > 0 && settings.magnetDepthMm > solid - MAGNET_ROOF_MM + 1e-9) {
     const layers = Math.ceil((settings.magnetDepthMm + MAGNET_ROOF_MM) / settings.layerMm - 1e-9);
-    errors.magnetDepthMm = `Needs a base of at least ${layers} layers (${layersToMm(layers, settings.layerMm)} mm).`;
+    errors.magnetDepthMm = needed(layers + inlaid);
   }
   if (printedGroups(doc, settings).length === 0) errors.colors = 'Include at least one color.';
   return errors;
@@ -247,6 +273,10 @@ export function printOptions(
     loop_hole_mm: settings.loopHoleMm,
     magnet_mm: settings.magnetMm,
     magnet_depth_mm: settings.magnetDepthMm,
+    relief: settings.inlay ? 'inlay' : 'raised',
+    elephant_foot_mm: settings.elephantFootMm,
+    simplify_mm: settings.simplifyMm,
+    color_gap_mm: settings.colorGapMm,
     mirror: false,
     ...mixed,
   };

@@ -28,6 +28,7 @@ import { MixTable } from './MixTable';
 import { LayerFields } from './LayerFields';
 import type { PreviewRequest } from './ModelPreview';
 import { PrintColorsTable } from './PrintColorsTable';
+import { PrinterTuningFields } from './PrinterTuningFields';
 import { ProjectPicker } from './ProjectPicker';
 import { RaisedElementsPanel } from './RaisedElementsPanel';
 
@@ -36,7 +37,8 @@ const ModelPreview = lazy(() => import('./ModelPreview'));
 
 /**
  * 3D print step: project presets (magnet, keychain, ornament, sign), flat (AMS) or stepped
- * colors, heights in printer layers, base plate extras, 3D preview and STL/3MF download.
+ * colors, heights in printer layers, base plate extras, printer tuning, 3D preview and
+ * STL/3MF download.
  */
 export function PrintStep() {
   const editor = useAppStore((s) => s.editor);
@@ -219,6 +221,8 @@ export function PrintStep() {
         />
 
         <BasePlateFields settings={print} errors={errors} onChange={update} />
+
+        <PrinterTuningFields settings={print} errors={errors} onChange={update} />
 
         <p className="print-summary" role="status">
           Total height <strong>{mm(heights.totalLayers)} mm</strong> · {heights.totalLayers} layers

@@ -146,6 +146,51 @@ describe('print plan', () => {
   });
 });
 
+describe('inlay and printer tuning', () => {
+  it('sends the tuning and the relief to the backend', () => {
+    const options = printOptions(
+      doc,
+      settings({ inlay: true, elephantFootMm: 0.2, simplifyMm: 0.1, colorGapMm: 0.15 }),
+    );
+
+    expect(options).toMatchObject({
+      relief: 'inlay',
+      elephant_foot_mm: 0.2,
+      simplify_mm: 0.1,
+      color_gap_mm: 0.15,
+    });
+    expect(printOptions(doc, settings())).toMatchObject({ relief: 'raised' });
+  });
+
+  it('sinks inlaid colors into the base, so the base is the full height', () => {
+    expect(heightPlan(doc, settings({ inlay: true, baseLayers: 8 })).totalLayers).toBe(8);
+    expect(heightPlan(doc, settings({ baseLayers: 8 })).totalLayers).toBe(10);
+  });
+
+  it('needs a base thicker than the inlaid colors, with room for a magnet below them', () => {
+    expect(validatePrint(doc, settings({ inlay: true, baseLayers: 2 }))).toEqual({
+      inlay: 'Needs a base of at least 3 layers (0.6 mm).',
+    });
+    // 2 mm pocket + 0.4 mm roof = 12 layers, below 2 inlaid layers
+    expect(
+      validatePrint(doc, settings({ inlay: true, baseLayers: 12, magnetMm: 10, magnetDepthMm: 2 })),
+    ).toEqual({ magnetDepthMm: 'Needs a base of at least 14 layers (2.8 mm).' });
+    expect(validatePrint(doc, settings({ elephantFootMm: 0.2, baseLayers: 0 }))).toEqual({
+      elephantFootMm: "Elephant's foot compensation needs a base.",
+    });
+  });
+
+  it('keeps printer tuning when a project is chosen', () => {
+    const tuned = settings({ elephantFootMm: 0.2, simplifyMm: 0.1, colorGapMm: 0.1 });
+
+    expect(applyProject(tuned, 'keychain')).toMatchObject({
+      elephantFootMm: 0.2,
+      simplifyMm: 0.1,
+      colorGapMm: 0.1,
+    });
+  });
+});
+
 describe('raised elements', () => {
   it('sets and clears extra layers for shapes', () => {
     const raised = setShapeRaise({ a: 1 }, ['a', 'b'], 3);
