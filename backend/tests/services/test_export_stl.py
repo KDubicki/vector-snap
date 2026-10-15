@@ -749,3 +749,17 @@ def test_inlay_keeps_the_magnet_pocket_below_the_colors() -> None:
 
     with pytest.raises(InvalidParameters, match="below the inlaid colors"):
         _export(options, [("#000000", [FRAME])])
+
+
+def test_center_origin_centers_the_footprint_on_zero() -> None:
+    groups = [("#000000", [FRAME]), ("#ff0000", [DOT])]
+    corner = _export(StlOptions(width_mm=40, base_mm=1, base_margin_mm=2), groups)
+
+    centered = _export(
+        StlOptions(width_mm=40, base_mm=1, base_margin_mm=2, origin="center"), groups
+    )
+
+    # outline plate grown by 2 mm around the 40 x 20 mm design: x -2..42, y -2..22
+    assert np.allclose(centered, corner - [20, 10, 0])
+    assert (centered[..., 0].min(), centered[..., 0].max()) == pytest.approx((-22, 22))
+    assert (centered[..., 1].min(), centered[..., 1].max()) == pytest.approx((-12, 12))

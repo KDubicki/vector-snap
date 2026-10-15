@@ -21,7 +21,14 @@ from app.services.export_3mf import export_3mf
 from app.services.export_dxf import DxfOptions, export_dxf
 from app.services.export_eps import EpsOptions, export_eps
 from app.services.export_pdf import PageSize, PdfOptions, export_pdf
-from app.services.export_stl import Relief, StackOrder, StlOptions, export_stl, export_stl_parts
+from app.services.export_stl import (
+    Origin,
+    Relief,
+    StackOrder,
+    StlOptions,
+    export_stl,
+    export_stl_parts,
+)
 from app.services.filament_plan import filament_plan
 from app.services.image_io import decode_image
 from app.services.lithophane import LithophaneOptions, export_lithophane
@@ -86,6 +93,9 @@ def stl_options(
     relief: Annotated[
         Relief, Form(description="Colors raised on the base plate, or inlaid flush into it")
     ] = "raised",
+    origin: Annotated[
+        Origin, Form(description="corner: x and y from 0; center: footprint centered on 0")
+    ] = "corner",
     rim_mm: Annotated[
         float, Form(ge=0, le=50, description="Raised rim along the base plate's edge; 0 = none")
     ] = 0.0,
@@ -133,6 +143,7 @@ def stl_options(
         base_margin_mm=base_margin_mm,
         stack_order=stack_order,
         relief=relief,
+        origin=origin,
         rim_mm=rim_mm,
         rim_height_mm=rim_height_mm,
         loop_hole_mm=loop_hole_mm,

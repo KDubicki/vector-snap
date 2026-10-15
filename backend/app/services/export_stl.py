@@ -52,6 +52,9 @@ from app.services.svg_geometry import (
 StackOrder = Literal["document", "light_to_dark", "dark_to_light"]
 # Colors stand on the base plate (`raised`) or are set into it, flush with its top (`inlay`).
 Relief = Literal["raised", "inlay"]
+# Where the model sits: the design's coordinates (`corner`: x and y from 0) or with the
+# middle of its footprint at x = y = 0 (`center`), e.g. for CAD or CNC tools.
+Origin = Literal["corner", "center"]
 
 
 @dataclass(frozen=True)
@@ -97,6 +100,7 @@ class StlOptions:
     stack_order: StackOrder = "document"
     # `inlay`: every color is sunk its height into the base plate, flush with the top.
     relief: Relief = "raised"
+    origin: Origin = "corner"
     # Raised rim along the edge of the base plate: width and height above the base (mm);
     # a height of 0 makes it as high as the tallest color. Colors under it are cut away.
     rim_mm: float = 0.0
@@ -311,7 +315,17 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
             f"Nothing to export: every shape is thinner than {options.min_feature_mm:g} mm.",
             {"field": "min_feature_mm"},
         )
-    return bodies
+    return _placed(bodies, options.origin)
+
+
+def _placed(bodies: list[Body], origin: Origin) -> list[Body]:
+    """Bodies moved so the middle of their footprint is at x = y = 0 for `center`."""
+    if origin == "corner":
+        return bodies
+    points = np.concatenate([body.triangles for body in bodies]).reshape(-1, 3)
+    low, high = points[:, :2].min(axis=0), points[:, :2].max(axis=0)
+    shift = np.array([*((low + high) / 2), 0.0])
+    return [Body(body.name, body.color, body.triangles - shift) for body in bodies]
 
 
 def _bottom(part: _Part, base: float, options: StlOptions) -> float:

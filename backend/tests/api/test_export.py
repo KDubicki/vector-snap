@@ -61,6 +61,7 @@ def test_stl_defaults(client: TestClient) -> None:
         ({"base_margin_mm": "-1"}, "VALIDATION_ERROR"),
         ({"stack_order": "random"}, "VALIDATION_ERROR"),
         ({"relief": "engraved"}, "VALIDATION_ERROR"),
+        ({"origin": "middle"}, "VALIDATION_ERROR"),
         ({"relief": "inlay"}, "INVALID_PARAMETERS"),  # base 1 mm, colors 1 and 2 mm deep
         ({"loop_hole_mm": "21"}, "VALIDATION_ERROR"),
         ({"loop_hole_mm": "4", "base_mm": "0"}, "INVALID_PARAMETERS"),

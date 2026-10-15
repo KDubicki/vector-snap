@@ -64,6 +64,7 @@ curl -F svg=@logo.svg -F width_mm=120 -F base_mm=1.5 -F layer_mm=0.8 \
 | `magnet_depth_mm` | `2` | Pocket depth (0–20 mm); at least 0.4 mm of base plate must remain above it |
 | `elephant_foot_mm` | `0` | Elephant's foot compensation (0–0.5 mm): the first printer layer of the base plate (`print_layer_mm`, or 0.2 mm) is inset by this much, so the squashed first layer does not bulge past the walls; needs `base_mm > 0`. `0` = off |
 | `mirror` | `false` | Mirror horizontally — for stamps or printing the top face down on the bed |
+| `origin` | `corner` | Where the model sits: `corner` keeps the design's coordinates (x and y from 0), `center` puts the middle of its footprint at x = y = 0 — for CAD, CNC and tools that do not re-center imports. z always starts at 0 |
 | `print_layer_mm` | `0` | Printer layer height (≤ 1 mm): the base and every color are rounded to whole layers, so each color ends exactly on a layer boundary; `0` keeps the exact heights |
 | `min_feature_mm` | `0` | Remove every part narrower than this before extrusion — set it to the nozzle width (e.g. `0.4`); `0` keeps everything |
 | `simplify_mm` | `0` | Simplify outlines (0–2 mm): points closer than this to the simplified outline are dropped — far fewer triangles and smaller files for traced photos; `0` keeps the outlines exact |
@@ -196,6 +197,9 @@ Model construction:
   background): the corner radius is then limited to just under (2 + √2) × the margin,
   the largest radius that still covers that corner — with no margin the plate keeps
   square corners. Leaving out every color is `422 INVALID_PARAMETERS`.
+- **Origin** (`origin=center`): after all bodies are built, they are moved together so
+  the middle of their combined bounding box (base plate, rim and loop included) is at
+  x = y = 0; z is unchanged, so the model still stands on the bed.
 - The model is built as **bodies** (base plate, one per color) — the STL contains them
   all; the same bodies feed other 3D formats.
 - Output is binary STL (`model/stl`), units mm.
@@ -214,7 +218,7 @@ curl -F svg=@logo.svg -F base_mm=1 -F layer_heights='{"0": 0}' \
 ```
 
 Same options and the same bodies as STL (`width_mm`, `base_mm`, `base_shape`,
-`base_margin_mm`, `stack_order`, `relief`, `simplify_mm`, `color_gap_mm`, `rim_mm`, `rim_height_mm`, `loop_hole_mm`, `magnet_mm`, `magnet_depth_mm`, `elephant_foot_mm`, `layer_mm`, `layered`, `layer_heights`, `shape_heights`, `mirror`, `min_feature_mm`,
+`base_margin_mm`, `stack_order`, `relief`, `origin`, `simplify_mm`, `color_gap_mm`, `rim_mm`, `rim_height_mm`, `loop_hole_mm`, `magnet_mm`, `magnet_depth_mm`, `elephant_foot_mm`, `layer_mm`, `layered`, `layer_heights`, `shape_heights`, `mirror`, `min_feature_mm`,
 `print_layer_mm`, `filaments`, `color_stacks`), but packaged so a slicer keeps the colors apart — STL has no
 notion of parts or colors.
 
