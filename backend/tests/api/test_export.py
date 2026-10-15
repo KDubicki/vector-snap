@@ -7,7 +7,14 @@ from ezdxf.filemanagement import read as read_dxf
 from fastapi.testclient import TestClient
 
 from tests.images import encode, stripes
-from tests.vectors import contract_svg, is_balanced, is_closed, read_binary_stl, signed_volume
+from tests.vectors import (
+    contract_svg,
+    is_balanced,
+    is_closed,
+    read_ascii_stl,
+    read_binary_stl,
+    signed_volume,
+)
 
 SVG = contract_svg(
     40, 20, [("#000000", ["M0,0 L20,0 L20,20 L0,20 Z"]), ("#ff0000", ["M30,0 h10 v10 h-10 z"])]
@@ -104,6 +111,33 @@ def test_stl_magnet_pocket_keeps_every_part_closed(client: TestClient) -> None:
     assert is_balanced(triangles)
     assert triangles[..., 2].min() == 0
     assert (triangles[..., 2] == 2).any()  # the pocket ceiling
+
+
+def test_stl_as_ascii(client: TestClient) -> None:
+    form = {"width_mm": "40", "base_mm": "0", "layer_mm": "2", "layered": "false"}
+
+    response = _post(client, "stl", {**form, "stl_format": "ascii"})
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "model/stl"
+    triangles = read_ascii_stl(response.content)
+    assert is_closed(triangles)
+    assert signed_volume(triangles) == pytest.approx((400 + 100) * 2)
+
+
+def test_stl_parts_as_ascii(client: TestClient) -> None:
+    response = _post(client, "stl-parts", {"base_mm": "1", "stl_format": "ascii"})
+
+    with zipfile.ZipFile(io.BytesIO(response.content)) as archive:
+        stls = [name for name in archive.namelist() if name.endswith(".stl")]
+        assert all(archive.read(name).startswith(b"solid vectorsnap") for name in stls)
+
+
+def test_rejects_unknown_stl_format(client: TestClient) -> None:
+    response = _post(client, "stl", {"stl_format": "obj"})
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
 
 
 def test_rejects_invalid_svg(client: TestClient) -> None:

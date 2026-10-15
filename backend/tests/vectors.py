@@ -28,6 +28,15 @@ def read_binary_stl(data: bytes) -> NDArray[np.float64]:
     return np.frombuffer(data, dtype=dtype, offset=84)["vertices"].astype(np.float64)
 
 
+def read_ascii_stl(data: bytes) -> NDArray[np.float64]:
+    """Triangles of an ASCII STL as an (N, 3, 3) array."""
+    lines = data.decode().splitlines()
+    assert lines[0].startswith("solid") and lines[-1].startswith("endsolid")
+    vertices = [[float(v) for v in line.split()[1:]] for line in lines if "vertex" in line]
+    assert sum("facet normal" in line for line in lines) * 3 == len(vertices)
+    return np.array(vertices, dtype=np.float64).reshape(-1, 3, 3)
+
+
 def signed_volume(triangles: NDArray[np.float64]) -> float:
     """Volume enclosed by a closed mesh; positive when normals point outward."""
     a, b, c = triangles[:, 0], triangles[:, 1], triangles[:, 2]

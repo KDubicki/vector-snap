@@ -38,7 +38,7 @@ from app.services.base_plate import (
     rim,
     with_loop,
 )
-from app.services.mesh import footed_prism, prism, without_pinches, write_binary_stl
+from app.services.mesh import StlFormat, footed_prism, prism, without_pinches, write_stl
 from app.services.svg_geometry import (
     VectorDocument,
     VectorLayer,
@@ -504,13 +504,17 @@ def _filament_bodies(
     return bodies
 
 
-def export_stl(document: VectorDocument, options: StlOptions) -> bytes:
-    """Extrude every color layer and return a binary STL (units: millimetres)."""
-    return write_binary_stl([body.triangles for body in build_bodies(document, options)])
+def export_stl(
+    document: VectorDocument, options: StlOptions, stl_format: StlFormat = "binary"
+) -> bytes:
+    """Extrude every color layer and return an STL (units: millimetres)."""
+    return write_stl([body.triangles for body in build_bodies(document, options)], stl_format)
 
 
-def export_stl_parts(document: VectorDocument, options: StlOptions) -> bytes:
-    """One binary STL per body (base plate, rim, each color and height) in a ZIP.
+def export_stl_parts(
+    document: VectorDocument, options: StlOptions, stl_format: StlFormat = "binary"
+) -> bytes:
+    """One STL per body (base plate, rim, each color and height) in a ZIP.
 
     For slicers and printers that do not read colored 3MF parts: load all files as one
     multi-part object and give each part its filament. File names keep the bodies'
@@ -521,7 +525,7 @@ def export_stl_parts(document: VectorDocument, options: StlOptions) -> bytes:
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
         for number, body in enumerate(build_bodies(document, options), start=1):
             name = f"{number:02d}-{body.name}-{body.color[1:]}.stl"
-            archive.writestr(name, write_binary_stl([body.triangles]))
+            archive.writestr(name, write_stl([body.triangles], stl_format))
             lines.append(f"{name}\t{body.color}")
         archive.writestr("colors.txt", "\n".join(lines) + "\n")
     return buffer.getvalue()

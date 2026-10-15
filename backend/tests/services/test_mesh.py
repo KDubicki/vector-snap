@@ -9,8 +9,9 @@ from app.services.mesh import (
     prism,
     without_pinches,
     write_binary_stl,
+    write_stl,
 )
-from tests.vectors import is_closed, read_binary_stl, signed_volume
+from tests.vectors import is_closed, read_ascii_stl, read_binary_stl, signed_volume
 
 FRAME = Polygon(
     [(0, 0), (20, 0), (20, 20), (0, 20)], [[(5, 5), (5, 15), (15, 15), (15, 5)]]
@@ -84,3 +85,13 @@ def test_footed_prism_is_one_closed_solid_with_a_stepped_bottom() -> None:
     assert signed_volume(mesh) == pytest.approx(300 * 1.8 + inset_area * 0.2 - 4 * 1)
     bottom = mesh[(mesh[..., 2] == 0).all(axis=1)]
     assert (bottom[..., 0].min(), bottom[..., 0].max()) == pytest.approx((0.5, 19.5))
+
+
+def test_ascii_stl_holds_the_same_triangles_and_normals() -> None:
+    mesh = prism(FRAME, 0, 2)
+
+    text = write_stl([mesh], "ascii")
+
+    assert np.allclose(read_ascii_stl(text), read_binary_stl(write_stl([mesh])))
+    assert text.decode().count("facet normal 0.000000e+00 0.000000e+00 1.000000e+00") > 0
+    assert write_stl([], "ascii") == b"solid vectorsnap\nendsolid vectorsnap\n"

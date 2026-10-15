@@ -32,6 +32,7 @@ from app.services.export_stl import (
 from app.services.filament_plan import filament_plan
 from app.services.image_io import decode_image
 from app.services.lithophane import LithophaneOptions, export_lithophane
+from app.services.mesh import StlFormat
 from app.services.svg_geometry import VectorDocument, parse_svg
 
 router = APIRouter(prefix="/export", tags=["export"])
@@ -156,6 +157,9 @@ def stl_options(
 
 
 ModelOptions = Annotated[StlOptions, Depends(stl_options)]
+StlFormatField = Annotated[
+    StlFormat, Form(description="binary (compact) or ascii (text, for tools that need it)")
+]
 
 
 @router.post(
@@ -163,9 +167,11 @@ ModelOptions = Annotated[StlOptions, Depends(stl_options)]
     response_class=Response,
     responses={200: {"content": {"model/stl": {}}, "description": "Binary STL"}},
 )
-async def export_to_stl(document: UploadedSvg, options: ModelOptions) -> Response:
+async def export_to_stl(
+    document: UploadedSvg, options: ModelOptions, stl_format: StlFormatField = "binary"
+) -> Response:
     """Extrude every color layer into a 3D model for printing (units: millimetres)."""
-    content = await run_in_threadpool(export_stl, document, options)
+    content = await run_in_threadpool(export_stl, document, options, stl_format)
     return _attachment(content, "model/stl", "stl")
 
 
@@ -174,9 +180,11 @@ async def export_to_stl(document: UploadedSvg, options: ModelOptions) -> Respons
     response_class=Response,
     responses={200: {"content": {"application/zip": {}}, "description": "ZIP of STL files"}},
 )
-async def export_to_stl_parts(document: UploadedSvg, options: ModelOptions) -> Response:
+async def export_to_stl_parts(
+    document: UploadedSvg, options: ModelOptions, stl_format: StlFormatField = "binary"
+) -> Response:
     """Like STL, but one file per part (base, rim, each color) — for any multi-part slicer."""
-    content = await run_in_threadpool(export_stl_parts, document, options)
+    content = await run_in_threadpool(export_stl_parts, document, options, stl_format)
     return _attachment(content, "application/zip", "zip")
 
 

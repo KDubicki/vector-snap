@@ -5,6 +5,8 @@ consistently oriented mesh — what slicers and 3MF validators expect. See
 docs/13-export-formats.md.
 """
 
+from typing import Literal
+
 import numpy as np
 from numpy.typing import NDArray
 from shapely import Polygon, constrained_delaunay_triangles, get_coordinates, unary_union
@@ -108,13 +110,39 @@ def footed_prism(
     return np.concatenate(parts)
 
 
+# STL encoding: compact binary (the default) or ASCII text for tools that only read that.
+StlFormat = Literal["binary", "ascii"]
+
+
+def _normals(vertices: NDArray[np.float64]) -> NDArray[np.float64]:
+    """Unit normal per triangle (zero for degenerate ones)."""
+    normals = np.cross(vertices[:, 1] - vertices[:, 0], vertices[:, 2] - vertices[:, 0])
+    lengths = np.linalg.norm(normals, axis=1, keepdims=True)
+    return np.divide(normals, lengths, out=np.zeros_like(normals), where=lengths > 0)
+
+
+def write_stl(triangles: list[NDArray[np.float64]], stl_format: StlFormat = "binary") -> bytes:
+    return write_ascii_stl(triangles) if stl_format == "ascii" else write_binary_stl(triangles)
+
+
+def write_ascii_stl(triangles: list[NDArray[np.float64]]) -> bytes:
+    """ASCII STL: about five times larger than binary, but readable by any tool."""
+    vertices = np.concatenate(triangles) if triangles else np.zeros((0, 3, 3))
+    facets = np.concatenate([_normals(vertices)[:, None], vertices], axis=1).tolist()
+    body = "".join(
+        f" facet normal {n[0]:.6e} {n[1]:.6e} {n[2]:.6e}\n  outer loop\n"
+        + "".join(f"   vertex {x:.6f} {y:.6f} {z:.6f}\n" for x, y, z in corners)
+        + "  endloop\n endfacet\n"
+        for n, *corners in facets
+    )
+    return f"solid vectorsnap\n{body}endsolid vectorsnap\n".encode()
+
+
 def write_binary_stl(triangles: list[NDArray[np.float64]]) -> bytes:
     vertices = np.concatenate(triangles) if triangles else np.zeros((0, 3, 3))
     data = np.zeros(len(vertices), dtype=_TRIANGLE_DTYPE)
     if len(vertices):
-        normals = np.cross(vertices[:, 1] - vertices[:, 0], vertices[:, 2] - vertices[:, 0])
-        lengths = np.linalg.norm(normals, axis=1, keepdims=True)
-        data["normal"] = np.divide(normals, lengths, out=np.zeros_like(normals), where=lengths > 0)
+        data["normal"] = _normals(vertices)
         data["vertices"] = vertices
     header = b"VectorSnap STL export".ljust(80, b"\0")
     return header + np.uint32(len(vertices)).tobytes() + data.tobytes()

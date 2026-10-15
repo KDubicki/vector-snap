@@ -46,6 +46,7 @@ curl -F svg=@logo.svg -F width_mm=120 -F base_mm=1.5 -F layer_mm=0.8 \
 | Option | Default | Meaning |
 |--------|---------|---------|
 | `width_mm` | `100` | Model width; height follows the aspect ratio |
+| `stl_format` | `binary` | `binary` or `ascii` (STL and STL per part only) |
 | `base_mm` | `1.0` | Base plate under all shapes (`0` = no base) |
 | `base_shape` | `outline` | Base plate footprint: `outline` (follows the design), `rectangle`, `rounded` (rectangle with round corners) or `circle` (smallest circle around the design) |
 | `base_margin_mm` | `0` | How far the base plate extends beyond the design (0–100) — a border around it |
@@ -202,7 +203,10 @@ Model construction:
   x = y = 0; z is unchanged, so the model still stands on the bed.
 - The model is built as **bodies** (base plate, one per color) — the STL contains them
   all; the same bodies feed other 3D formats.
-- Output is binary STL (`model/stl`), units mm.
+- Output is binary STL (`model/stl`), units mm. With `stl_format=ascii` (STL and STL
+  per part only) the same triangles come as ASCII STL — about five times larger, for
+  older CAD/CAM tools and for reading or diffing the file; normals in `%e`, vertices with
+  six decimals (1 nm).
 
 Tests check real mesh properties, not just the file: every body is **closed** (each
 edge shared by exactly two triangles in opposite directions — for touching bodies:
