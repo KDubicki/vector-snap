@@ -98,6 +98,9 @@ def stl_options(
     magnet_depth_mm: Annotated[
         float, Form(gt=0, le=20, description="Magnet pocket depth (below base_mm - 0.4)")
     ] = 2.0,
+    elephant_foot_mm: Annotated[
+        float, Form(ge=0, le=0.5, description="Inset the base plate's first layer; 0 = off")
+    ] = 0.0,
     filaments: Annotated[
         str,
         Form(description='Mixed colors: loaded filaments, e.g. ["#ffffff", "#ff0000"]'),
@@ -131,6 +134,7 @@ def stl_options(
         loop_hole_mm=loop_hole_mm,
         magnet_mm=magnet_mm,
         magnet_depth_mm=magnet_depth_mm,
+        elephant_foot_mm=elephant_foot_mm,
         filaments=parse_filaments(filaments),
         color_stacks=parse_color_stacks(color_stacks),
     )

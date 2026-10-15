@@ -423,6 +423,58 @@ def test_magnet_pocket_is_recessed_into_the_underside_of_the_base() -> None:
     assert np.hypot(floor[..., 0] - 10, floor[..., 1] - 10).max() == pytest.approx(5, abs=1e-6)
 
 
+SQUARE_20 = "M0,0 L20,0 L20,20 L0,20 Z"
+
+
+def test_elephant_foot_insets_the_first_layer_of_the_base() -> None:
+    options = StlOptions(width_mm=40, base_mm=1, elephant_foot_mm=0.3)
+
+    base = _base(options, [("#000000", [SQUARE_20])])
+
+    assert signed_volume(base) == pytest.approx(400 * 0.8 + 19.4**2 * 0.2)
+    bottom = base[(base[..., 2] == 0).all(axis=1)]
+    assert (bottom[..., 0].min(), bottom[..., 0].max()) == pytest.approx((0.3, 19.7))
+    assert base[..., 0].min() == pytest.approx(0)  # above the first layer: full size
+
+
+def test_elephant_foot_follows_the_printer_layer_and_keeps_the_magnet_pocket() -> None:
+    options = StlOptions(
+        width_mm=40,
+        base_mm=3,
+        print_layer_mm=0.3,
+        magnet_mm=10,
+        magnet_depth_mm=2,
+        elephant_foot_mm=0.5,
+    )
+
+    base = _base(options, [("#000000", [SQUARE_20])])
+
+    pocket = np.pi * 25 * np.cos(np.pi / 128) * np.sinc(1 / 64)
+    expected = 400 * 2.7 + 19**2 * 0.3 - pocket * 2
+    assert signed_volume(base) == pytest.approx(expected, rel=1e-4)
+
+
+def test_elephant_foot_on_a_one_layer_base_insets_all_of_it() -> None:
+    options = StlOptions(width_mm=40, base_mm=0.2, elephant_foot_mm=0.5)
+
+    base = _base(options, [("#000000", [SQUARE_20])])
+
+    assert signed_volume(base) == pytest.approx(19**2 * 0.2)
+
+
+def test_elephant_foot_leaves_parts_too_thin_for_it() -> None:
+    options = StlOptions(width_mm=40, base_mm=1, elephant_foot_mm=0.5)
+
+    base = _base(options, [("#000000", ["M0,0 L20,0 L20,0.8 L0,0.8 Z"])])
+
+    assert signed_volume(base) == pytest.approx(20 * 0.8)
+
+
+def test_elephant_foot_needs_a_base_plate() -> None:
+    with pytest.raises(InvalidParameters, match="needs a base plate"):
+        _export(StlOptions(base_mm=0, elephant_foot_mm=0.2), [("#000000", [FRAME])])
+
+
 def test_magnet_pocket_needs_room_in_the_plate() -> None:
     options = StlOptions(width_mm=40, base_mm=3, magnet_mm=12, magnet_depth_mm=2)
 

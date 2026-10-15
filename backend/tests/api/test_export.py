@@ -54,6 +54,8 @@ def test_stl_defaults(client: TestClient) -> None:
         ({"min_feature_mm": "-0.1"}, "VALIDATION_ERROR"),
         ({"simplify_mm": "3"}, "VALIDATION_ERROR"),
         ({"color_gap_mm": "-0.1"}, "VALIDATION_ERROR"),
+        ({"elephant_foot_mm": "0.6"}, "VALIDATION_ERROR"),
+        ({"elephant_foot_mm": "0.2", "base_mm": "0"}, "INVALID_PARAMETERS"),
         ({"print_layer_mm": "2"}, "VALIDATION_ERROR"),
         ({"base_shape": "star"}, "VALIDATION_ERROR"),
         ({"base_margin_mm": "-1"}, "VALIDATION_ERROR"),

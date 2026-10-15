@@ -7,8 +7,8 @@ details thinner than the nozzle can be removed and outlines simplified before ex
 heights can be rounded to whole printer layers and colors kept apart by a gap. The base
 plate follows the design's outline or is a rectangle, rounded rectangle or circle around
 it, optionally with a raised rim along its edge; colors can be stacked in document order
-or by brightness. A hanging loop can be added at the top of the base plate and a magnet
-pocket in its underside.
+or by brightness. A hanging loop can be added at the top of the base plate, a magnet
+pocket in its underside, and its first layer inset against elephant's foot.
 Coordinates are converted to millimetres and the y axis is flipped (SVG y points down,
 STL z-up models are viewed from above with y up). The meshes come from `mesh`, the base
 plate from `base_plate`. `export_stl_parts` puts every body in an STL file of its own.
@@ -37,7 +37,7 @@ from app.services.base_plate import (
     rim,
     with_loop,
 )
-from app.services.mesh import prism, without_pinches, write_binary_stl
+from app.services.mesh import footed_prism, prism, without_pinches, write_binary_stl
 from app.services.svg_geometry import (
     VectorDocument,
     VectorLayer,
@@ -101,6 +101,9 @@ class StlOptions:
     # Round pocket in the underside of the base plate for a magnet (diameter, depth; mm).
     magnet_mm: float = 0.0
     magnet_depth_mm: float = 2.0
+    # Elephant's foot compensation (mm): the first printer layer of the base plate is
+    # inset by this much, as the squashed first layer bulges out; 0 = off.
+    elephant_foot_mm: float = 0.0
     # Mixed colors: the loaded filaments ("#rrggbb", the first one prints the base plate)
     # and per palette index the filaments of that color (`ColorStack`). Bodies are then
     # one per filament and height range instead of one per color.
@@ -256,6 +259,11 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
         )
     if options.rim_mm > 0 and base <= 0:
         raise InvalidParameters("A rim needs a base plate (base_mm > 0).", {"field": "rim_mm"})
+    if options.elephant_foot_mm > 0 and base <= 0:
+        raise InvalidParameters(
+            "Elephant's foot compensation needs a base plate (base_mm > 0).",
+            {"field": "elephant_foot_mm"},
+        )
     if options.magnet_mm > 0 and options.magnet_depth_mm > base - MAGNET_ROOF_MM + 1e-9:
         raise InvalidParameters(
             f"A {options.magnet_depth_mm:g} mm deep magnet pocket needs a base plate of at "
@@ -273,12 +281,7 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
         border = rim(silhouette, options.rim_mm)
         silhouette = with_loop(silhouette, options.loop_hole_mm)
         pocket = magnet_pocket(silhouette, options.magnet_mm)
-        parts = [
-            prism(polygon, 0.0, base, pocket, options.magnet_depth_mm)
-            if pocket is not None and pocket.within(polygon)
-            else prism(polygon, 0.0, base)
-            for polygon in without_pinches(silhouette)
-        ]
+        parts = [_plate(polygon, base, pocket, options) for polygon in without_pinches(silhouette)]
         if parts:
             bodies.append(Body("base", base_color, np.concatenate(parts)))
     visible = _visible(document, included)
@@ -296,6 +299,40 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
             {"field": "min_feature_mm"},
         )
     return bodies
+
+
+# First layer height assumed for elephant's foot compensation without `print_layer_mm`.
+FIRST_LAYER_MM = 0.2
+
+
+def _plate(
+    polygon: Polygon, base: float, pocket: Polygon | None, options: StlOptions
+) -> NDArray[np.float64]:
+    """One polygon of the base plate, with the magnet pocket if it lies in it and the
+    first layer inset by `elephant_foot_mm` (polygons too thin for it stay as they are)."""
+    depth = options.magnet_depth_mm
+    if not _holds(polygon, pocket):
+        pocket = None
+    inset: list[Polygon] = []
+    if options.elephant_foot_mm > 0:
+        shrunk = polygon.buffer(-options.elephant_foot_mm, join_style="mitre")
+        inset = without_pinches(_repaired(shrunk))
+    if not inset:
+        return prism(polygon, 0.0, base, pocket, depth)
+    foot = min(options.print_layer_mm or FIRST_LAYER_MM, base)
+    if foot < base:
+        return footed_prism(polygon, inset, foot, base, pocket, depth)
+    # A one-layer plate is all first layer.
+    return np.concatenate(
+        [
+            prism(piece, 0.0, base, pocket if _holds(piece, pocket) else None, depth)
+            for piece in inset
+        ]
+    )
+
+
+def _holds(polygon: Polygon, pocket: Polygon | None) -> bool:
+    return pocket is not None and pocket.within(polygon)
 
 
 def _with_gap(geometry: BaseGeometry, gap_mm: float) -> BaseGeometry:

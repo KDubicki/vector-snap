@@ -4,6 +4,7 @@ from shapely import Polygon, box
 
 from app.services.mesh import (
     PINCH_SEPARATION_MM,
+    footed_prism,
     has_pinches,
     prism,
     without_pinches,
@@ -71,3 +72,15 @@ def test_geometry_without_pinches_stays_exact() -> None:
 
     assert not has_pinches(shapes)
     assert shapes[0].equals(FRAME)
+
+
+def test_footed_prism_is_one_closed_solid_with_a_stepped_bottom() -> None:
+    inset = [Polygon(FRAME.buffer(-0.5, join_style="mitre"))]
+
+    mesh = footed_prism(FRAME, inset, 0.2, 2, box(1, 1, 3, 3), 1)
+
+    assert is_closed(mesh)
+    inset_area = 19 * 19 - 11 * 11
+    assert signed_volume(mesh) == pytest.approx(300 * 1.8 + inset_area * 0.2 - 4 * 1)
+    bottom = mesh[(mesh[..., 2] == 0).all(axis=1)]
+    assert (bottom[..., 0].min(), bottom[..., 0].max()) == pytest.approx((0.5, 19.5))
