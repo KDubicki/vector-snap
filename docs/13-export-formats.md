@@ -233,6 +233,11 @@ notion of parts or colors.
 - One **assembly object** with all bodies as components is the only build item, so
   Bambu Studio, OrcaSlicer and PrusaSlicer import the bodies as **parts of one model** —
   they stay aligned, and each part can get its own filament.
+- Optional package details (3MF only): `title` (up to 200 characters; also names the
+  assembly, which slicers show as the object's name — default `VectorSnap`),
+  `designer` (200) and `description` (2000) become the well-known 3MF metadata
+  `Title`, `Designer` and `Description`; empty values are left out. `Application`
+  always names the VectorSnap version.
 - Meshes are **indexed**: identical vertices are merged and triangles reference them,
   which slicers need to recognise closed, manifold parts.
 - Verified with the 3MF Consortium's reference library **lib3mf in strict mode**: no

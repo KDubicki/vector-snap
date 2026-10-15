@@ -8,6 +8,7 @@ See docs/13-export-formats.md#3mf.
 
 import io
 import zipfile
+from dataclasses import dataclass
 from xml.sax.saxutils import escape
 
 import numpy as np
@@ -37,6 +38,15 @@ RELATIONSHIPS = (
 MODEL_PATH = "3D/3dmodel.model"
 
 
+@dataclass(frozen=True)
+class ThreeMfOptions:
+    """Package details: the model's name and well-known 3MF metadata (empty = left out)."""
+
+    title: str = ""
+    designer: str = ""
+    description: str = ""
+
+
 def indexed_mesh(triangles: NDArray[np.float64]) -> tuple[NDArray[np.float64], NDArray[np.int64]]:
     """Shared vertices and per-triangle vertex indices (exactly equal points are merged)."""
     vertices, inverse = np.unique(triangles.reshape(-1, 3), axis=0, return_inverse=True)
@@ -59,8 +69,23 @@ def _mesh_xml(body: Body) -> str:
     return f"<mesh><vertices>{vertex_xml}</vertices><triangles>{triangle_xml}</triangles></mesh>"
 
 
-def model_xml(bodies: list[Body]) -> str:
+def _metadata(options: ThreeMfOptions) -> str:
+    values = {
+        "Application": f"VectorSnap {__version__}",
+        "Title": options.title,
+        "Designer": options.designer,
+        "Description": options.description,
+    }
+    return "".join(
+        f"<metadata{_attributes({'name': name})}>{escape(value)}</metadata>"
+        for name, value in values.items()
+        if value
+    )
+
+
+def model_xml(bodies: list[Body], options: ThreeMfOptions | None = None) -> str:
     """3MF core model: base materials (colors), one object per body, one assembly."""
+    options = options or ThreeMfOptions()
     materials = "".join(
         f"<base{_attributes({'name': body.name, 'displaycolor': f'{body.color.upper()}FF'})}/>"
         for body in bodies
@@ -80,23 +105,28 @@ def model_xml(bodies: list[Body]) -> str:
         for index, body in enumerate(bodies)
     )
     assembly_id = len(bodies) + 2
+    assembly = _attributes(
+        {"id": str(assembly_id), "type": "model", "name": options.title or "VectorSnap"}
+    )
     components = "".join(f'<component objectid="{index + 2}"/>' for index in range(len(bodies)))
     return (
         '<?xml version="1.0" encoding="UTF-8"?>'
         f'<model unit="millimeter" xml:lang="en-US" xmlns="{CORE_NS}">'
-        f'<metadata name="Application">VectorSnap {escape(__version__)}</metadata>'
+        f"{_metadata(options)}"
         f'<resources><basematerials id="1">{materials}</basematerials>{parts}'
-        f'<object id="{assembly_id}" type="model" name="VectorSnap">'
+        f"<object{assembly}>"
         f"<components>{components}</components></object></resources>"
         f'<build><item objectid="{assembly_id}"/></build></model>'
     )
 
 
-def export_3mf(document: VectorDocument, options: StlOptions) -> bytes:
+def export_3mf(
+    document: VectorDocument, options: StlOptions, package_options: ThreeMfOptions | None = None
+) -> bytes:
     """Return a 3MF package with one colored part per body, assembled as one model."""
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as package:
         package.writestr("[Content_Types].xml", CONTENT_TYPES)
         package.writestr("_rels/.rels", RELATIONSHIPS)
-        package.writestr(MODEL_PATH, model_xml(build_bodies(document, options)))
+        package.writestr(MODEL_PATH, model_xml(build_bodies(document, options), package_options))
     return buffer.getvalue()

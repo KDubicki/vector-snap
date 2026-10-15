@@ -140,6 +140,23 @@ def test_rejects_unknown_stl_format(client: TestClient) -> None:
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
 
 
+def test_3mf_metadata(client: TestClient) -> None:
+    response = _post(client, "3mf", {"title": "  Coaster ", "designer": "Ana"})
+
+    with zipfile.ZipFile(io.BytesIO(response.content)) as package:
+        model = package.read("3D/3dmodel.model").decode()
+    assert '<metadata name="Title">Coaster</metadata>' in model
+    assert '<metadata name="Designer">Ana</metadata>' in model
+    assert "Description" not in model
+
+
+def test_3mf_rejects_too_long_metadata(client: TestClient) -> None:
+    response = _post(client, "3mf", {"title": "x" * 201})
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
 def test_rejects_invalid_svg(client: TestClient) -> None:
     response = _post(client, "stl", data=b"<svg")
 

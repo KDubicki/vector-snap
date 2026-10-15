@@ -5,7 +5,13 @@ import numpy as np
 import pytest
 from lxml import etree
 
-from app.services.export_3mf import CORE_NS, MODEL_PATH, export_3mf, indexed_mesh
+from app.services.export_3mf import (
+    CORE_NS,
+    MODEL_PATH,
+    ThreeMfOptions,
+    export_3mf,
+    indexed_mesh,
+)
 from app.services.export_stl import StlOptions, export_stl
 from app.services.svg_geometry import parse_svg
 from tests.vectors import contract_svg, read_binary_stl, signed_volume
@@ -16,8 +22,9 @@ SVG = contract_svg(40, 20, [("#112233", [FRAME]), ("#ff0000", [DOT])])
 NS = {"m": CORE_NS}
 
 
-def _model(options: StlOptions) -> etree._Element:
-    with zipfile.ZipFile(io.BytesIO(export_3mf(parse_svg(SVG), options))) as package:
+def _model(options: StlOptions, package_options: ThreeMfOptions | None = None) -> etree._Element:
+    data = export_3mf(parse_svg(SVG), options, package_options)
+    with zipfile.ZipFile(io.BytesIO(data)) as package:
         assert {"[Content_Types].xml", "_rels/.rels", MODEL_PATH} <= set(package.namelist())
         assert b"3dmodel.model" in package.read("_rels/.rels")
         return etree.fromstring(package.read(MODEL_PATH))
@@ -98,3 +105,21 @@ def test_honours_per_color_heights() -> None:
 
     names = [o.get("name") for o in model.iterfind("m:resources/m:object", NS)]
     assert names == ["color-1", "VectorSnap"]
+
+
+def test_metadata_names_and_describes_the_model() -> None:
+    package = ThreeMfOptions(title="Logo <v2>", designer="Ana & Bo", description="Coaster")
+
+    model = _model(StlOptions(), package)
+
+    metadata = {m.get("name"): m.text for m in model.iterfind("m:metadata", NS)}
+    assert metadata.pop("Application").startswith("VectorSnap ")
+    assert metadata == {"Title": "Logo <v2>", "Designer": "Ana & Bo", "Description": "Coaster"}
+    assembly = model.find("m:resources/m:object/m:components", NS).getparent()
+    assert assembly.get("name") == "Logo <v2>"
+
+
+def test_empty_metadata_is_left_out() -> None:
+    model = _model(StlOptions())
+
+    assert [m.get("name") for m in model.iterfind("m:metadata", NS)] == ["Application"]
