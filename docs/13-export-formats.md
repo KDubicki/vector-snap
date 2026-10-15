@@ -233,6 +233,10 @@ notion of parts or colors.
 - One **assembly object** with all bodies as components is the only build item, so
   Bambu Studio, OrcaSlicer and PrusaSlicer import the bodies as **parts of one model** —
   they stay aligned, and each part can get its own filament.
+- `layout=objects` leaves out the assembly: every body is a **build item of its own**,
+  so the slicer imports separate objects that can be moved, arranged and printed apart —
+  e.g. inlay pieces cut with `color_gap_mm` and glued together afterwards. They keep the
+  shared coordinates until the slicer arranges them.
 - Optional package details (3MF only): `title` (up to 200 characters; also names the
   assembly, which slicers show as the object's name — default `VectorSnap`),
   `designer` (200) and `description` (2000) become the well-known 3MF metadata

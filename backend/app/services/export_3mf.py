@@ -9,6 +9,7 @@ See docs/13-export-formats.md#3mf.
 import io
 import zipfile
 from dataclasses import dataclass
+from typing import Literal
 from xml.sax.saxutils import escape
 
 import numpy as np
@@ -37,6 +38,10 @@ RELATIONSHIPS = (
 )
 MODEL_PATH = "3D/3dmodel.model"
 
+# `assembly`: the bodies are parts of one model; `objects`: each body is a model of its
+# own, which slicers can move, arrange and print separately (e.g. fitted inlay pieces).
+Layout = Literal["assembly", "objects"]
+
 
 @dataclass(frozen=True)
 class ThreeMfOptions:
@@ -45,6 +50,7 @@ class ThreeMfOptions:
     title: str = ""
     designer: str = ""
     description: str = ""
+    layout: Layout = "assembly"
 
 
 def indexed_mesh(triangles: NDArray[np.float64]) -> tuple[NDArray[np.float64], NDArray[np.int64]]:
@@ -84,7 +90,8 @@ def _metadata(options: ThreeMfOptions) -> str:
 
 
 def model_xml(bodies: list[Body], options: ThreeMfOptions | None = None) -> str:
-    """3MF core model: base materials (colors), one object per body, one assembly."""
+    """3MF core model: base materials (colors), one object per body, and one assembly of
+    them as the build item — or, with the `objects` layout, every body as a build item."""
     options = options or ThreeMfOptions()
     materials = "".join(
         f"<base{_attributes({'name': body.name, 'displaycolor': f'{body.color.upper()}FF'})}/>"
@@ -104,19 +111,25 @@ def model_xml(bodies: list[Body], options: ThreeMfOptions | None = None) -> str:
         + f">{_mesh_xml(body)}</object>"
         for index, body in enumerate(bodies)
     )
-    assembly_id = len(bodies) + 2
-    assembly = _attributes(
-        {"id": str(assembly_id), "type": "model", "name": options.title or "VectorSnap"}
-    )
-    components = "".join(f'<component objectid="{index + 2}"/>' for index in range(len(bodies)))
+    ids = [index + 2 for index in range(len(bodies))]
+    if options.layout == "objects":
+        assembly, items = "", ids
+    else:
+        assembly_id = len(bodies) + 2
+        name = options.title or "VectorSnap"
+        components = "".join(f'<component objectid="{i}"/>' for i in ids)
+        assembly = (
+            f"<object{_attributes({'id': str(assembly_id), 'type': 'model', 'name': name})}>"
+            f"<components>{components}</components></object>"
+        )
+        items = [assembly_id]
+    build = "".join(f'<item objectid="{i}"/>' for i in items)
     return (
         '<?xml version="1.0" encoding="UTF-8"?>'
         f'<model unit="millimeter" xml:lang="en-US" xmlns="{CORE_NS}">'
         f"{_metadata(options)}"
-        f'<resources><basematerials id="1">{materials}</basematerials>{parts}'
-        f"<object{assembly}>"
-        f"<components>{components}</components></object></resources>"
-        f'<build><item objectid="{assembly_id}"/></build></model>'
+        f'<resources><basematerials id="1">{materials}</basematerials>{parts}{assembly}'
+        f"</resources><build>{build}</build></model>"
     )
 
 

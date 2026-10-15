@@ -17,7 +17,7 @@ from app.schemas.export import (
     parse_shape_heights,
 )
 from app.services.base_plate import BaseShape
-from app.services.export_3mf import ThreeMfOptions, export_3mf
+from app.services.export_3mf import Layout, ThreeMfOptions, export_3mf
 from app.services.export_dxf import DxfOptions, export_dxf
 from app.services.export_eps import EpsOptions, export_eps
 from app.services.export_pdf import PageSize, PdfOptions, export_pdf
@@ -199,10 +199,16 @@ async def export_to_3mf(
     title: Annotated[str, Form(max_length=200, description="Model name and title")] = "",
     designer: Annotated[str, Form(max_length=200, description="Designer metadata")] = "",
     description: Annotated[str, Form(max_length=2000, description="Description metadata")] = "",
+    layout: Annotated[
+        Layout, Form(description="assembly: parts of one model; objects: separate models")
+    ] = "assembly",
 ) -> Response:
     """Like STL, but one colored part per color in one model — for multi-color printers."""
     package = ThreeMfOptions(
-        title=title.strip(), designer=designer.strip(), description=description.strip()
+        title=title.strip(),
+        designer=designer.strip(),
+        description=description.strip(),
+        layout=layout,
     )
     content = await run_in_threadpool(export_3mf, document, options, package)
     return _attachment(content, "model/3mf", "3mf")

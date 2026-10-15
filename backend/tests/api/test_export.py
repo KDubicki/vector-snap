@@ -150,6 +150,21 @@ def test_3mf_metadata(client: TestClient) -> None:
     assert "Description" not in model
 
 
+def test_3mf_objects_layout(client: TestClient) -> None:
+    response = _post(client, "3mf", {"layout": "objects"})
+
+    with zipfile.ZipFile(io.BytesIO(response.content)) as package:
+        model = package.read("3D/3dmodel.model").decode()
+    assert "<components>" not in model
+    assert model.count("<item ") == 3  # base and two colors
+
+
+def test_3mf_rejects_unknown_layout(client: TestClient) -> None:
+    response = _post(client, "3mf", {"layout": "grid"})
+
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
 def test_3mf_rejects_too_long_metadata(client: TestClient) -> None:
     response = _post(client, "3mf", {"title": "x" * 201})
 

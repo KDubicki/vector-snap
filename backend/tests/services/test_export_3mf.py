@@ -123,3 +123,13 @@ def test_empty_metadata_is_left_out() -> None:
     model = _model(StlOptions())
 
     assert [m.get("name") for m in model.iterfind("m:metadata", NS)] == ["Application"]
+
+
+def test_objects_layout_makes_every_body_a_build_item() -> None:
+    model = _model(StlOptions(base_mm=1), ThreeMfOptions(layout="objects"))
+
+    objects = model.findall("m:resources/m:object", NS)
+    assert [o.get("name") for o in objects] == ["base", "color-0", "color-1"]
+    assert all(o.find("m:mesh", NS) is not None for o in objects)  # no assembly
+    items = [item.get("objectid") for item in model.iterfind("m:build/m:item", NS)]
+    assert items == [o.get("id") for o in objects]
