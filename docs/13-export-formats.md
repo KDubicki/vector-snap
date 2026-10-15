@@ -413,8 +413,10 @@ curl -F svg=@logo.svg -F width_mm=80 \
 ## Frontend
 
 Common options are always shown; less common ones sit in collapsed sections (for STL and
-3MF: **Base plate extras** — shape, margin, loop, magnet — and **Print tuning** — color
-order, detail removal, layer snapping; `section` in `src/lib/exportFormats.ts`). A
+3MF: **Base plate extras** — shape, margin, loop, magnet — **Print tuning** — color
+order, detail removal, layer snapping, outline simplification, gap between colors,
+elephant's foot, raised or inlaid colors — and **File** — position (`origin`) plus the
+STL encoding or the 3MF parts layout; `section` in `src/lib/exportFormats.ts`). A
 collapsed section's header shows how many of its options differ from the defaults
 ("2 changed") or, when one is invalid, "1 to fix" in the error color, so a disabled
 Export button is never left unexplained.

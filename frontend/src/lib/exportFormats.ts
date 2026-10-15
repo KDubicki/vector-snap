@@ -61,9 +61,11 @@ export interface ExportFormat {
 export const MAGNET_ROOF_MM = 0.4;
 
 /** Collapsed groups of the less common 3D options (the rest is always shown):
- * shape, margin, rim, loop and magnet; color order, detail removal and layer snapping. */
+ * shape, margin, rim, loop and magnet; color order, detail removal, layer snapping and
+ * printer fit; placement and encoding of the file. */
 const BASE_EXTRAS = 'Base plate extras';
 const PRINT_TUNING = 'Print tuning';
+const FILE_SECTION = 'File';
 
 /** Options shared by the 3D formats (STL, 3MF), mirroring the backend form fields. */
 const MODEL_OPTIONS: ExportOption[] = [
@@ -231,6 +233,70 @@ const MODEL_OPTIONS: ExportOption[] = [
     hint: 'Rounds the base and every color to whole layers (e.g. 0.2), so colors change exactly at a layer. 0 keeps exact heights.',
   },
   {
+    type: 'number',
+    name: 'simplify_mm',
+    section: PRINT_TUNING,
+    label: 'Simplify outlines',
+    unit: 'mm',
+    default: 0,
+    min: 0,
+    max: 2,
+    step: 0.05,
+    hint: 'Smooths traced outlines to this tolerance (e.g. 0.1): far fewer triangles and smaller files. 0 keeps them exact.',
+  },
+  {
+    type: 'number',
+    name: 'color_gap_mm',
+    section: PRINT_TUNING,
+    label: 'Gap between colors',
+    unit: 'mm',
+    default: 0,
+    min: 0,
+    max: 2,
+    step: 0.05,
+    hint: 'Colors shrink to leave this gap, for pieces printed separately and fitted together. 0 = colors touch.',
+  },
+  {
+    type: 'number',
+    name: 'elephant_foot_mm',
+    section: PRINT_TUNING,
+    label: "Elephant's foot compensation",
+    unit: 'mm',
+    default: 0,
+    min: 0,
+    max: 0.5,
+    step: 0.05,
+    hint: 'Insets the first layer of the base plate (e.g. 0.2), as the squashed first layer bulges out. 0 = off.',
+    check: (value, values) =>
+      value > 0 && !(Number(values.base_mm) > 0)
+        ? "Elephant's foot compensation needs a base plate."
+        : null,
+  },
+  {
+    type: 'choice',
+    name: 'relief',
+    section: PRINT_TUNING,
+    label: 'Colors',
+    default: 'raised',
+    choices: [
+      { value: 'raised', label: 'Raised on the base plate' },
+      { value: 'inlay', label: 'Inlaid flush into the base plate' },
+    ],
+    hint: 'Inlaid colors sink their height into the base plate for a flat top (multi-material printers); the plate must be thicker than the tallest color.',
+  },
+  {
+    type: 'choice',
+    name: 'origin',
+    section: FILE_SECTION,
+    label: 'Position',
+    default: 'corner',
+    choices: [
+      { value: 'corner', label: 'From the origin (x, y ≥ 0)' },
+      { value: 'center', label: 'Centered on the origin' },
+    ],
+    hint: 'Centered models suit CAD and CNC tools that keep imported coordinates.',
+  },
+  {
     type: 'boolean',
     name: 'layered',
     label: 'Stack colors at increasing heights (relief)',
@@ -250,7 +316,21 @@ export const EXPORT_FORMATS: ExportFormat[] = [
     label: 'STL',
     extension: 'stl',
     description: '3D model for printing — flat by default; raise any color to its own height.',
-    options: MODEL_OPTIONS,
+    options: [
+      ...MODEL_OPTIONS,
+      {
+        type: 'choice',
+        name: 'stl_format',
+        section: FILE_SECTION,
+        label: 'Encoding',
+        default: 'binary',
+        choices: [
+          { value: 'binary', label: 'Binary (compact)' },
+          { value: 'ascii', label: 'ASCII text' },
+        ],
+        hint: 'ASCII is about five times larger; only for tools that cannot read binary STL.',
+      },
+    ],
     perColorHeights: true,
   },
   {
@@ -259,7 +339,21 @@ export const EXPORT_FORMATS: ExportFormat[] = [
     extension: '3mf',
     description:
       'Multi-color 3D model — one colored part per color in one model, ready for AMS/MMU printers.',
-    options: MODEL_OPTIONS,
+    options: [
+      ...MODEL_OPTIONS,
+      {
+        type: 'choice',
+        name: 'layout',
+        section: FILE_SECTION,
+        label: 'Parts',
+        default: 'assembly',
+        choices: [
+          { value: 'assembly', label: 'Parts of one model' },
+          { value: 'objects', label: 'Separate objects' },
+        ],
+        hint: 'Separate objects can be arranged and printed apart in the slicer, e.g. pieces cut with a gap between colors.',
+      },
+    ],
     perColorHeights: true,
   },
   {

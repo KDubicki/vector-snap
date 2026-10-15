@@ -32,8 +32,14 @@ describe('export formats', () => {
       magnet_depth_mm: 2,
       min_feature_mm: 0,
       print_layer_mm: 0,
+      simplify_mm: 0,
+      color_gap_mm: 0,
+      elephant_foot_mm: 0,
+      relief: 'raised',
+      origin: 'corner',
       layered: false,
       mirror: false,
+      stl_format: 'binary',
     });
   });
 
@@ -41,6 +47,7 @@ describe('export formats', () => {
     expect(validate(stl, defaultValues(stl))).toEqual({});
     expect(
       validate(stl, {
+        ...defaultValues(stl),
         width_mm: 0,
         base_mm: Number.NaN,
         base_shape: 'star',
@@ -101,10 +108,34 @@ describe('export formats', () => {
 
   it('offers 3MF with the same model options and per-color heights as STL', () => {
     const threeMf = EXPORT_FORMATS.find((format) => format.id === '3mf')!;
+    const names = (format: typeof stl) => format.options.map((option) => option.name);
 
     expect(threeMf.extension).toBe('3mf');
-    expect(threeMf.options).toBe(stl.options);
+    expect(names(threeMf).filter((name) => name !== 'layout')).toEqual(
+      names(stl).filter((name) => name !== 'stl_format'),
+    );
+    expect(defaultValues(threeMf).layout).toBe('assembly');
+    expect(defaultValues(stl).stl_format).toBe('binary');
     expect(threeMf.perColorHeights).toBe(true);
+  });
+
+  it('offers printer fit, inlay and file options for 3D models', () => {
+    const values = defaultValues(stl);
+
+    expect(values).toMatchObject({
+      simplify_mm: 0,
+      color_gap_mm: 0,
+      elephant_foot_mm: 0,
+      relief: 'raised',
+      origin: 'corner',
+    });
+    expect(validate(stl, { ...values, relief: 'inlay', origin: 'center' })).toEqual({});
+    expect(validate(stl, { ...values, elephant_foot_mm: 0.6 })).toEqual({
+      elephant_foot_mm: 'Must be between 0 and 0.5.',
+    });
+    expect(validate(stl, { ...values, elephant_foot_mm: 0.2, base_mm: 0 })).toEqual({
+      elephant_foot_mm: "Elephant's foot compensation needs a base plate.",
+    });
   });
 
   it('offers a lithophane built from the original image', () => {
@@ -134,6 +165,7 @@ describe('export formats', () => {
       null,
       'Base plate extras',
       'Print tuning',
+      'File',
     ]);
     expect(sections[0].options.map((option) => option.name)).toEqual([
       'width_mm',
