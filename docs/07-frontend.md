@@ -169,6 +169,7 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
   | Keychain | 45 mm | 10 layers (2 mm) | outline + 2 mm | 4 mm loop |
   | Christmas ornament | 80 mm | 8 layers (1.6 mm) | circle + 2 mm | 3 mm loop |
   | Sign or coaster | 100 mm | 10 layers (2 mm) | rounded rectangle + 5 mm | — |
+  | Flat coaster | 100 mm | 15 layers (3 mm) | circle + 4 mm | colors inlaid flush (flat top) |
 
 - **Colors: Flat (AMS)** — every color has the same height, so the top is level and a
   multi-color printer switches colors within the same layers; **Stepped** — each color

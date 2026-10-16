@@ -31,7 +31,7 @@ export const MIXED_LAYER_MM = 0.08;
  */
 export const MIXED_MIN_COLOR_LAYERS = 15;
 
-export type ProjectId = 'magnet' | 'keychain' | 'ornament' | 'sign' | 'custom';
+export type ProjectId = 'magnet' | 'keychain' | 'ornament' | 'sign' | 'coaster' | 'custom';
 
 export interface PrintSettings {
   project: ProjectId;
@@ -130,6 +130,19 @@ export const PROJECTS: Project[] = [
     label: 'Sign or coaster',
     description: '100 mm on a rounded rectangle with a 5 mm border.',
     settings: { ...COMMON, widthMm: 100, baseLayers: 10, baseShape: 'rounded', marginMm: 5 },
+  },
+  {
+    id: 'coaster',
+    label: 'Flat coaster',
+    description: '100 mm round coaster, colors set flush into a 3 mm base — a flat top for AMS.',
+    settings: {
+      ...COMMON,
+      widthMm: 100,
+      baseLayers: 15,
+      baseShape: 'circle',
+      marginMm: 4,
+      inlay: true,
+    },
   },
   {
     id: 'custom',

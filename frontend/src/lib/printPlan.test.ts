@@ -116,6 +116,7 @@ describe('print plan', () => {
       'keychain',
       'ornament',
       'sign',
+      'coaster',
       'custom',
     ]);
   });
@@ -178,6 +179,15 @@ describe('inlay and printer tuning', () => {
     expect(validatePrint(doc, settings({ elephantFootMm: 0.2, baseLayers: 0 }))).toEqual({
       elephantFootMm: "Elephant's foot compensation needs a base.",
     });
+  });
+
+  it('offers a flat coaster with the colors inlaid into a round base', () => {
+    const coaster = applyProject(settings({ elephantFootMm: 0.2 }), 'coaster');
+
+    expect(coaster).toMatchObject({ inlay: true, baseShape: 'circle', elephantFootMm: 0.2 });
+    expect(heightPlan(doc, coaster).totalLayers).toBe(15); // the colors sink into the base
+    expect(printOptions(doc, coaster)).toMatchObject({ relief: 'inlay', base_mm: 3 });
+    expect(applyProject(coaster, 'sign').inlay).toBe(false);
   });
 
   it('keeps printer tuning when a project is chosen', () => {
