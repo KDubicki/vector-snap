@@ -751,6 +751,26 @@ describe('app store', () => {
     expect(store().print).toMatchObject({ project: 'custom', widthMm: 50, loopHoleMm: 4 });
   });
 
+  it('remembers the printer for the next designs and keeps it across projects', () => {
+    store().chooseProject('keychain');
+    store().setPrint({ nozzleMm: 0.6, colorGapMm: 0.1 });
+    expect(store().print.project).toBe('keychain');
+    store().chooseProject('magnet');
+    expect(store().print.nozzleMm).toBe(0.6);
+    expect(JSON.parse(localStorage.getItem('vectorsnap.printer')!)).toMatchObject({
+      nozzleMm: 0.6,
+      colorGapMm: 0.1,
+    });
+
+    store().reset();
+    expect(store().print).toMatchObject({ project: 'custom', nozzleMm: 0.6, colorGapMm: 0.1 });
+
+    // Design settings are not remembered.
+    localStorage.clear();
+    store().setPrint({ widthMm: 50 });
+    expect(localStorage.getItem('vectorsnap.printer')).toBeNull();
+  });
+
   it('resets colors and raised elements for a new SVG but keeps the project', async () => {
     store().chooseProject('magnet');
     store().setPrint({ shapeRaise: { 'p-0-0': 2 }, colorRaise: { 0: 1 }, excluded: [1] });

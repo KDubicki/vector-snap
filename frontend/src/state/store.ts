@@ -15,6 +15,7 @@ import {
   type PrintSettings,
   type ProjectId,
 } from '../lib/printPlan';
+import { PRINTER_FIELDS, printerOf, readPrinter, savePrinter } from '../lib/printerProfile';
 import { browserStorage } from '../lib/theme';
 import { DEFAULT_TRACING } from '../lib/tracing';
 import type {
@@ -156,6 +157,11 @@ function isAbort(error: unknown): boolean {
 /** Print settings that are not part of a project preset. */
 const KEPT_SETTINGS = new Set<string>(KEPT_BY_PROJECTS);
 
+/** New designs start with the printer remembered in this browser. */
+function startPrint(): PrintSettings {
+  return { ...DEFAULT_PRINT, ...readPrinter(browserStorage()) };
+}
+
 let pending: AbortController | null = null;
 // Separate from `pending`: a suggestion must not abort quantization (or vice versa), since
 // an unchanged color count would never re-trigger the aborted quantization.
@@ -173,6 +179,7 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
   ...createFragmentsSlice(set, get, api),
   filamentLibrary: readFilamentLibrary(browserStorage()),
   ...initialState,
+  print: startPrint(),
 
   loadLimits: async () => {
     try {
@@ -352,13 +359,17 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
     set((state) => {
       // Editing what a project sets (sizes, base, loop, …) makes the settings custom.
       const custom = Object.keys(change).some((key) => !KEPT_SETTINGS.has(key));
-      return { print: { ...state.print, ...change, ...(custom && { project: 'custom' }) } };
+      const print = { ...state.print, ...change, ...(custom && { project: 'custom' as const }) };
+      if (Object.keys(change).some((key) => PRINTER_FIELDS.includes(key))) {
+        savePrinter(browserStorage(), printerOf(print));
+      }
+      return { print };
     }),
   chooseProject: (id) => set((state) => ({ print: applyProject(state.print, id) })),
 
   reset: () => {
     pending?.abort();
     pendingSuggestion?.abort();
-    set({ ...initialState, limits: get().limits });
+    set({ ...initialState, print: startPrint(), limits: get().limits });
   },
 }));

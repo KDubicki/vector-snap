@@ -76,6 +76,7 @@ export const KEPT_BY_PROJECTS = [
   'excluded',
   'shapeRaise',
   'filaments',
+  'nozzleMm',
   'elephantFootMm',
   'simplifyMm',
   'colorGapMm',
@@ -95,7 +96,6 @@ const COMMON: ProjectSettings = {
   loopHoleMm: 0,
   magnetMm: 0,
   magnetDepthMm: 2,
-  nozzleMm: 0.4,
   inlay: false,
 };
 
@@ -160,6 +160,7 @@ export const DEFAULT_PRINT: PrintSettings = {
   excluded: [],
   shapeRaise: {},
   filaments: [],
+  nozzleMm: 0.4,
   elephantFootMm: 0,
   simplifyMm: 0,
   colorGapMm: 0,

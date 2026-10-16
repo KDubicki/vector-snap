@@ -210,7 +210,6 @@ describe('BasePlateFields', () => {
       ['Raised rim (mm)', 'rimMm'],
       ['Hanging loop hole (mm)', 'loopHoleMm'],
       ['Magnet pocket diameter (mm)', 'magnetMm'],
-      ['Drop details thinner than (mm)', 'nozzleMm'],
     ]) {
       fireEvent.change(screen.getByLabelText(label), { target: { value: '3' } });
       expect(onChange).toHaveBeenLastCalledWith({ [key]: 3 });
@@ -252,6 +251,36 @@ describe('PrinterTuningFields', () => {
       target: { value: '0.1' },
     });
     expect(onChange).toHaveBeenLastCalledWith({ colorGapMm: 0.1 });
+    fireEvent.change(screen.getByLabelText('Drop details thinner than (mm)'), {
+      target: { value: '0.6' },
+    });
+    expect(onChange).toHaveBeenLastCalledWith({ nozzleMm: 0.6 });
+  });
+
+  it('resets the nozzle and tuning, offered only when changed', async () => {
+    const onChange = vi.fn();
+    const { rerender } = render(
+      <PrinterTuningFields settings={settings()} errors={{}} onChange={onChange} />,
+    );
+    await userEvent.click(screen.getByText('Printer tuning'));
+    expect(screen.getByText(/Remembered in this browser/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Reset printer settings' })).toBeNull();
+
+    rerender(
+      <PrinterTuningFields
+        settings={settings({ nozzleMm: 0.6, colorGapMm: 0.1 })}
+        errors={{}}
+        onChange={onChange}
+      />,
+    );
+    expect(screen.getByText('2 changed')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Reset printer settings' }));
+    expect(onChange).toHaveBeenLastCalledWith({
+      nozzleMm: 0.4,
+      elephantFootMm: 0,
+      simplifyMm: 0,
+      colorGapMm: 0,
+    });
   });
 
   it('flags an invalid setting on the collapsed section', () => {

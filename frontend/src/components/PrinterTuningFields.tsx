@@ -1,4 +1,5 @@
 import type { PrintSettings } from '../lib/printPlan';
+import { DEFAULT_TUNING, tuningChanged } from '../lib/printerProfile';
 import { NumberField } from './NumberField';
 
 interface PrinterTuningFieldsProps {
@@ -7,15 +8,16 @@ interface PrinterTuningFieldsProps {
   onChange: (change: Partial<PrintSettings>) => void;
 }
 
-/** Collapsed fine-tuning for the printer: first layer inset, smoother outlines, color gap. */
+/**
+ * Collapsed settings of the printer: nozzle width, first layer inset, smoother outlines and
+ * color gap. They are remembered in the browser for the next designs (lib/printerProfile.ts).
+ */
 export function PrinterTuningFields({
   settings: print,
   errors,
   onChange: update,
 }: PrinterTuningFieldsProps) {
-  const changed = [print.elephantFootMm, print.simplifyMm, print.colorGapMm].filter(
-    (value) => value !== 0,
-  ).length;
+  const changed = tuningChanged(print);
   const invalid = errors.elephantFootMm ? 1 : 0;
   return (
     <details className="options__advanced">
@@ -28,6 +30,17 @@ export function PrinterTuningFields({
         )}
       </summary>
       <div className="options">
+        <p className="hint">Remembered in this browser for your next designs.</p>
+        <NumberField
+          id="print-nozzle"
+          label="Drop details thinner than (mm)"
+          value={print.nozzleMm}
+          min={0}
+          max={10}
+          step={0.1}
+          hint="Your nozzle width; thinner lines and specks cannot be printed."
+          onChange={(nozzleMm) => update({ nozzleMm })}
+        />
         <NumberField
           id="print-elephant-foot"
           label="Elephant's foot compensation (mm)"
@@ -59,6 +72,11 @@ export function PrinterTuningFields({
           hint="Leaves room between colors, e.g. 0.1 for pieces printed apart and fitted together. 0 = colors touch."
           onChange={(colorGapMm) => update({ colorGapMm })}
         />
+        {changed > 0 && (
+          <button type="button" className="link" onClick={() => update(DEFAULT_TUNING)}>
+            Reset printer settings
+          </button>
+        )}
       </div>
     </details>
   );

@@ -1,10 +1,14 @@
 // Component tests (files with `@vitest-environment jsdom`): DOM matchers such as
-// toBeInTheDocument / toBeDisabled, and an unmounted tree after every test.
+// toBeInTheDocument / toBeDisabled, and an unmounted tree and empty storage after every
+// test (remembered settings would otherwise carry over into the next test).
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterEach } from 'vitest';
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  if (typeof window !== 'undefined') window.localStorage.clear();
+});
 
 // jsdom has no modal dialogs: opening sets `open`, which makes the dialog accessible.
 if (typeof HTMLDialogElement !== 'undefined' && !HTMLDialogElement.prototype.showModal) {

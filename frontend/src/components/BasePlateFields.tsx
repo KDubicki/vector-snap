@@ -14,7 +14,7 @@ interface BasePlateFieldsProps {
   onChange: (change: Partial<PrintSettings>) => void;
 }
 
-/** Base plate shape, border, raised rim, hanging loop, magnet pocket, inlay and detail filter. */
+/** Base plate shape, border, raised rim, hanging loop, magnet pocket and inlay. */
 export function BasePlateFields({
   settings: print,
   errors,
@@ -111,16 +111,6 @@ export function BasePlateFields({
             {errors.inlay}
           </span>
         )}
-        <NumberField
-          id="print-nozzle"
-          label="Drop details thinner than (mm)"
-          value={print.nozzleMm}
-          min={0}
-          max={10}
-          step={0.1}
-          hint="Your nozzle width; thinner lines and specks cannot be printed."
-          onChange={(nozzleMm) => update({ nozzleMm })}
-        />
       </div>
     </div>
   );

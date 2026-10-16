@@ -207,14 +207,22 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
   prints them as their own parts — e.g. letters 3 layers above a flat AMS sign.
 - **Base plate**: shape (outline, rectangle, rounded, circle), border, raised rim (as
   high as the colors), hanging loop,
-  magnet pocket (depth checked against the base), detail filter (nozzle width), and
+  magnet pocket (depth checked against the base), and
   **Set the colors into the base (flat top)** (`inlay`, sent as `relief=inlay`): colors
   sink their height into the plate, which must then be thicker than the tallest color —
   and a magnet pocket must fit below them; the total height is then the base alone.
 - **Printer tuning** (collapsed, with "n changed" / "1 to fix" on its header,
-  `PrinterTuningFields`): elephant's foot compensation (`elephant_foot_mm`, needs a
-  base), smooth outlines (`simplify_mm`) and gap between colors (`color_gap_mm`). These
-  belong to the printer, so projects keep them like the style and the filaments.
+  `PrinterTuningFields`): detail filter (nozzle width, `min_feature_mm`), elephant's foot
+  compensation (`elephant_foot_mm`, needs a base), smooth outlines (`simplify_mm`) and
+  gap between colors (`color_gap_mm`). These belong to the printer, so projects keep
+  them like the style and the filaments.
+- **Remembered printer** (`src/lib/printerProfile.ts`): the nozzle width, the tuning and
+  the loaded filaments are stored in `localStorage` (`vectorsnap.printer`) whenever one
+  changes, and every new design (page load, **New image**) starts with them. Invalid or
+  out-of-range values read as the defaults; with storage blocked they apply to the page
+  only. **Reset printer settings** (shown when the nozzle or tuning differ from the
+  defaults) restores them; the filaments are kept. Layer height and heights stay design
+  settings, since heights are counted in layers.
 - Summary of the total height, **Download 3MF** (one part per color → AMS slots in the
   slicer) or **STL**, a 3D preview (marked stale when settings change) and cancellable
   progress.

@@ -1,0 +1,103 @@
+/**
+ * Printer settings remembered in the browser: the nozzle, the printer tuning and the
+ * loaded filaments belong to the printer, not to one design, so every new design starts
+ * with them. See docs/07-frontend.md.
+ */
+
+import { isHexColor } from './color';
+import type { Filament } from './mixing';
+import { DEFAULT_PRINT, MAX_FILAMENTS, type PrintSettings } from './printPlan';
+
+export const PRINTER_KEY = 'vectorsnap.printer';
+
+export type PrinterSettings = Pick<
+  PrintSettings,
+  'nozzleMm' | 'elephantFootMm' | 'simplifyMm' | 'colorGapMm' | 'filaments'
+>;
+
+/** Allowed range (mm) per remembered number, as in the print step's fields. */
+const RANGES = {
+  nozzleMm: [0, 10],
+  elephantFootMm: [0, 0.5],
+  simplifyMm: [0, 2],
+  colorGapMm: [0, 2],
+} as const;
+
+export type PrinterTuning = Pick<PrinterSettings, keyof typeof RANGES>;
+
+/** Nozzle and tuning as a new printer starts; the reset link restores these. */
+export const DEFAULT_TUNING: PrinterTuning = {
+  nozzleMm: DEFAULT_PRINT.nozzleMm,
+  elephantFootMm: DEFAULT_PRINT.elephantFootMm,
+  simplifyMm: DEFAULT_PRINT.simplifyMm,
+  colorGapMm: DEFAULT_PRINT.colorGapMm,
+};
+
+const TUNING_KEYS = Object.keys(RANGES) as (keyof PrinterTuning)[];
+
+/** Print settings that are remembered for the next designs. */
+export const PRINTER_FIELDS: readonly string[] = [...TUNING_KEYS, 'filaments'];
+
+export const DEFAULT_PRINTER: PrinterSettings = { ...DEFAULT_TUNING, filaments: [] };
+
+/** The printer part of the print settings. */
+export function printerOf(settings: PrintSettings): PrinterSettings {
+  return {
+    nozzleMm: settings.nozzleMm,
+    elephantFootMm: settings.elephantFootMm,
+    simplifyMm: settings.simplifyMm,
+    colorGapMm: settings.colorGapMm,
+    filaments: settings.filaments,
+  };
+}
+
+/** How many of the nozzle and tuning settings differ from the defaults. */
+export function tuningChanged(settings: PrintSettings): number {
+  return TUNING_KEYS.filter((key) => settings[key] !== DEFAULT_TUNING[key]).length;
+}
+
+function isFilament(item: unknown): item is Filament {
+  const filament = item as Partial<Filament> | null;
+  return (
+    typeof filament?.color === 'string' &&
+    isHexColor(filament.color) &&
+    typeof filament.td === 'number' &&
+    filament.td > 0 &&
+    filament.td <= 100
+  );
+}
+
+/** The remembered printer; missing or invalid values read as the defaults. */
+export function readPrinter(storage: Pick<Storage, 'getItem'> | undefined): PrinterSettings {
+  try {
+    const raw = storage?.getItem(PRINTER_KEY);
+    if (!raw) return DEFAULT_PRINTER;
+    const data = JSON.parse(raw) as Record<string, unknown>;
+    const printer = { ...DEFAULT_PRINTER };
+    for (const key of TUNING_KEYS) {
+      const [min, max] = RANGES[key];
+      const value = data[key];
+      if (typeof value === 'number' && value >= min && value <= max) printer[key] = value;
+    }
+    if (Array.isArray(data.filaments)) {
+      printer.filaments = data.filaments
+        .filter(isFilament)
+        .slice(0, MAX_FILAMENTS)
+        .map((filament) => ({ color: filament.color.toLowerCase(), td: filament.td }));
+    }
+    return printer;
+  } catch {
+    return DEFAULT_PRINTER;
+  }
+}
+
+export function savePrinter(
+  storage: Pick<Storage, 'setItem'> | undefined,
+  printer: PrinterSettings,
+): void {
+  try {
+    storage?.setItem(PRINTER_KEY, JSON.stringify(printer));
+  } catch {
+    // Not remembered; the settings still apply to this page.
+  }
+}
