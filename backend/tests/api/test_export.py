@@ -159,6 +159,15 @@ def test_3mf_objects_layout(client: TestClient) -> None:
     assert model.count("<item ") == 3  # base and two colors
 
 
+def test_3mf_assigns_filaments_for_slicers_unless_turned_off(client: TestClient) -> None:
+    with zipfile.ZipFile(io.BytesIO(_post(client, "3mf", {}).content)) as package:
+        assert "Metadata/model_settings.config" in package.namelist()
+        assert "filament_colour" in package.read("Metadata/project_settings.config").decode()
+    response = _post(client, "3mf", {"slicer_config": "false"})
+    with zipfile.ZipFile(io.BytesIO(response.content)) as package:
+        assert "Metadata/model_settings.config" not in package.namelist()
+
+
 def test_3mf_rejects_unknown_layout(client: TestClient) -> None:
     response = _post(client, "3mf", {"layout": "grid"})
 

@@ -3,10 +3,13 @@
 The bodies of the STL export (base plate and one per color) become separate 3MF objects
 with their color, combined into one assembly: slicers import them as parts of a single
 model that stay aligned and can each get their own filament (AMS, MMU, tool changers).
-See docs/13-export-formats.md#3mf.
+Slicers of the Orca / Bambu Studio family (Anycubic Slicer Next, OrcaSlicer, Bambu Studio)
+ignore the 3MF colors, so their own config files assign every part a filament in its
+color. See docs/13-export-formats.md#3mf.
 """
 
 import io
+import json
 import zipfile
 from dataclasses import dataclass
 from typing import Literal
@@ -37,6 +40,9 @@ RELATIONSHIPS = (
     "</Relationships>"
 )
 MODEL_PATH = "3D/3dmodel.model"
+# Orca / Bambu Studio project files: filament per object and part, and filament colors.
+MODEL_SETTINGS_PATH = "Metadata/model_settings.config"
+PROJECT_SETTINGS_PATH = "Metadata/project_settings.config"
 
 # `assembly`: the bodies are parts of one model; `objects`: each body is a model of its
 # own, which slicers can move, arrange and print separately (e.g. fitted inlay pieces).
@@ -51,6 +57,8 @@ class ThreeMfOptions:
     designer: str = ""
     description: str = ""
     layout: Layout = "assembly"
+    # Assign filaments for Orca-based slicers (Anycubic Slicer Next, OrcaSlicer, Bambu Studio).
+    slicer_config: bool = True
 
 
 def indexed_mesh(triangles: NDArray[np.float64]) -> tuple[NDArray[np.float64], NDArray[np.int64]]:
@@ -133,6 +141,53 @@ def model_xml(bodies: list[Body], options: ThreeMfOptions | None = None) -> str:
     )
 
 
+def filament_slots(bodies: list[Body]) -> list[str]:
+    """Filament colors in slot order: one slot per distinct color, the base plate's first."""
+    return list(dict.fromkeys(body.color.upper() for body in bodies))
+
+
+def _setting(key: str, value: str) -> str:
+    return f"<metadata{_attributes({'key': key, 'value': value})}/>"
+
+
+def _part_xml(object_id: int, body: Body, slot: int) -> str:
+    return (
+        f"<part{_attributes({'id': str(object_id), 'subtype': 'normal_part'})}>"
+        f"{_setting('name', body.name)}{_setting('extruder', str(slot))}</part>"
+    )
+
+
+def model_settings_xml(bodies: list[Body], options: ThreeMfOptions | None = None) -> str:
+    """Orca / Bambu Studio `model_settings.config`: names and the filament (1-based slot) of
+    every part, by the object ids of `model_xml`."""
+    options = options or ThreeMfOptions()
+    slots = {color: index + 1 for index, color in enumerate(filament_slots(bodies))}
+    slot = [slots[body.color.upper()] for body in bodies]
+    if options.layout == "objects":
+        objects = "".join(
+            f"<object{_attributes({'id': str(index + 2)})}>{_setting('name', body.name)}"
+            f"{_setting('extruder', str(slot[index]))}{_part_xml(index + 2, body, slot[index])}"
+            "</object>"
+            for index, body in enumerate(bodies)
+        )
+    else:
+        parts = "".join(
+            _part_xml(index + 2, body, slot[index]) for index, body in enumerate(bodies)
+        )
+        objects = (
+            f"<object{_attributes({'id': str(len(bodies) + 2)})}>"
+            f"{_setting('name', options.title or 'VectorSnap')}{_setting('extruder', '1')}"
+            f"{parts}</object>"
+        )
+    return f'<?xml version="1.0" encoding="UTF-8"?><config>{objects}</config>'
+
+
+def project_settings_json(bodies: list[Body]) -> str:
+    """Orca / Bambu Studio `project_settings.config` with only the filament colors; the
+    slicer keeps its own printer, process and filament settings."""
+    return json.dumps({"filament_colour": filament_slots(bodies)})
+
+
 def export_3mf(
     document: VectorDocument, options: StlOptions, package_options: ThreeMfOptions | None = None
 ) -> bytes:
@@ -141,5 +196,9 @@ def export_3mf(
     with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as package:
         package.writestr("[Content_Types].xml", CONTENT_TYPES)
         package.writestr("_rels/.rels", RELATIONSHIPS)
-        package.writestr(MODEL_PATH, model_xml(build_bodies(document, options), package_options))
+        bodies = build_bodies(document, options)
+        package.writestr(MODEL_PATH, model_xml(bodies, package_options))
+        if (package_options or ThreeMfOptions()).slicer_config:
+            package.writestr(MODEL_SETTINGS_PATH, model_settings_xml(bodies, package_options))
+            package.writestr(PROJECT_SETTINGS_PATH, project_settings_json(bodies))
     return buffer.getvalue()

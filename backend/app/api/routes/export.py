@@ -202,6 +202,13 @@ async def export_to_3mf(
     layout: Annotated[
         Layout, Form(description="assembly: parts of one model; objects: separate models")
     ] = "assembly",
+    slicer_config: Annotated[
+        bool,
+        Form(
+            description="Assign a filament in its color to every part for Orca-based slicers "
+            "(Anycubic Slicer Next, OrcaSlicer, Bambu Studio)"
+        ),
+    ] = True,
 ) -> Response:
     """Like STL, but one colored part per color in one model — for multi-color printers."""
     package = ThreeMfOptions(
@@ -209,6 +216,7 @@ async def export_to_3mf(
         designer=designer.strip(),
         description=description.strip(),
         layout=layout,
+        slicer_config=slicer_config,
     )
     content = await run_in_threadpool(export_3mf, document, options, package)
     return _attachment(content, "model/3mf", "3mf")

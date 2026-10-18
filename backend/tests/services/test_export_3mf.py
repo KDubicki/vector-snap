@@ -1,4 +1,5 @@
 import io
+import json
 import zipfile
 
 import numpy as np
@@ -8,6 +9,8 @@ from lxml import etree
 from app.services.export_3mf import (
     CORE_NS,
     MODEL_PATH,
+    MODEL_SETTINGS_PATH,
+    PROJECT_SETTINGS_PATH,
     ThreeMfOptions,
     export_3mf,
     indexed_mesh,
@@ -133,3 +136,56 @@ def test_objects_layout_makes_every_body_a_build_item() -> None:
     assert all(o.find("m:mesh", NS) is not None for o in objects)  # no assembly
     items = [item.get("objectid") for item in model.iterfind("m:build/m:item", NS)]
     assert items == [o.get("id") for o in objects]
+
+
+def _slicer_files(
+    package_options: ThreeMfOptions | None = None,
+) -> tuple[etree._Element, etree._Element, dict[str, list[str]]]:
+    data = export_3mf(parse_svg(SVG), StlOptions(base_mm=1), package_options)
+    with zipfile.ZipFile(io.BytesIO(data)) as package:
+        model = etree.fromstring(package.read(MODEL_PATH))
+        settings = etree.fromstring(package.read(MODEL_SETTINGS_PATH))
+        return model, settings, json.loads(package.read(PROJECT_SETTINGS_PATH))
+
+
+def _values(element: etree._Element) -> dict[str, str]:
+    return {m.get("key"): m.get("value") for m in element.iterfind("metadata")}
+
+
+def test_assigns_every_part_a_filament_in_its_color_for_orca_based_slicers() -> None:
+    model, settings, project = _slicer_files(ThreeMfOptions(title="Sign"))
+
+    # One filament per distinct color: the base plate shares the bottom color's slot.
+    assert project == {"filament_colour": ["#112233", "#FF0000"]}
+    (assembly,) = settings.iterfind("object")
+    assert assembly.get("id") == model.find("m:build/m:item", NS).get("objectid")
+    assert _values(assembly) == {"name": "Sign", "extruder": "1"}
+    parts = assembly.findall("part")
+    meshes = [
+        o for o in model.iterfind("m:resources/m:object", NS) if o.find("m:mesh", NS) is not None
+    ]
+    assert [p.get("id") for p in parts] == [o.get("id") for o in meshes]
+    assert [_values(p) for p in parts] == [
+        {"name": "base", "extruder": "1"},
+        {"name": "color-0", "extruder": "1"},
+        {"name": "color-1", "extruder": "2"},
+    ]
+
+
+def test_objects_layout_assigns_a_filament_per_object() -> None:
+    model, settings, _ = _slicer_files(ThreeMfOptions(layout="objects"))
+
+    objects = settings.findall("object")
+    assert [o.get("id") for o in objects] == [
+        item.get("objectid") for item in model.iterfind("m:build/m:item", NS)
+    ]
+    assert [_values(o)["extruder"] for o in objects] == ["1", "1", "2"]
+    assert [p.get("id") for o in objects for p in o.iterfind("part")] == [
+        o.get("id") for o in objects
+    ]
+
+
+def test_slicer_config_can_be_left_out() -> None:
+    data = export_3mf(parse_svg(SVG), StlOptions(), ThreeMfOptions(slicer_config=False))
+    with zipfile.ZipFile(io.BytesIO(data)) as package:
+        assert not any(name.startswith("Metadata/") for name in package.namelist())

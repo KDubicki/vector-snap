@@ -242,6 +242,18 @@ notion of parts or colors.
   `designer` (200) and `description` (2000) become the well-known 3MF metadata
   `Title`, `Designer` and `Description`; empty values are left out. `Application`
   always names the VectorSnap version.
+- **Filaments for Orca-based slicers** (`slicer_config`, default on): Anycubic Slicer
+  Next, OrcaSlicer and Bambu Studio ignore the 3MF colors and would put every part on
+  filament 1 — a one-color print. So the package also holds their project files:
+  `Metadata/model_settings.config` names every part and assigns it a filament
+  (`extruder`, 1-based) and `Metadata/project_settings.config` holds only
+  `filament_colour`, one filament per distinct color in slot order (the base plate shares
+  the slot of the color it takes). The slicer keeps its own printer, process and filament
+  settings. Other slicers ignore the files; `slicer_config=false` leaves them out.
+  Verified with the Anycubic Slicer Next 2.0 command line and its Anycubic Kobra X 0.4
+  profile (both layouts): every part prints with its own filament (T0–T3 for four
+  colors) and the filaments take the design's colors; without the files the G-code
+  used T0 only.
 - Meshes are **indexed**: identical vertices are merged and triangles reference them,
   which slicers need to recognise closed, manifold parts.
 - Verified with the 3MF Consortium's reference library **lib3mf in strict mode**: no
