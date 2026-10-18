@@ -1289,6 +1289,18 @@ select {
   margin: 0;
 }
 
+/* Save / load print settings: two links in a row, the message below. */
+.print-settings-file {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+
+.print-settings-file p {
+  flex-basis: 100%;
+  margin: 0;
+}
+
 .projects {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

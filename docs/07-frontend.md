@@ -211,6 +211,16 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
   **Set the colors into the base (flat top)** (`inlay`, sent as `relief=inlay`): colors
   sink their height into the plate, which must then be thicker than the tallest color —
   and a magnet pocket must fit below them; the total height is then the base alone.
+- **Save / load print settings** (`PrintSettingsFile`, `src/lib/printPreset.ts`): below the
+  projects, **Save print settings** downloads `<image>.print.json` (`kind`
+  `vectorsnap-print-settings`, `version` 1) with the project, printer, sizes, base plate,
+  tuning and filaments — not the per-design choices (color heights, raised elements,
+  left-out colors), since palette indices and shape ids belong to one SVG. **Load print
+  settings…** applies such a file to the current design, its project included
+  (`loadPrintSettings`, fitted to the printer and remembered like printer changes). Fields
+  a file leaves out keep their value; a file that is not one, from a newer version or
+  with a field of the wrong kind is rejected with a message and changes nothing. Sizes
+  out of range are flagged by the usual field checks.
 - **Printer** (`PrinterPicker`, `src/lib/printers.ts`): *Any printer* or the
   **Anycubic Kobra X** — build volume 260 × 260 × 260 mm, ACE Gen 2 with 4 filaments
   (up to 19 with ACE 2 Pro), nozzles 0.25 / 0.4 / 0.6 / 0.8 mm with the layer heights of

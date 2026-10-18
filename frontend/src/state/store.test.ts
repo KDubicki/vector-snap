@@ -787,6 +787,22 @@ describe('app store', () => {
     expect(store().print).toMatchObject({ printer: 'kobra-x', nozzleMm: 0.25, layerMm: 0.1 });
   });
 
+  it('loads print settings with their project and remembers their printer', () => {
+    store().loadPrintSettings({
+      project: 'coaster',
+      printer: 'kobra-x',
+      nozzleMm: 0.6,
+      widthMm: 90,
+    });
+
+    // 0.2 mm layers suit the 0.6 nozzle; the project stays even with a changed width.
+    expect(store().print).toMatchObject({ project: 'coaster', widthMm: 90, layerMm: 0.2 });
+    expect(JSON.parse(localStorage.getItem('vectorsnap.printer')!)).toMatchObject({
+      printer: 'kobra-x',
+      nozzleMm: 0.6,
+    });
+  });
+
   it('resets colors and raised elements for a new SVG but keeps the project', async () => {
     store().chooseProject('magnet');
     store().setPrint({ shapeRaise: { 'p-0-0': 2 }, colorRaise: { 0: 1 }, excluded: [1] });

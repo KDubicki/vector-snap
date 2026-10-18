@@ -34,6 +34,7 @@ import { MixTable } from './MixTable';
 import { LayerFields } from './LayerFields';
 import type { PreviewRequest } from './ModelPreview';
 import { PrintColorsTable } from './PrintColorsTable';
+import { PrintSettingsFile } from './PrintSettingsFile';
 import { PrinterPicker } from './PrinterPicker';
 import { PrinterTuningFields } from './PrinterTuningFields';
 import { ProjectPicker } from './ProjectPicker';
@@ -52,7 +53,7 @@ export function PrintStep() {
   const file = useAppStore((s) => s.file);
   const print = useAppStore((s) => s.print);
   const limits = useAppStore((s) => s.limits);
-  const { setPrint, chooseProject, goTo, setColors } = useAppStore.getState();
+  const { setPrint, chooseProject, loadPrintSettings, goTo, setColors } = useAppStore.getState();
   const [view, setView] = useState<'design' | 'model'>('design');
   const [preview, setPreview] = useState<{ request: PreviewRequest; key: string } | null>(null);
   const job = useExport();
@@ -193,6 +194,7 @@ export function PrintStep() {
         <PrinterPicker settings={print} onChange={update} />
 
         <ProjectPicker project={print.project} onChoose={chooseProject} />
+        <PrintSettingsFile settings={print} fileName={file?.name} onLoad={loadPrintSettings} />
 
         <ColorStylePicker
           style={print.style}

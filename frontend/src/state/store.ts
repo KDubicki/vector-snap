@@ -123,6 +123,8 @@ export interface WorkflowSlice {
   setPrint: (change: Partial<PrintSettings>) => void;
   /** Apply a project preset (magnet, keychain, …); colors and raised elements stay. */
   chooseProject: (id: ProjectId) => void;
+  /** Apply print settings loaded from a file (lib/printPreset.ts), project included. */
+  loadPrintSettings: (settings: Partial<PrintSettings>) => void;
   reset: () => void;
 }
 
@@ -373,6 +375,12 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
       return { print };
     }),
   chooseProject: (id) => set((state) => ({ print: fitted(applyProject(state.print, id)) })),
+  loadPrintSettings: (settings) =>
+    set((state) => {
+      const print = fitted({ ...state.print, ...settings });
+      savePrinter(browserStorage(), printerOf(print));
+      return { print };
+    }),
 
   reset: () => {
     pending?.abort();
