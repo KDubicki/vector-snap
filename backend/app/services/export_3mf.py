@@ -20,7 +20,7 @@ from numpy.typing import NDArray
 from PIL import Image, ImageDraw
 
 from app import __version__
-from app.services.export_stl import Body, StlOptions, build_bodies
+from app.services.export_stl import Body, StlOptions, build_bodies, filament_slots
 from app.services.svg_geometry import VectorDocument
 
 CORE_NS = "http://schemas.microsoft.com/3dmanufacturing/core/2015/02"
@@ -179,11 +179,6 @@ def thumbnail_png(bodies: list[Body], size_px: int = THUMBNAIL_PX) -> bytes:
     return buffer.getvalue()
 
 
-def filament_slots(bodies: list[Body]) -> list[str]:
-    """Filament colors in slot order: one slot per distinct color, the base plate's first."""
-    return list(dict.fromkeys(body.color.upper() for body in bodies))
-
-
 def _setting(key: str, value: str) -> str:
     return f"<metadata{_attributes({'key': key, 'value': value})}/>"
 
@@ -200,7 +195,7 @@ def model_settings_xml(bodies: list[Body], options: ThreeMfOptions | None = None
     every part, by the object ids of `model_xml`."""
     options = options or ThreeMfOptions()
     slots = {color: index + 1 for index, color in enumerate(filament_slots(bodies))}
-    slot = [slots[body.color.upper()] for body in bodies]
+    slot = [slots[body.color.lower()] for body in bodies]
     if options.layout == "objects":
         objects = "".join(
             f"<object{_attributes({'id': str(index + 2)})}>{_setting('name', body.name)}"
@@ -223,7 +218,7 @@ def model_settings_xml(bodies: list[Body], options: ThreeMfOptions | None = None
 def project_settings_json(bodies: list[Body]) -> str:
     """Orca / Bambu Studio `project_settings.config` with only the filament colors; the
     slicer keeps its own printer, process and filament settings."""
-    return json.dumps({"filament_colour": filament_slots(bodies)})
+    return json.dumps({"filament_colour": [color.upper() for color in filament_slots(bodies)]})
 
 
 def export_3mf(

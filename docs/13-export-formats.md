@@ -281,7 +281,18 @@ Same options and bodies as STL and 3MF, but **one binary STL per body** in a ZIP
 all files at once as one multi-part object (they share one coordinate system, so they
 stay aligned) and give each part its filament. Files are numbered bottom to top and
 named after the body and its color — `01-base-1d2b53.stl`, `02-color-0-1d2b53.stl`,
-`03-rim-1d2b53.stl` … — and `colors.txt` lists every file with its `#rrggbb` color.
+`03-rim-1d2b53.stl` … — and `colors.txt` lists every file, tab-separated: file name,
+`#rrggbb` color, filament number (numbered like the 3MF: one per distinct color, the
+base plate's first), lowest and highest z (mm) and volume (mm³):
+
+```text
+01-base-000000.stl	#000000	1	0	1	400.0
+02-color-0-000000.stl	#000000	1	1	2	300.0
+03-color-1-ff0000.stl	#ff0000	2	1	2	100.0
+```
+
+The first two columns are unchanged, so readers of the older two-column file keep
+working; give every part the filament in the third column.
 The 3D print step offers it as **STL per color (ZIP)**.
 
 ## Lithophane

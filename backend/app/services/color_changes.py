@@ -12,11 +12,8 @@ each filament the model takes.
 
 from dataclasses import dataclass
 
-import numpy as np
-from numpy.typing import NDArray
-
 from app.core.errors import InvalidParameters
-from app.services.export_stl import Body, StlOptions, build_bodies
+from app.services.export_stl import Body, StlOptions, build_bodies, volume_mm3
 from app.services.svg_geometry import VectorDocument
 
 # PLA (g/cm³), the density Anycubic Slicer Next uses for its PLA profiles.
@@ -93,18 +90,12 @@ def count_changes(layers: list[list[str]]) -> int:
     return changes
 
 
-def _volume(triangles: NDArray[np.float64]) -> float:
-    """Volume enclosed by a closed, outward-oriented mesh."""
-    a, b, c = triangles[:, 0], triangles[:, 1], triangles[:, 2]
-    return float(np.einsum("ij,ij->i", a, np.cross(b, c)).sum() / 6)
-
-
 def filament_use(bodies: list[Body], density_g_cm3: float = PLA_DENSITY) -> list[FilamentUse]:
     """Filament per distinct color (the base plate counts for its color), slot order."""
     volumes: dict[str, float] = {}
     for body in bodies:
         color = body.color.lower()
-        volumes[color] = volumes.get(color, 0.0) + _volume(body.triangles)
+        volumes[color] = volumes.get(color, 0.0) + volume_mm3(body.triangles)
     return [
         FilamentUse(
             color=color,

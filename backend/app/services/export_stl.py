@@ -528,6 +528,18 @@ def export_stl(
     return write_stl([body.triangles for body in build_bodies(document, options)], stl_format)
 
 
+def filament_slots(bodies: list[Body]) -> list[str]:
+    """Filament colors (lowercase) in slot order: one per distinct color, the base plate's
+    first — the filaments of the 3MF and of `colors.txt`."""
+    return list(dict.fromkeys(body.color.lower() for body in bodies))
+
+
+def volume_mm3(triangles: NDArray[np.float64]) -> float:
+    """Volume enclosed by a closed, outward-oriented mesh."""
+    a, b, c = triangles[:, 0], triangles[:, 1], triangles[:, 2]
+    return float(np.einsum("ij,ij->i", a, np.cross(b, c)).sum() / 6)
+
+
 def export_stl_parts(
     document: VectorDocument, options: StlOptions, stl_format: StlFormat = "binary"
 ) -> bytes:
@@ -535,14 +547,26 @@ def export_stl_parts(
 
     For slicers and printers that do not read colored 3MF parts: load all files as one
     multi-part object and give each part its filament. File names keep the bodies'
-    bottom-to-top order and color; `colors.txt` lists them.
+    bottom-to-top order and color; `colors.txt` lists them, tab-separated: file, color,
+    filament (as numbered in the 3MF), lowest and highest z and volume.
     """
     buffer = io.BytesIO()
     lines = []
+    bodies = build_bodies(document, options)
+    slots = {color: index + 1 for index, color in enumerate(filament_slots(bodies))}
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
-        for number, body in enumerate(build_bodies(document, options), start=1):
+        for number, body in enumerate(bodies, start=1):
             name = f"{number:02d}-{body.name}-{body.color[1:]}.stl"
             archive.writestr(name, write_stl([body.triangles], stl_format))
-            lines.append(f"{name}\t{body.color}")
+            z = body.triangles[..., 2]
+            columns = [
+                name,
+                body.color,
+                str(slots[body.color.lower()]),
+                f"{float(z.min()):g}",
+                f"{float(z.max()):g}",
+                f"{volume_mm3(body.triangles):.1f}",
+            ]
+            lines.append("\t".join(columns))
         archive.writestr("colors.txt", "\n".join(lines) + "\n")
     return buffer.getvalue()

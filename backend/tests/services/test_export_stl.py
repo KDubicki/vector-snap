@@ -687,7 +687,12 @@ def test_stl_parts_put_every_body_in_a_file_of_its_own() -> None:
         "03-color-1-ff0000.stl",
         "colors.txt",
     ]
-    assert colors.splitlines()[2] == "03-color-1-ff0000.stl\t#ff0000"
+    # file, color, filament (as in the 3MF), lowest and highest z, volume (mm³)
+    assert colors.splitlines() == [
+        "01-base-000000.stl\t#000000\t1\t0\t1\t400.0",  # follows the outline
+        "02-color-0-000000.stl\t#000000\t1\t1\t2\t300.0",
+        "03-color-1-ff0000.stl\t#ff0000\t2\t1\t2\t100.0",
+    ]
     assert all(is_closed(triangles) for triangles in files.values())
     assert signed_volume(files["03-color-1-ff0000.stl"]) == pytest.approx(100)
     together = np.concatenate(list(files.values()))
