@@ -146,3 +146,9 @@ class ColorChangesResponse(BaseModel):
     change_time_s: float = Field(description="changes * change_s")
     purge_mm3: float = Field(description="changes * purge_mm3")
     purge_g: float = Field(description="Purged filament at density_g_cm3")
+
+
+class ModelSizeResponse(BaseModel):
+    x_mm: float = Field(description="Width of the model, base plate and loop included")
+    y_mm: float = Field(description="Depth of the model")
+    z_mm: float = Field(description="Height of the model")

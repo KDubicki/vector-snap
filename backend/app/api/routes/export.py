@@ -12,6 +12,7 @@ from app.schemas.export import (
     FilamentConflictModel,
     FilamentPlanResponse,
     FilamentStepModel,
+    ModelSizeResponse,
     parse_color_stacks,
     parse_filaments,
     parse_layer_heights,
@@ -30,6 +31,7 @@ from app.services.export_stl import (
     StlOptions,
     export_stl,
     export_stl_parts,
+    model_size,
 )
 from app.services.filament_plan import filament_plan
 from app.services.image_io import decode_image
@@ -235,6 +237,13 @@ async def export_filament_plan(
         conflicts=[FilamentConflictModel(z_mm=c.z_mm, colors=c.colors) for c in plan.conflicts],
         height_mm=plan.height_mm,
     )
+
+
+@router.post("/model-size", response_model=ModelSizeResponse)
+async def export_model_size(document: UploadedSvg, options: ModelOptions) -> ModelSizeResponse:
+    """Size of the STL/3MF model, to check it against a printer's build volume."""
+    size = await run_in_threadpool(model_size, document, options)
+    return ModelSizeResponse(x_mm=size.x_mm, y_mm=size.y_mm, z_mm=size.z_mm)
 
 
 @router.post("/color-changes", response_model=ColorChangesResponse)

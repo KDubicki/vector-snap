@@ -375,6 +375,14 @@ def test_filament_plan_follows_the_stack_order(client: TestClient) -> None:
     assert [step["color"] for step in response.json()["steps"]] == ["#ff0000", "#000000"]
 
 
+def test_model_size(client: TestClient) -> None:
+    response = _post(client, "model-size", {"width_mm": "40", "base_mm": "1", "layer_mm": "1"})
+
+    assert response.status_code == 200
+    assert response.json()["x_mm"] == 40
+    assert response.json()["z_mm"] > 1
+
+
 def test_color_changes(client: TestClient) -> None:
     form = {"base_mm": "0.6", "print_layer_mm": "0.2", "change_s": "49", "purge_mm3": "226"}
     response = _post(client, "color-changes", form)

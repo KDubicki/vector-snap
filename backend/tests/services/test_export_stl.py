@@ -13,6 +13,7 @@ from app.services.export_stl import (
     build_bodies,
     export_stl,
     export_stl_parts,
+    model_size,
     relative_luminance,
     snap_to_layers,
     stack_layers,
@@ -763,3 +764,24 @@ def test_center_origin_centers_the_footprint_on_zero() -> None:
     assert np.allclose(centered, corner - [20, 10, 0])
     assert (centered[..., 0].min(), centered[..., 0].max()) == pytest.approx((-22, 22))
     assert (centered[..., 1].min(), centered[..., 1].max()) == pytest.approx((-12, 12))
+
+
+def test_model_size_includes_the_base_plate_and_its_loop() -> None:
+    document = parse_svg(contract_svg(40, 20, [("#112233", [FRAME]), ("#ff0000", [DOT])]))
+
+    # 40 x 20 mm design, 1 mm base + two 1 mm color steps.
+    plain = model_size(document, StlOptions(width_mm=40, base_mm=1, layer_mm=1))
+    assert (plain.x_mm, plain.y_mm, plain.z_mm) == (40, 20, 3)
+    # A 5 mm border on every side; a hanging loop sticks out at the top.
+    framed = model_size(
+        document,
+        StlOptions(width_mm=40, base_mm=1, layer_mm=1, base_shape="rectangle", base_margin_mm=5),
+    )
+    assert (framed.x_mm, framed.y_mm) == (50, 30)
+    looped = model_size(
+        document,
+        StlOptions(
+            width_mm=40, base_mm=1, base_shape="rectangle", base_margin_mm=5, loop_hole_mm=4
+        ),
+    )
+    assert looped.y_mm > 30 + 4

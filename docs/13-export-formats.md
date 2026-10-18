@@ -16,6 +16,7 @@ of the microservice can use it too.
 | PDF | `POST /api/v1/export/pdf` | Print, documents | ✅ |
 | EPS | `POST /api/v1/export/eps` | Design tools, print shops, older layout software | ✅ |
 | Filament plan | `POST /api/v1/export/filament-plan` | Filament changes for multi-color prints on one extruder (JSON) | ✅ |
+| Model size | `POST /api/v1/export/model-size` | Bounding box of the STL/3MF model, for the build volume (JSON) | ✅ |
 | Color changes | `POST /api/v1/export/color-changes` | Filament changes, time and purge of multi-color printers (JSON) | ✅ |
 
 All endpoints except the lithophane take `multipart/form-data` with an `svg` file in the
@@ -352,6 +353,21 @@ the next color and the top face of every region gets its own color. `POST
 - **Conflicts**: different colors ending at the same height (e.g. `layered=false`)
   cannot be separated by filament changes; they need different heights or a
   multi-material printer.
+
+## Model size
+
+```bash
+curl -F svg=@logo.svg -F width_mm=80 -F base_shape=circle -F base_margin_mm=4 \
+     http://localhost:8000/api/v1/export/model-size
+```
+
+`POST /export/model-size` takes the STL/3MF form fields and returns the bounding box of
+the exported model — base plate, border, rim and hanging loop included — to check it
+against a printer's build volume before downloading: `{"x_mm": 102.371, "y_mm": 108.371,
+"z_mm": 4.8}`. A border, the circle around the design and the loop do not scale with
+`width_mm`, so the size is computed from the exported bodies
+(`model_size` in `app/services/export_stl.py`). Anycubic Slicer Next's `--info` reports
+the same size for the 3MF (checked on a round plate with a loop: 102.37 × 108.37 × 4.8).
 
 ## Color changes of multi-color printers
 

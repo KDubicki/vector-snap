@@ -248,6 +248,23 @@ def _visible(document: VectorDocument, parts: list[_Part]) -> list[BaseGeometry]
     return visible
 
 
+@dataclass(frozen=True)
+class ModelSize:
+    x_mm: float
+    y_mm: float
+    z_mm: float
+
+
+def model_size(document: VectorDocument, options: StlOptions) -> ModelSize:
+    """Bounding box of the exported model — base plate, rim and loop included — to check it
+    against a printer's build volume."""
+    points = np.concatenate(
+        [body.triangles.reshape(-1, 3) for body in build_bodies(document, options)]
+    )
+    x, y, z = (points.max(axis=0) - points.min(axis=0)).round(3).tolist()
+    return ModelSize(x_mm=x, y_mm=y, z_mm=z)
+
+
 def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
     """Base plate (under the included shapes) and one extruded body per color and height.
 
