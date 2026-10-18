@@ -213,6 +213,9 @@ async def export_to_3mf(
             "(Anycubic Slicer Next, OrcaSlicer, Bambu Studio)"
         ),
     ] = True,
+    thumbnail: Annotated[
+        bool, Form(description="Top view of the colored model as the package thumbnail (PNG)")
+    ] = True,
 ) -> Response:
     """Like STL, but one colored part per color in one model — for multi-color printers."""
     package = ThreeMfOptions(
@@ -221,6 +224,7 @@ async def export_to_3mf(
         description=description.strip(),
         layout=layout,
         slicer_config=slicer_config,
+        thumbnail=thumbnail,
     )
     content = await run_in_threadpool(export_3mf, document, options, package)
     return _attachment(content, "model/3mf", "3mf")

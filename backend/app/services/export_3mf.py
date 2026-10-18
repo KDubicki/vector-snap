@@ -17,6 +17,7 @@ from xml.sax.saxutils import escape
 
 import numpy as np
 from numpy.typing import NDArray
+from PIL import Image, ImageDraw
 
 from app import __version__
 from app.services.export_stl import Body, StlOptions, build_bodies
@@ -30,6 +31,7 @@ CONTENT_TYPES = (
     'ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
     '<Default Extension="model" '
     'ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/>'
+    '<Default Extension="png" ContentType="image/png"/>'
     "</Types>"
 )
 RELATIONSHIPS = (
@@ -37,8 +39,16 @@ RELATIONSHIPS = (
     '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
     '<Relationship Target="/3D/3dmodel.model" Id="rel0" '
     'Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/>'
-    "</Relationships>"
+    "{thumbnail}</Relationships>"
 )
+THUMBNAIL_PATH = "Metadata/thumbnail.png"
+THUMBNAIL_RELATIONSHIP = (
+    f'<Relationship Target="/{THUMBNAIL_PATH}" Id="rel1" '
+    'Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/thumbnail"/>'
+)
+# Thumbnail edge (px), drawn at SUPERSAMPLE times the size for smooth edges.
+THUMBNAIL_PX = 256
+SUPERSAMPLE = 4
 MODEL_PATH = "3D/3dmodel.model"
 # Orca / Bambu Studio project files: filament per object and part, and filament colors.
 MODEL_SETTINGS_PATH = "Metadata/model_settings.config"
@@ -59,6 +69,8 @@ class ThreeMfOptions:
     layout: Layout = "assembly"
     # Assign filaments for Orca-based slicers (Anycubic Slicer Next, OrcaSlicer, Bambu Studio).
     slicer_config: bool = True
+    # Top view of the colored model as the package thumbnail (file browsers, slicers).
+    thumbnail: bool = True
 
 
 def indexed_mesh(triangles: NDArray[np.float64]) -> tuple[NDArray[np.float64], NDArray[np.int64]]:
@@ -141,6 +153,32 @@ def model_xml(bodies: list[Body], options: ThreeMfOptions | None = None) -> str:
     )
 
 
+def thumbnail_png(bodies: list[Body], size_px: int = THUMBNAIL_PX) -> bytes:
+    """Top view of the model in its colors on a transparent background: the upward faces
+    of every body, lower bodies first, so the colors seen from above end up on top."""
+    points = np.concatenate([body.triangles.reshape(-1, 3) for body in bodies])
+    low, high = points[:, :2].min(axis=0), points[:, :2].max(axis=0)
+    canvas = size_px * SUPERSAMPLE
+    margin = canvas * 0.04
+    scale = (canvas - 2 * margin) / max(float((high - low).max()), 1e-9)
+    offset = (canvas - (high - low) * scale) / 2  # centered
+    image = Image.new("RGBA", (canvas, canvas), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    for body in sorted(bodies, key=lambda item: float(item.triangles[..., 2].max())):
+        triangles = body.triangles
+        normals_z = np.cross(triangles[:, 1] - triangles[:, 0], triangles[:, 2] - triangles[:, 0])[
+            :, 2
+        ]
+        top = triangles[normals_z > 0][..., :2]
+        pixels = (top - low) * scale + offset
+        pixels[..., 1] = canvas - pixels[..., 1]  # image rows grow downwards
+        for triangle in pixels.tolist():
+            draw.polygon([tuple(point) for point in triangle], fill=body.color)
+    buffer = io.BytesIO()
+    image.resize((size_px, size_px), Image.Resampling.LANCZOS).save(buffer, "PNG", optimize=True)
+    return buffer.getvalue()
+
+
 def filament_slots(bodies: list[Body]) -> list[str]:
     """Filament colors in slot order: one slot per distinct color, the base plate's first."""
     return list(dict.fromkeys(body.color.upper() for body in bodies))
@@ -195,8 +233,14 @@ def export_3mf(
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as package:
         package.writestr("[Content_Types].xml", CONTENT_TYPES)
-        package.writestr("_rels/.rels", RELATIONSHIPS)
         bodies = build_bodies(document, options)
+        thumbnail = (package_options or ThreeMfOptions()).thumbnail
+        package.writestr(
+            "_rels/.rels",
+            RELATIONSHIPS.format(thumbnail=THUMBNAIL_RELATIONSHIP if thumbnail else ""),
+        )
+        if thumbnail:
+            package.writestr(THUMBNAIL_PATH, thumbnail_png(bodies))
         package.writestr(MODEL_PATH, model_xml(bodies, package_options))
         if (package_options or ThreeMfOptions()).slicer_config:
             package.writestr(MODEL_SETTINGS_PATH, model_settings_xml(bodies, package_options))

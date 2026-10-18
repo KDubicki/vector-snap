@@ -256,6 +256,12 @@ notion of parts or colors.
   profile (both layouts): every part prints with its own filament (T0–T3 for four
   colors) and the filaments take the design's colors; without the files the G-code
   used T0 only.
+- **Thumbnail** (`thumbnail`, default on): `Metadata/thumbnail.png`, a 256 × 256 px top
+  view of the model in its colors on a transparent background, linked as the package
+  thumbnail (OPC relationship `…/metadata/thumbnail`), which file browsers and slicers
+  show for the file. Drawn from the upward faces of the bodies, lower bodies first, so
+  every area shows the color seen from above (`thumbnail_png`); `thumbnail=false` leaves
+  it out.
 - Meshes are **indexed**: identical vertices are merged and triangles reference them,
   which slicers need to recognise closed, manifold parts.
 - Verified with the 3MF Consortium's reference library **lib3mf in strict mode**: no

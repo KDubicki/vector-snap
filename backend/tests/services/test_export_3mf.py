@@ -5,12 +5,14 @@ import zipfile
 import numpy as np
 import pytest
 from lxml import etree
+from PIL import Image
 
 from app.services.export_3mf import (
     CORE_NS,
     MODEL_PATH,
     MODEL_SETTINGS_PATH,
     PROJECT_SETTINGS_PATH,
+    THUMBNAIL_PATH,
     ThreeMfOptions,
     export_3mf,
     indexed_mesh,
@@ -188,4 +190,32 @@ def test_objects_layout_assigns_a_filament_per_object() -> None:
 def test_slicer_config_can_be_left_out() -> None:
     data = export_3mf(parse_svg(SVG), StlOptions(), ThreeMfOptions(slicer_config=False))
     with zipfile.ZipFile(io.BytesIO(data)) as package:
-        assert not any(name.startswith("Metadata/") for name in package.namelist())
+        assert not {MODEL_SETTINGS_PATH, PROJECT_SETTINGS_PATH} & set(package.namelist())
+
+
+def _rgba(image: Image.Image, x: int, y: int) -> tuple[int, ...]:
+    pixel = image.getpixel((x, y))
+    assert isinstance(pixel, tuple)
+    return pixel
+
+
+def test_thumbnail_shows_the_colors_seen_from_above() -> None:
+    data = export_3mf(parse_svg(SVG), StlOptions(width_mm=40, base_mm=1))
+    with zipfile.ZipFile(io.BytesIO(data)) as package:
+        assert b"/Metadata/thumbnail.png" in package.read("_rels/.rels")
+        assert b'Extension="png"' in package.read("[Content_Types].xml")
+        image = Image.open(io.BytesIO(package.read(THUMBNAIL_PATH))).convert("RGBA")
+
+    assert image.size == (256, 256)
+    # 40 x 20 mm, centered (rows 69-187); the base plate follows the design's outline.
+    assert _rgba(image, 5, 5)[3] == 0  # transparent around the model
+    assert _rgba(image, 20, 128)[:3] == (0x11, 0x22, 0x33)  # frame
+    assert _rgba(image, 68, 128)[3] == 0  # the frame's hole goes through the base
+    assert _rgba(image, 216, 128 - 25)[:3] == (0xFF, 0x00, 0x00)  # dot, top right
+
+
+def test_thumbnail_can_be_left_out() -> None:
+    data = export_3mf(parse_svg(SVG), StlOptions(), ThreeMfOptions(thumbnail=False))
+    with zipfile.ZipFile(io.BytesIO(data)) as package:
+        assert THUMBNAIL_PATH not in package.namelist()
+        assert b"thumbnail" not in package.read("_rels/.rels")
