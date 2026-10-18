@@ -16,6 +16,7 @@ of the microservice can use it too.
 | PDF | `POST /api/v1/export/pdf` | Print, documents | ✅ |
 | EPS | `POST /api/v1/export/eps` | Design tools, print shops, older layout software | ✅ |
 | Filament plan | `POST /api/v1/export/filament-plan` | Filament changes for multi-color prints on one extruder (JSON) | ✅ |
+| Color changes | `POST /api/v1/export/color-changes` | Filament changes, time and purge of multi-color printers (JSON) | ✅ |
 
 All endpoints except the lithophane take `multipart/form-data` with an `svg` file in the
 [SVG output contract](05-api-specification.md#svg-output-contract) plus format options,
@@ -351,6 +352,43 @@ the next color and the top face of every region gets its own color. `POST
 - **Conflicts**: different colors ending at the same height (e.g. `layered=false`)
   cannot be separated by filament changes; they need different heights or a
   multi-material printer.
+
+## Color changes of multi-color printers
+
+```bash
+curl -F svg=@logo.svg -F base_mm=0.6 -F print_layer_mm=0.2 -F change_s=49 -F purge_mm3=226 \
+     http://localhost:8000/api/v1/export/color-changes
+```
+
+Printers with one nozzle and several loaded filaments (Anycubic ACE, Bambu AMS, Prusa
+MMU) print every layer color by color and change the filament in between; each change
+takes time and purges filament into a prime tower. `POST /export/color-changes` takes
+the same form fields as STL/3MF (`print_layer_mm` is required) and counts the changes of
+the 3MF, one filament per distinct color:
+
+```json
+{
+  "layers": 13,
+  "changes": 4,
+  "max_colors_per_layer": 2,
+  "change_time_s": 196.0,
+  "purge_mm3": 904.0,
+  "purge_g": 1.12
+}
+```
+
+- Layers are printed bottom-up; a layer of n colors costs n − 1 changes, plus one when
+  it cannot start with the filament the previous layer ended with. Each layer ends with
+  a filament the next layer needs, like the slicer orders them
+  (`app/services/color_changes.py`).
+- `change_s`, `purge_mm3` (per change) and `density_g_cm3` (default PLA, 1.24) turn the
+  count into time and purged filament; 0 leaves them out. For the **Anycubic Kobra X**
+  (Anycubic Slicer Next 2.0, 0.4 nozzle profile): about **49 s** per change and
+  **226 mm³** (flush volume 280 mm³ × multiplier 0.7 + prime volume 30 mm³ ≈ 0.28 g PLA).
+- Checked against Anycubic Slicer Next on the same 3MF: 2 flat colors over 10 layers →
+  10 changes, 4 flat colors over 5 layers → 15, 2 stepped colors sharing 2 layers → 3,
+  each as counted here. Flat (AMS-style) colors change on every layer, so the count shows
+  what stepped colors or fewer colors save.
 
 ## DXF
 

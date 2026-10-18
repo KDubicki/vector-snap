@@ -8,6 +8,7 @@ from fastapi.concurrency import run_in_threadpool
 from app.api.deps import read_upload
 from app.core.config import Settings, get_settings
 from app.schemas.export import (
+    ColorChangesResponse,
     FilamentConflictModel,
     FilamentPlanResponse,
     FilamentStepModel,
@@ -17,6 +18,7 @@ from app.schemas.export import (
     parse_shape_heights,
 )
 from app.services.base_plate import BaseShape
+from app.services.color_changes import PLA_DENSITY, ChangeCosts, estimate_color_changes
 from app.services.export_3mf import Layout, ThreeMfOptions, export_3mf
 from app.services.export_dxf import DxfOptions, export_dxf
 from app.services.export_eps import EpsOptions, export_eps
@@ -232,6 +234,34 @@ async def export_filament_plan(
         steps=[FilamentStepModel(z_mm=s.z_mm, layer=s.layer, color=s.color) for s in plan.steps],
         conflicts=[FilamentConflictModel(z_mm=c.z_mm, colors=c.colors) for c in plan.conflicts],
         height_mm=plan.height_mm,
+    )
+
+
+@router.post("/color-changes", response_model=ColorChangesResponse)
+async def export_color_changes(
+    document: UploadedSvg,
+    options: ModelOptions,
+    change_s: Annotated[
+        float, Form(ge=0, le=600, description="Time of one filament change (seconds)")
+    ] = 0.0,
+    purge_mm3: Annotated[
+        float, Form(ge=0, le=5000, description="Filament purged per change (flush + prime tower)")
+    ] = 0.0,
+    density_g_cm3: Annotated[
+        float, Form(gt=0, le=5, description="Filament density for purge_g")
+    ] = PLA_DENSITY,
+) -> ColorChangesResponse:
+    """How many filament changes a multi-color printer (AMS, ACE, MMU) makes for the 3MF,
+    and what they cost in time and purged filament. Needs print_layer_mm."""
+    costs = ChangeCosts(change_s=change_s, purge_mm3=purge_mm3, density_g_cm3=density_g_cm3)
+    estimate = await run_in_threadpool(estimate_color_changes, document, options, costs)
+    return ColorChangesResponse(
+        layers=estimate.layers,
+        changes=estimate.changes,
+        max_colors_per_layer=estimate.max_colors_per_layer,
+        change_time_s=estimate.change_time_s,
+        purge_mm3=estimate.purge_mm3,
+        purge_g=estimate.purge_g,
     )
 
 

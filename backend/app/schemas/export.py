@@ -137,3 +137,12 @@ class FilamentPlanResponse(BaseModel):
     steps: list[FilamentStepModel] = Field(description="Starting filament, then each change")
     conflicts: list[FilamentConflictModel]
     height_mm: float
+
+
+class ColorChangesResponse(BaseModel):
+    layers: int = Field(description="Printer layers of the model")
+    changes: int = Field(description="Filament changes, not counting the first load")
+    max_colors_per_layer: int
+    change_time_s: float = Field(description="changes * change_s")
+    purge_mm3: float = Field(description="changes * purge_mm3")
+    purge_g: float = Field(description="Purged filament at density_g_cm3")

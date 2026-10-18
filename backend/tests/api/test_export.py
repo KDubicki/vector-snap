@@ -375,6 +375,24 @@ def test_filament_plan_follows_the_stack_order(client: TestClient) -> None:
     assert [step["color"] for step in response.json()["steps"]] == ["#ff0000", "#000000"]
 
 
+def test_color_changes(client: TestClient) -> None:
+    form = {"base_mm": "0.6", "print_layer_mm": "0.2", "change_s": "49", "purge_mm3": "226"}
+    response = _post(client, "color-changes", form)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["layers"] == 13
+    assert body["change_time_s"] == body["changes"] * 49
+    assert body["purge_g"] == round(body["changes"] * 226 / 1000 * 1.24, 2)
+
+
+def test_color_changes_need_the_printer_layer_height(client: TestClient) -> None:
+    response = _post(client, "color-changes", {})
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "INVALID_PARAMETERS"
+
+
 def test_filament_plan_rejects_invalid_svg(client: TestClient) -> None:
     response = _post(client, "filament-plan", data=b"<svg")
 
