@@ -220,4 +220,16 @@ describe('PrintStep', () => {
     await user.click(screen.getByRole('button', { name: /Fit to the bed/ }));
     expect(store().print.widthMm).toBe(260);
   });
+
+  it('warns about more colors than loaded filaments and goes back to use fewer', async () => {
+    const user = userEvent.setup();
+    vi.mocked(getModelSize).mockResolvedValue({ x_mm: 80, y_mm: 40, z_mm: 2 });
+    useAppStore.setState({ limits: { ...store().limits, min_colors: 1 } });
+    store().setPrint({ printer: 'kobra-x', filamentSlots: 1 });
+    render(<PrintStep />);
+
+    expect(screen.getByText(/needs 2 filaments; 1 is loaded/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Use 1 colors' }));
+    expect(store()).toMatchObject({ step: 'palette', colors: 1 });
+  });
 });

@@ -17,6 +17,7 @@ import {
   testCard,
   typicalTd,
   validatePrint,
+  filamentsNeeded,
   type PrintSettings,
 } from './printPlan';
 
@@ -202,6 +203,17 @@ describe('inlay and printer tuning', () => {
       printer: 'kobra-x',
       nozzleMm: 0.6,
     });
+  });
+
+  it('counts the filaments a print needs', () => {
+    expect(filamentsNeeded(doc, settings())).toBe(2);
+    expect(filamentsNeeded(doc, settings({ excluded: [0] }))).toBe(1);
+    const filaments = [
+      { color: '#ffffff', td: 3 },
+      { color: '#000000', td: 1 },
+      { color: '#ff0000', td: 2 },
+    ];
+    expect(filamentsNeeded(doc, settings({ style: 'mixed', filaments }))).toBe(3);
   });
 
   it("checks the layer height against the printer's nozzle", () => {

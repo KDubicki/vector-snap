@@ -34,6 +34,9 @@ describe('printers', () => {
     });
     expect(fitToPrinter({ ...settings, nozzleMm: 0.6 }, kobraX)).toEqual({});
     expect(fitToPrinter(settings, printerById('any'))).toEqual({});
+    expect(fitToPrinter({ ...settings, nozzleMm: 0.4, filamentSlots: 25 }, kobraX)).toEqual({
+      filamentSlots: 19,
+    });
   });
 
   it('keeps at least one color layer for a new layer height', () => {

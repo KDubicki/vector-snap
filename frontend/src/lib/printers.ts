@@ -93,12 +93,15 @@ export function layerChoices(printer: Printer, nozzleMm: number): number[] {
  * layer height the nozzle prints. Heights stay the same in mm (whole layers).
  */
 export function fitToPrinter(settings: PrintSettings, printer: Printer): Partial<PrintSettings> {
-  if (!printer.nozzles.length) return {};
+  const change: Partial<PrintSettings> = {};
+  if (printer.maxSlots && settings.filamentSlots > printer.maxSlots) {
+    change.filamentSlots = printer.maxSlots;
+  }
+  if (!printer.nozzles.length) return change;
   const nozzle =
     nozzleOf(printer, settings.nozzleMm) ??
     printer.nozzles.find((item) => item.mm === 0.4) ??
     printer.nozzles[0];
-  const change: Partial<PrintSettings> = {};
   if (nozzle.mm !== settings.nozzleMm) change.nozzleMm = nozzle.mm;
   if (settings.layerMm < nozzle.minLayerMm || settings.layerMm > nozzle.maxLayerMm) {
     Object.assign(change, withLayerHeight(settings, nozzle.layers[0]));

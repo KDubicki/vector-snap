@@ -38,6 +38,8 @@ export interface PrintSettings {
   project: ProjectId;
   /** Printer model: build volume, nozzles and layer heights (lib/printers.ts). */
   printer: PrinterId;
+  /** Filaments loaded at once (AMS/ACE slots) on a printer that has slots. */
+  filamentSlots: number;
   style: PrintStyle;
   /** Printer layer height (mm); every height below is a whole number of these. */
   layerMm: number;
@@ -80,6 +82,7 @@ export const KEPT_BY_PROJECTS = [
   'shapeRaise',
   'filaments',
   'printer',
+  'filamentSlots',
   'nozzleMm',
   'elephantFootMm',
   'simplifyMm',
@@ -159,6 +162,7 @@ export const PROJECTS: Project[] = [
 export const DEFAULT_PRINT: PrintSettings = {
   project: 'custom',
   printer: 'any',
+  filamentSlots: 4,
   style: 'flat',
   ...COMMON,
   colorRaise: {},
@@ -188,6 +192,12 @@ export function printedGroups(doc: EditorDoc, settings: PrintSettings) {
   return doc.groups.filter(
     (group) => group.shapes.length > 0 && !settings.excluded.includes(group.paletteIndex),
   );
+}
+
+/** Filaments the print needs: the loaded ones for mixed colors, else one per color. */
+export function filamentsNeeded(doc: EditorDoc, settings: PrintSettings): number {
+  if (settings.style === 'mixed') return settings.filaments.length;
+  return new Set(printedGroups(doc, settings).map((group) => group.fill.toLowerCase())).size;
 }
 
 /** Height of a color above the base, in layers. */

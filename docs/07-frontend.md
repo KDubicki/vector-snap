@@ -229,6 +229,14 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
   whose footprint fits (`fitWidthMm`: border and loop keep their size when the design
   shrinks); the check runs again on the new size. Too tall is reported without a fix.
   Downloads stay possible, e.g. to scale or split the model in the slicer.
+- **Loaded filaments** (printers with filament slots, `filamentSlots`, remembered with the
+  printer): the Kobra X starts with the 4 of its ACE Gen 2 and goes up to 19 with ACE 2
+  Pro units. When the design needs more filaments than are loaded — one per printed
+  color (the 3MF gives every distinct color its own filament), or the loaded filaments
+  for mixed colors (`filamentsNeeded`) — `FilamentSlotsCheck` says so; **Use 4 colors**
+  goes back to the palette step with that many colors to convert again. Anycubic Slicer
+  Next with the Kobra X profile fails on a 3MF that uses a 5th filament (the command line
+  crashed), so the warning comes before the download.
 - **Printer tuning** (collapsed, with "n changed" / "1 to fix" on its header,
   `PrinterTuningFields`): detail filter (nozzle width, `min_feature_mm`), elephant's foot
   compensation (`elephant_foot_mm`, needs a base), smooth outlines (`simplify_mm`) and

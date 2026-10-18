@@ -3,6 +3,7 @@ import { errorMessage, exportFile, getFilamentPlan } from '../api/client';
 import { serializeSvg } from '../editor/export';
 import { exportFileName } from '../lib/exportFormats';
 import {
+  filamentsNeeded,
   heightPlan,
   nextSelection,
   layersToMm,
@@ -22,6 +23,7 @@ import { useAppStore } from '../state/store';
 import type { FilamentPlan } from '../types/api';
 import { BasePlateFields } from './BasePlateFields';
 import { BuildVolumeCheck } from './BuildVolumeCheck';
+import { FilamentSlotsCheck } from './FilamentSlotsCheck';
 import { ColorStylePicker } from './ColorStylePicker';
 import { ElementMap } from './ElementMap';
 import { ExportProgress } from './ExportProgress';
@@ -48,7 +50,8 @@ export function PrintStep() {
   const editor = useAppStore((s) => s.editor);
   const file = useAppStore((s) => s.file);
   const print = useAppStore((s) => s.print);
-  const { setPrint, chooseProject, goTo } = useAppStore.getState();
+  const limits = useAppStore((s) => s.limits);
+  const { setPrint, chooseProject, goTo, setColors } = useAppStore.getState();
   const [view, setView] = useState<'design' | 'model'>('design');
   const [preview, setPreview] = useState<{ request: PreviewRequest; key: string } | null>(null);
   const job = useExport();
@@ -181,7 +184,7 @@ export function PrintStep() {
       </div>
 
       <aside className="panel print-panel">
-        <PrinterPicker printer={print.printer} onChoose={(printer) => update({ printer })} />
+        <PrinterPicker settings={print} onChange={update} />
 
         <ProjectPicker project={print.project} onChoose={chooseProject} />
 
@@ -233,6 +236,16 @@ export function PrintStep() {
 
         <PrinterTuningFields settings={print} errors={errors} onChange={update} />
 
+        <FilamentSlotsCheck
+          printer={printer}
+          needed={filamentsNeeded(editor, print)}
+          loaded={print.filamentSlots}
+          minColors={limits.min_colors}
+          onReduce={(colors) => {
+            setColors(colors);
+            goTo('palette');
+          }}
+        />
         {!invalid && (
           <BuildVolumeCheck printer={printer} settings={print} size={size} onChange={update} />
         )}

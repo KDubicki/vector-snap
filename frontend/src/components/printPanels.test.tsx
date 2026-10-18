@@ -317,16 +317,19 @@ describe('BasePlateFields inlay', () => {
 });
 
 describe('PrinterPicker and the Kobra X', () => {
-  it('chooses the printer and describes it', () => {
-    const onChoose = vi.fn();
-    const { rerender } = render(<PrinterPicker printer="any" onChoose={onChoose} />);
+  it('chooses the printer, describes it and sets the loaded filaments', () => {
+    const onChange = vi.fn();
+    const { rerender } = render(<PrinterPicker settings={settings()} onChange={onChange} />);
+    expect(screen.queryByLabelText('Loaded filaments')).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Printer'), { target: { value: 'kobra-x' } });
-    expect(onChoose).toHaveBeenLastCalledWith('kobra-x');
-    rerender(<PrinterPicker printer="kobra-x" onChoose={onChoose} />);
+    expect(onChange).toHaveBeenLastCalledWith({ printer: 'kobra-x' });
+    rerender(<PrinterPicker settings={settings({ printer: 'kobra-x' })} onChange={onChange} />);
     expect(
       screen.getByText(/Build volume 260 × 260 × 260 mm, 4 filaments \(up to 19\)/),
     ).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Loaded filaments'), { target: { value: '8' } });
+    expect(onChange).toHaveBeenLastCalledWith({ filamentSlots: 8 });
   });
 
   it("offers the printer's nozzles and their layer heights", async () => {

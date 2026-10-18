@@ -13,7 +13,13 @@ export const PRINTER_KEY = 'vectorsnap.printer';
 
 export type PrinterSettings = Pick<
   PrintSettings,
-  'printer' | 'nozzleMm' | 'elephantFootMm' | 'simplifyMm' | 'colorGapMm' | 'filaments'
+  | 'printer'
+  | 'filamentSlots'
+  | 'nozzleMm'
+  | 'elephantFootMm'
+  | 'simplifyMm'
+  | 'colorGapMm'
+  | 'filaments'
 >;
 
 /** Allowed range (mm) per remembered number, as in the print step's fields. */
@@ -37,10 +43,19 @@ export const DEFAULT_TUNING: PrinterTuning = {
 const TUNING_KEYS = Object.keys(RANGES) as (keyof PrinterTuning)[];
 
 /** Print settings that are remembered for the next designs. */
-export const PRINTER_FIELDS: readonly string[] = ['printer', ...TUNING_KEYS, 'filaments'];
+export const PRINTER_FIELDS: readonly string[] = [
+  'printer',
+  'filamentSlots',
+  ...TUNING_KEYS,
+  'filaments',
+];
+
+/** Most filaments loaded at once on any supported printer (Kobra X with four ACE 2 Pro). */
+const MAX_SLOTS = 19;
 
 export const DEFAULT_PRINTER: PrinterSettings = {
   printer: DEFAULT_PRINT.printer,
+  filamentSlots: DEFAULT_PRINT.filamentSlots,
   ...DEFAULT_TUNING,
   filaments: [],
 };
@@ -49,6 +64,7 @@ export const DEFAULT_PRINTER: PrinterSettings = {
 export function printerOf(settings: PrintSettings): PrinterSettings {
   return {
     printer: settings.printer,
+    filamentSlots: settings.filamentSlots,
     nozzleMm: settings.nozzleMm,
     elephantFootMm: settings.elephantFootMm,
     simplifyMm: settings.simplifyMm,
@@ -87,6 +103,10 @@ export function readPrinter(storage: Pick<Storage, 'getItem'> | undefined): Prin
     }
     const printer = PRINTERS.find((item) => item.id === data.printer);
     if (printer) profile.printer = printer.id;
+    const slots = data.filamentSlots;
+    if (typeof slots === 'number' && Number.isInteger(slots) && slots >= 1 && slots <= MAX_SLOTS) {
+      profile.filamentSlots = slots;
+    }
     if (Array.isArray(data.filaments)) {
       profile.filaments = data.filaments
         .filter(isFilament)
