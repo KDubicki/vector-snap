@@ -2,7 +2,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { exportFile, getFilamentPlan, getModelSize } from '../api/client';
+import { exportFile, getColorChanges, getFilamentPlan, getModelSize } from '../api/client';
 import { download } from '../lib/download';
 import { useAppStore } from '../state/store';
 import { sampleDoc } from '../test/fixtures';
@@ -13,6 +13,7 @@ vi.mock('../api/client', async (importOriginal) => ({
   exportFile: vi.fn(),
   getFilamentPlan: vi.fn(),
   getModelSize: vi.fn(),
+  getColorChanges: vi.fn(),
 }));
 vi.mock('../lib/download', () => ({ download: vi.fn() }));
 // three.js needs WebGL; the preview only has to receive the request.
@@ -33,6 +34,16 @@ describe('PrintStep', () => {
   beforeEach(() => {
     vi.mocked(exportFile).mockReset();
     vi.mocked(getFilamentPlan).mockReset();
+    // The Kobra X asks for the size and the color changes on its own.
+    vi.mocked(getModelSize).mockReset().mockResolvedValue({ x_mm: 80, y_mm: 40, z_mm: 2 });
+    vi.mocked(getColorChanges).mockReset().mockResolvedValue({
+      layers: 10,
+      changes: 10,
+      max_colors_per_layer: 2,
+      change_time_s: 530,
+      purge_mm3: 2260,
+      purge_g: 2.8,
+    });
     vi.mocked(download).mockReset();
     store().reset();
     useAppStore.setState({
@@ -223,7 +234,6 @@ describe('PrintStep', () => {
 
   it('warns about more colors than loaded filaments and goes back to use fewer', async () => {
     const user = userEvent.setup();
-    vi.mocked(getModelSize).mockResolvedValue({ x_mm: 80, y_mm: 40, z_mm: 2 });
     useAppStore.setState({ limits: { ...store().limits, min_colors: 1 } });
     store().setPrint({ printer: 'kobra-x', filamentSlots: 1 });
     render(<PrintStep />);
@@ -231,5 +241,17 @@ describe('PrintStep', () => {
     expect(screen.getByText(/needs 2 filaments; 1 is loaded/)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Use 1 colors' }));
     expect(store()).toMatchObject({ step: 'palette', colors: 1 });
+  });
+
+  it('estimates the filament changes on the Kobra X with its change time and purge', async () => {
+    store().setPrint({ printer: 'kobra-x' });
+    render(<PrintStep />);
+
+    expect(await screen.findByText(/10 filament changes/)).toBeInTheDocument();
+    expect(vi.mocked(getColorChanges).mock.calls.at(-1)?.[1]).toMatchObject({
+      change_s: 53,
+      purge_mm3: 226,
+      print_layer_mm: 0.2,
+    });
   });
 });

@@ -18,11 +18,12 @@ import {
 } from '../lib/printPlan';
 import { printerById } from '../lib/printers';
 import { useExport } from '../lib/useExport';
-import { useModelSize } from '../lib/useModelSize';
+import { useColorChanges, useModelSize } from '../lib/useBackendResult';
 import { useAppStore } from '../state/store';
 import type { FilamentPlan } from '../types/api';
 import { BasePlateFields } from './BasePlateFields';
 import { BuildVolumeCheck } from './BuildVolumeCheck';
+import { ColorChangesSummary } from './ColorChangesSummary';
 import { FilamentSlotsCheck } from './FilamentSlotsCheck';
 import { ColorStylePicker } from './ColorStylePicker';
 import { ElementMap } from './ElementMap';
@@ -73,6 +74,11 @@ export function PrintStep() {
   const options = editor ? printOptions(editor, print) : {};
   // Only a printer with a known build volume needs the size; invalid settings have none.
   const size = useModelSize(svg ?? '', options, Boolean(svg && printer.buildMm && !invalid));
+  const changes = useColorChanges(
+    svg ?? '',
+    { ...options, change_s: printer.changeS, purge_mm3: printer.purgeMm3 },
+    Boolean(svg && printer.changeS && !invalid),
+  );
 
   if (!editor || !svg) return null;
 
@@ -249,6 +255,7 @@ export function PrintStep() {
         {!invalid && (
           <BuildVolumeCheck printer={printer} settings={print} size={size} onChange={update} />
         )}
+        {!invalid && <ColorChangesSummary printer={printer} changes={changes} />}
         <p className="print-summary" role="status">
           Total height <strong>{mm(heights.totalLayers)} mm</strong> · {heights.totalLayers} layers
           · base {mm(print.baseLayers)} mm

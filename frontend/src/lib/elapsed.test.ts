@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { formatElapsed, useElapsedSeconds } from './elapsed';
+import { formatDuration, formatElapsed, useElapsedSeconds } from './elapsed';
 
 describe('elapsed time label', () => {
   it('stays empty for quick requests', () => {
@@ -14,6 +14,14 @@ describe('elapsed time label', () => {
     expect(formatElapsed(59.7)).toBe('59 s');
     expect(formatElapsed(65)).toBe('1 min 5 s');
     expect(formatElapsed(120)).toBe('2 min 0 s');
+  });
+});
+
+describe('formatDuration', () => {
+  it('rounds to seconds, minutes or hours and minutes', () => {
+    expect(formatDuration(44.6)).toBe('45 s');
+    expect(formatDuration(477)).toBe('8 min');
+    expect(formatDuration(3900)).toBe('1 h 5 min');
   });
 });
 

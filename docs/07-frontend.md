@@ -223,7 +223,7 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
   color heights kept in mm. The printer is remembered with the nozzle.
 - **Build volume** (`BuildVolumeCheck`, printers with a known build volume): 500 ms after
   the settings stop changing the panel asks the backend for the model's size
-  (`POST /export/model-size`, `useModelSize`) — border, round plate and loop included —
+  (`POST /export/model-size`, `useModelSize` in `src/lib/useBackendResult.ts`) — border, round plate and loop included —
   and says *Model 102.4 × 108.4 × 4.8 mm — fits the Anycubic Kobra X*, or names what is
   too large (*300 mm wide (max 260)*). **Fit to the bed** sets the largest whole-mm width
   whose footprint fits (`fitWidthMm`: border and loop keep their size when the design
@@ -237,6 +237,14 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
   goes back to the palette step with that many colors to convert again. Anycubic Slicer
   Next with the Kobra X profile fails on a 3MF that uses a 5th filament (the command line
   crashed), so the warning comes before the download.
+- **Filament changes** (`ColorChangesSummary`, printers with a change time): like the size,
+  the panel asks `POST /export/color-changes` with the printer's cost per change — Kobra
+  X: 53 s and 226 mm³, from Anycubic Slicer Next — and sums it up: *≈ 57 filament
+  changes on the Anycubic Kobra X: about 50 min and 15.97 g of purged filament (up to 8
+  colors per layer)*. Every layer with n colors costs n − 1 changes, so thin colors and
+  colors left out save the most; stepped colors can cost more than flat ones, since every
+  step stands on the base and the lower layers hold all colors (the sample design: 10
+  changes flat, 31 stepped).
 - **Printer tuning** (collapsed, with "n changed" / "1 to fix" on its header,
   `PrinterTuningFields`): detail filter (nozzle width, `min_feature_mm`), elephant's foot
   compensation (`elephant_foot_mm`, needs a base), smooth outlines (`simplify_mm`) and

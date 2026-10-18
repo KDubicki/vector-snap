@@ -1,4 +1,5 @@
 import type {
+  ColorChanges,
   ApiErrorBody,
   ColorSuggestion,
   FilamentPlan,
@@ -107,6 +108,19 @@ export function getModelSize(
   signal?: AbortSignal,
 ): Promise<ModelSize> {
   return request<ModelSize>('/export/model-size', {
+    method: 'POST',
+    body: exportForm(svg, options),
+    signal,
+  });
+}
+
+/** Filament changes, their time and purge for the STL/3MF options (needs print_layer_mm). */
+export function getColorChanges(
+  svg: string,
+  options: Record<string, string | number | boolean>,
+  signal?: AbortSignal,
+): Promise<ColorChanges> {
+  return request<ColorChanges>('/export/color-changes', {
     method: 'POST',
     body: exportForm(svg, options),
     signal,

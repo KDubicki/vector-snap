@@ -405,8 +405,9 @@ the 3MF, one filament per distinct color:
   color took 7 min 5 s, in two colors with 10 changes 15 min 56 s.
 - Checked against Anycubic Slicer Next on the same 3MF: 2 flat colors over 10 layers →
   10 changes, 4 flat colors over 5 layers → 15, 2 stepped colors sharing 2 layers → 3,
-  each as counted here. Flat (AMS-style) colors change on every layer, so the count shows
-  what stepped colors or fewer colors save.
+  each as counted here. Every layer with n colors costs n − 1 changes, so the count shows
+  what thinner colors or fewer colors save — stepped colors are not always cheaper, as
+  every step stands on the base and the lower layers hold all colors.
 
 ## DXF
 

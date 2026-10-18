@@ -11,6 +11,14 @@ export function formatElapsed(seconds: number): string {
   return minutes > 0 ? `${minutes} min ${whole % 60} s` : `${whole} s`;
 }
 
+/** A longer duration, rounded: "45 s", "8 min", "1 h 5 min". */
+export function formatDuration(seconds: number): string {
+  const minutes = Math.round(seconds / 60);
+  if (seconds < 60) return `${Math.round(seconds)} s`;
+  if (minutes < 60) return `${minutes} min`;
+  return `${Math.floor(minutes / 60)} h ${minutes % 60} min`;
+}
+
 /** Whole seconds since `active` became true (0 while inactive), updated every second. */
 export function useElapsedSeconds(active: boolean): number {
   const [seconds, setSeconds] = useState(0);

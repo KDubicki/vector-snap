@@ -93,3 +93,13 @@ export interface ModelSize {
   y_mm: number;
   z_mm: number;
 }
+
+/** Filament changes of a multi-color printer (`POST /export/color-changes`). */
+export interface ColorChanges {
+  layers: number;
+  changes: number;
+  max_colors_per_layer: number;
+  change_time_s: number;
+  purge_mm3: number;
+  purge_g: number;
+}
