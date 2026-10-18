@@ -6,10 +6,14 @@ filament into a prime tower. The estimate counts the changes layer by layer like
 slicer orders them — a layer starts with the filament the previous one ended with, and
 ends with one the next layer needs — so different designs and options (flat or stepped
 colors, inlays, raised parts) can be compared before slicing. One filament per distinct
-color, as in the 3MF (docs/13-export-formats.md#3mf).
+color, as in the 3MF (docs/13-export-formats.md#3mf); the estimate also gives how much of
+each filament the model takes.
 """
 
 from dataclasses import dataclass
+
+import numpy as np
+from numpy.typing import NDArray
 
 from app.core.errors import InvalidParameters
 from app.services.export_stl import Body, StlOptions, build_bodies
@@ -27,7 +31,15 @@ class ChangeCosts:
 
 
 @dataclass(frozen=True)
+class FilamentUse:
+    color: str
+    volume_mm3: float  # solid volume of the color's bodies; the slicer's infill uses less
+    grams: float
+
+
+@dataclass(frozen=True)
 class ColorChangeEstimate:
+    filaments: list[FilamentUse]  # one per distinct color, in filament (3MF slot) order
     layers: int
     changes: int
     max_colors_per_layer: int
@@ -81,6 +93,28 @@ def count_changes(layers: list[list[str]]) -> int:
     return changes
 
 
+def _volume(triangles: NDArray[np.float64]) -> float:
+    """Volume enclosed by a closed, outward-oriented mesh."""
+    a, b, c = triangles[:, 0], triangles[:, 1], triangles[:, 2]
+    return float(np.einsum("ij,ij->i", a, np.cross(b, c)).sum() / 6)
+
+
+def filament_use(bodies: list[Body], density_g_cm3: float = PLA_DENSITY) -> list[FilamentUse]:
+    """Filament per distinct color (the base plate counts for its color), slot order."""
+    volumes: dict[str, float] = {}
+    for body in bodies:
+        color = body.color.lower()
+        volumes[color] = volumes.get(color, 0.0) + _volume(body.triangles)
+    return [
+        FilamentUse(
+            color=color,
+            volume_mm3=round(volume, 1),
+            grams=round(volume / 1000 * density_g_cm3, 2),
+        )
+        for color, volume in volumes.items()
+    ]
+
+
 def estimate_from_bodies(
     bodies: list[Body], print_layer_mm: float, costs: ChangeCosts | None = None
 ) -> ColorChangeEstimate:
@@ -89,6 +123,7 @@ def estimate_from_bodies(
     changes = count_changes(layers)
     purge_mm3 = changes * costs.purge_mm3
     return ColorChangeEstimate(
+        filaments=filament_use(bodies, costs.density_g_cm3),
         layers=len(layers),
         changes=changes,
         max_colors_per_layer=max((len(colors) for colors in layers), default=0),

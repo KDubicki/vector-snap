@@ -12,6 +12,7 @@ from app.schemas.export import (
     FilamentConflictModel,
     FilamentPlanResponse,
     FilamentStepModel,
+    FilamentUseModel,
     ModelSizeResponse,
     parse_color_stacks,
     parse_filaments,
@@ -265,10 +266,15 @@ async def export_color_changes(
     ] = PLA_DENSITY,
 ) -> ColorChangesResponse:
     """How many filament changes a multi-color printer (AMS, ACE, MMU) makes for the 3MF,
-    and what they cost in time and purged filament. Needs print_layer_mm."""
+    what they cost in time and purged filament, and how much of each filament the model
+    takes. Needs print_layer_mm."""
     costs = ChangeCosts(change_s=change_s, purge_mm3=purge_mm3, density_g_cm3=density_g_cm3)
     estimate = await run_in_threadpool(estimate_color_changes, document, options, costs)
     return ColorChangesResponse(
+        filaments=[
+            FilamentUseModel(color=use.color, volume_mm3=use.volume_mm3, grams=use.grams)
+            for use in estimate.filaments
+        ],
         layers=estimate.layers,
         changes=estimate.changes,
         max_colors_per_layer=estimate.max_colors_per_layer,

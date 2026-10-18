@@ -1,7 +1,12 @@
 import pytest
 
 from app.core.errors import InvalidParameters
-from app.services.color_changes import ChangeCosts, count_changes, estimate_color_changes
+from app.services.color_changes import (
+    ChangeCosts,
+    FilamentUse,
+    count_changes,
+    estimate_color_changes,
+)
 from app.services.export_stl import StlOptions
 from app.services.svg_geometry import parse_svg
 from tests.vectors import contract_svg
@@ -48,3 +53,15 @@ def test_stepped_colors_change_only_where_colors_share_layers() -> None:
 def test_needs_the_printer_layer_height() -> None:
     with pytest.raises(InvalidParameters, match="print_layer_mm"):
         estimate_color_changes(SVG, StlOptions())
+
+
+def test_reports_the_filament_each_color_takes() -> None:
+    # Base (red, the bottom color) 40 x 20 x 1 mm; red and blue squares 20 x 20 x 0.4 and 0.8.
+    options = StlOptions(width_mm=40, base_mm=1, layer_mm=0.4, print_layer_mm=0.2)
+
+    estimate = estimate_color_changes(SVG, options, ChangeCosts(density_g_cm3=1.25))
+
+    assert estimate.filaments == [
+        FilamentUse(color="#ff0000", volume_mm3=800 + 160, grams=1.2),
+        FilamentUse(color="#0000ff", volume_mm3=320, grams=0.4),
+    ]

@@ -393,6 +393,8 @@ def test_color_changes(client: TestClient) -> None:
     assert body["layers"] == 13
     assert body["change_time_s"] == body["changes"] * 49
     assert body["purge_g"] == round(body["changes"] * 226 / 1000 * 1.24, 2)
+    assert [use["color"] for use in body["filaments"]] == ["#000000", "#ff0000"]
+    assert all(use["grams"] > 0 for use in body["filaments"])
 
 
 def test_color_changes_need_the_printer_layer_height(client: TestClient) -> None:

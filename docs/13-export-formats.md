@@ -17,7 +17,7 @@ of the microservice can use it too.
 | EPS | `POST /api/v1/export/eps` | Design tools, print shops, older layout software | ✅ |
 | Filament plan | `POST /api/v1/export/filament-plan` | Filament changes for multi-color prints on one extruder (JSON) | ✅ |
 | Model size | `POST /api/v1/export/model-size` | Bounding box of the STL/3MF model, for the build volume (JSON) | ✅ |
-| Color changes | `POST /api/v1/export/color-changes` | Filament changes, time and purge of multi-color printers (JSON) | ✅ |
+| Color changes | `POST /api/v1/export/color-changes` | Filament changes, time and purge of multi-color printers, filament per color (JSON) | ✅ |
 
 All endpoints except the lithophane take `multipart/form-data` with an `svg` file in the
 [SVG output contract](05-api-specification.md#svg-output-contract) plus format options,
@@ -390,6 +390,10 @@ the 3MF, one filament per distinct color:
 
 ```json
 {
+  "filaments": [
+    { "color": "#000000", "volume_mm3": 1740.2, "grams": 2.16 },
+    { "color": "#ff0000", "volume_mm3": 410.5, "grams": 0.51 }
+  ],
   "layers": 13,
   "changes": 4,
   "max_colors_per_layer": 2,
@@ -409,6 +413,12 @@ the 3MF, one filament per distinct color:
   **226 mm³** (flush volume 280 mm³ × multiplier 0.7 + prime volume 30 mm³ ≈ 0.28 g PLA).
   The time is the slicer's estimate with the prime tower: the same model sliced in one
   color took 7 min 5 s, in two colors with 10 changes 15 min 56 s.
+- `filaments`: how much of each filament the model takes, one entry per distinct color
+  in 3MF filament order (the base plate counts for its color) — the **solid** volume of
+  its bodies and its weight at `density_g_cm3`. Slicers print the inside with sparse
+  infill, so this is an upper bound: on a 2 mm plate Anycubic Slicer Next (Kobra X,
+  15 % infill, 2 walls, 5 top and 3 bottom layers) estimated 3.64 g for 4.46 g solid.
+  Enough to tell whether a spool's rest will do and how the colors share the print.
 - Checked against Anycubic Slicer Next on the same 3MF: 2 flat colors over 10 layers →
   10 changes, 4 flat colors over 5 layers → 15, 2 stepped colors sharing 2 layers → 3,
   each as counted here. Every layer with n colors costs n − 1 changes, so the count shows

@@ -139,7 +139,16 @@ class FilamentPlanResponse(BaseModel):
     height_mm: float
 
 
+class FilamentUseModel(BaseModel):
+    color: str
+    volume_mm3: float = Field(description="Solid volume; the slicer's infill uses less")
+    grams: float = Field(description="volume_mm3 at density_g_cm3")
+
+
 class ColorChangesResponse(BaseModel):
+    filaments: list[FilamentUseModel] = Field(
+        description="Filament per distinct color, in 3MF filament (slot) order"
+    )
     layers: int = Field(description="Printer layers of the model")
     changes: int = Field(description="Filament changes, not counting the first load")
     max_colors_per_layer: int
