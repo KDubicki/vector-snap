@@ -15,10 +15,13 @@ import {
   validatePrint,
   type PrintSettings,
 } from '../lib/printPlan';
+import { printerById } from '../lib/printers';
 import { useExport } from '../lib/useExport';
+import { useModelSize } from '../lib/useModelSize';
 import { useAppStore } from '../state/store';
 import type { FilamentPlan } from '../types/api';
 import { BasePlateFields } from './BasePlateFields';
+import { BuildVolumeCheck } from './BuildVolumeCheck';
 import { ColorStylePicker } from './ColorStylePicker';
 import { ElementMap } from './ElementMap';
 import { ExportProgress } from './ExportProgress';
@@ -61,13 +64,16 @@ export function PrintStep() {
     () => (editor && mixed ? mixPlan(editor, print) : new Map()),
     [editor, mixed, print],
   );
+  const printer = printerById(print.printer);
+  const errors = editor ? validatePrint(editor, print) : {};
+  const invalid = Object.keys(errors).length > 0;
+  const options = editor ? printOptions(editor, print) : {};
+  // Only a printer with a known build volume needs the size; invalid settings have none.
+  const size = useModelSize(svg ?? '', options, Boolean(svg && printer.buildMm && !invalid));
 
   if (!editor || !svg) return null;
 
-  const errors = validatePrint(editor, print);
-  const invalid = Object.keys(errors).length > 0;
   const heights = heightPlan(editor, print);
-  const options = printOptions(editor, print);
   // Previews and plans remember what they were built from, so stale ones are marked.
   const key = JSON.stringify([svg, options]);
   const mm = (layers: number) => layersToMm(layers, print.layerMm);
@@ -227,6 +233,9 @@ export function PrintStep() {
 
         <PrinterTuningFields settings={print} errors={errors} onChange={update} />
 
+        {!invalid && (
+          <BuildVolumeCheck printer={printer} settings={print} size={size} onChange={update} />
+        )}
         <p className="print-summary" role="status">
           Total height <strong>{mm(heights.totalLayers)} mm</strong> · {heights.totalLayers} layers
           · base {mm(print.baseLayers)} mm

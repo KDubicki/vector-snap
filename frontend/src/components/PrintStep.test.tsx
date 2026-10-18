@@ -2,7 +2,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { exportFile, getFilamentPlan } from '../api/client';
+import { exportFile, getFilamentPlan, getModelSize } from '../api/client';
 import { download } from '../lib/download';
 import { useAppStore } from '../state/store';
 import { sampleDoc } from '../test/fixtures';
@@ -12,6 +12,7 @@ vi.mock('../api/client', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../api/client')>()),
   exportFile: vi.fn(),
   getFilamentPlan: vi.fn(),
+  getModelSize: vi.fn(),
 }));
 vi.mock('../lib/download', () => ({ download: vi.fn() }));
 // three.js needs WebGL; the preview only has to receive the request.
@@ -206,5 +207,17 @@ describe('PrintStep', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Back to the SVG editor' }));
     expect(store().step).toBe('result');
+  });
+
+  it('checks the model against the Kobra X build volume and fits it to the bed', async () => {
+    const user = userEvent.setup();
+    vi.mocked(getModelSize).mockResolvedValue({ x_mm: 300, y_mm: 150, z_mm: 2 });
+    store().setPrint({ printer: 'kobra-x', widthMm: 300 });
+    render(<PrintStep />);
+
+    expect(await screen.findByText(/too large for the Anycubic Kobra X/)).toBeInTheDocument();
+    expect(vi.mocked(getModelSize).mock.calls.at(-1)?.[1]).toMatchObject({ width_mm: 300 });
+    await user.click(screen.getByRole('button', { name: /Fit to the bed/ }));
+    expect(store().print.widthMm).toBe(260);
   });
 });

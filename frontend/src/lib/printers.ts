@@ -4,7 +4,11 @@
  * Anycubic Kobra X come from the Anycubic Slicer Next 2.0 profiles. See docs/07-frontend.md.
  */
 
+import type { ModelSize } from '../types/api';
 import type { PrintSettings } from './printPlan';
+
+/** Wall around the hanging loop hole (backend `LOOP_WALL_MM`). */
+const LOOP_WALL_MM = 2;
 
 export type PrinterId = 'any' | 'kobra-x';
 
@@ -111,4 +115,40 @@ export function withLayerHeight(settings: PrintSettings, layerMm: number): Parti
     baseLayers: layers(settings.baseLayers, 0),
     colorLayers: layers(settings.colorLayers, 1),
   };
+}
+
+const mm = (value: number) => Number(value.toFixed(1));
+
+/** What exceeds the build volume, e.g. "301.2 mm wide (max 260)"; empty when it fits. */
+export function buildProblems(size: ModelSize, printer: Printer): string[] {
+  if (!printer.buildMm) return [];
+  const [x, y, z] = printer.buildMm;
+  return [
+    [size.x_mm, x, 'wide'],
+    [size.y_mm, y, 'deep'],
+    [size.z_mm, z, 'tall'],
+  ]
+    .filter(([value, max]) => (value as number) > (max as number))
+    .map(([value, max, axis]) => `${mm(value as number)} mm ${axis} (max ${max})`);
+}
+
+/**
+ * The largest whole-mm width whose model fits the bed, or null when the footprint fits
+ * already or nothing helps. Border and loop keep their size when the design shrinks.
+ */
+export function fitWidthMm(
+  settings: PrintSettings,
+  size: ModelSize,
+  printer: Printer,
+): number | null {
+  if (!printer.buildMm) return null;
+  const [maxX, maxY] = printer.buildMm;
+  if (size.x_mm <= maxX && size.y_mm <= maxY) return null;
+  const border = 2 * settings.marginMm;
+  const loop = settings.loopHoleMm > 0 ? settings.loopHoleMm + 2 * LOOP_WALL_MM : 0;
+  const scale = (value: number, max: number, fixed: number) =>
+    value - fixed > 0 ? (max - fixed) / (value - fixed) : Infinity;
+  const ratio = Math.min(scale(size.x_mm, maxX, border), scale(size.y_mm, maxY, border + loop));
+  const width = Math.floor(settings.widthMm * ratio);
+  return width >= 1 && width < settings.widthMm ? width : null;
 }

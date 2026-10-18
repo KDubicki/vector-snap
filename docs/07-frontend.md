@@ -221,6 +221,14 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
   settings to the printer (`fitToPrinter`): a nozzle it has (0.4 mm by default) and, when
   the layer height does not suit it, the nozzle's default layer height with base and
   color heights kept in mm. The printer is remembered with the nozzle.
+- **Build volume** (`BuildVolumeCheck`, printers with a known build volume): 500 ms after
+  the settings stop changing the panel asks the backend for the model's size
+  (`POST /export/model-size`, `useModelSize`) — border, round plate and loop included —
+  and says *Model 102.4 × 108.4 × 4.8 mm — fits the Anycubic Kobra X*, or names what is
+  too large (*300 mm wide (max 260)*). **Fit to the bed** sets the largest whole-mm width
+  whose footprint fits (`fitWidthMm`: border and loop keep their size when the design
+  shrinks); the check runs again on the new size. Too tall is reported without a fix.
+  Downloads stay possible, e.g. to scale or split the model in the slicer.
 - **Printer tuning** (collapsed, with "n changed" / "1 to fix" on its header,
   `PrinterTuningFields`): detail filter (nozzle width, `min_feature_mm`), elephant's foot
   compensation (`elephant_foot_mm`, needs a base), smooth outlines (`simplify_mm`) and

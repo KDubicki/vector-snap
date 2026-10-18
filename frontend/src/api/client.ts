@@ -3,6 +3,7 @@ import type {
   ColorSuggestion,
   FilamentPlan,
   Limits,
+  ModelSize,
   QuantizeParams,
   QuantizeResponse,
   TracingOptions,
@@ -93,6 +94,19 @@ export function getFilamentPlan(
   signal?: AbortSignal,
 ): Promise<FilamentPlan> {
   return request<FilamentPlan>('/export/filament-plan', {
+    method: 'POST',
+    body: exportForm(svg, options),
+    signal,
+  });
+}
+
+/** Size of the 3D model for the STL/3MF options, base plate and loop included. */
+export function getModelSize(
+  svg: string,
+  options: Record<string, string | number | boolean>,
+  signal?: AbortSignal,
+): Promise<ModelSize> {
+  return request<ModelSize>('/export/model-size', {
     method: 'POST',
     body: exportForm(svg, options),
     signal,

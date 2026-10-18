@@ -86,3 +86,10 @@ export interface ApiErrorBody {
   error: { code: string; message: string; details: Record<string, unknown> };
   request_id: string | null;
 }
+
+/** Bounding box of the 3D model (`POST /export/model-size`). */
+export interface ModelSize {
+  x_mm: number;
+  y_mm: number;
+  z_mm: number;
+}
