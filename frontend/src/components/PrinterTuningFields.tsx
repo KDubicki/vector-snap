@@ -1,5 +1,6 @@
 import type { PrintSettings } from '../lib/printPlan';
 import { DEFAULT_TUNING, tuningChanged } from '../lib/printerProfile';
+import { printerById } from '../lib/printers';
 import { NumberField } from './NumberField';
 
 interface PrinterTuningFieldsProps {
@@ -18,6 +19,7 @@ export function PrinterTuningFields({
   onChange: update,
 }: PrinterTuningFieldsProps) {
   const changed = tuningChanged(print);
+  const { nozzles } = printerById(print.printer);
   const invalid = errors.elephantFootMm ? 1 : 0;
   return (
     <details className="options__advanced">
@@ -31,16 +33,37 @@ export function PrinterTuningFields({
       </summary>
       <div className="options">
         <p className="hint">Remembered in this browser for your next designs.</p>
-        <NumberField
-          id="print-nozzle"
-          label="Drop details thinner than (mm)"
-          value={print.nozzleMm}
-          min={0}
-          max={10}
-          step={0.1}
-          hint="Your nozzle width; thinner lines and specks cannot be printed."
-          onChange={(nozzleMm) => update({ nozzleMm })}
-        />
+        {nozzles.length ? (
+          <div className="option">
+            <label htmlFor="print-nozzle">Nozzle</label>
+            <select
+              id="print-nozzle"
+              value={print.nozzleMm}
+              aria-describedby="print-nozzle-hint"
+              onChange={(event) => update({ nozzleMm: Number(event.target.value) })}
+            >
+              {nozzles.map((nozzle) => (
+                <option key={nozzle.mm} value={nozzle.mm}>
+                  {nozzle.mm} mm
+                </option>
+              ))}
+            </select>
+            <span id="print-nozzle-hint" className="hint">
+              Details thinner than the nozzle are dropped; the layer heights follow it.
+            </span>
+          </div>
+        ) : (
+          <NumberField
+            id="print-nozzle"
+            label="Drop details thinner than (mm)"
+            value={print.nozzleMm}
+            min={0}
+            max={10}
+            step={0.1}
+            hint="Your nozzle width; thinner lines and specks cannot be printed."
+            onChange={(nozzleMm) => update({ nozzleMm })}
+          />
+        )}
         <NumberField
           id="print-elephant-foot"
           label="Elephant's foot compensation (mm)"

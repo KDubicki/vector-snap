@@ -1,7 +1,6 @@
 import { layersToMm, type PrintSettings } from '../lib/printPlan';
+import { layerChoices, printerById } from '../lib/printers';
 import { NumberField } from './NumberField';
-
-const PRINTER_LAYERS = [0.08, 0.12, 0.16, 0.2, 0.24, 0.28];
 
 interface LayerFieldsProps {
   settings: PrintSettings;
@@ -12,6 +11,11 @@ interface LayerFieldsProps {
 /** Width, printer layer height, base plate and color heights (in layers). */
 export function LayerFields({ settings: print, errors, onChange: update }: LayerFieldsProps) {
   const mm = (layers: number) => layersToMm(layers, print.layerMm);
+  const choices = layerChoices(printerById(print.printer), print.nozzleMm);
+  // A layer height the printer does not offer stays visible (and is flagged).
+  const layers = choices.includes(print.layerMm)
+    ? choices
+    : [...choices, print.layerMm].sort((a, b) => a - b);
   return (
     <div className="options">
       <NumberField
@@ -29,14 +33,21 @@ export function LayerFields({ settings: print, errors, onChange: update }: Layer
         <select
           id="print-layer"
           value={print.layerMm}
+          aria-invalid={errors.layerMm ? true : undefined}
+          aria-describedby={errors.layerMm ? 'print-layer-error' : undefined}
           onChange={(event) => update({ layerMm: Number(event.target.value) })}
         >
-          {PRINTER_LAYERS.map((value) => (
+          {layers.map((value) => (
             <option key={value} value={value}>
               {value} mm
             </option>
           ))}
         </select>
+        {errors.layerMm && (
+          <span id="print-layer-error" className="field-error">
+            {errors.layerMm}
+          </span>
+        )}
       </div>
       <NumberField
         id="print-base"

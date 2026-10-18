@@ -7,12 +7,13 @@
 import { isHexColor } from './color';
 import type { Filament } from './mixing';
 import { DEFAULT_PRINT, MAX_FILAMENTS, type PrintSettings } from './printPlan';
+import { PRINTERS } from './printers';
 
 export const PRINTER_KEY = 'vectorsnap.printer';
 
 export type PrinterSettings = Pick<
   PrintSettings,
-  'nozzleMm' | 'elephantFootMm' | 'simplifyMm' | 'colorGapMm' | 'filaments'
+  'printer' | 'nozzleMm' | 'elephantFootMm' | 'simplifyMm' | 'colorGapMm' | 'filaments'
 >;
 
 /** Allowed range (mm) per remembered number, as in the print step's fields. */
@@ -36,13 +37,18 @@ export const DEFAULT_TUNING: PrinterTuning = {
 const TUNING_KEYS = Object.keys(RANGES) as (keyof PrinterTuning)[];
 
 /** Print settings that are remembered for the next designs. */
-export const PRINTER_FIELDS: readonly string[] = [...TUNING_KEYS, 'filaments'];
+export const PRINTER_FIELDS: readonly string[] = ['printer', ...TUNING_KEYS, 'filaments'];
 
-export const DEFAULT_PRINTER: PrinterSettings = { ...DEFAULT_TUNING, filaments: [] };
+export const DEFAULT_PRINTER: PrinterSettings = {
+  printer: DEFAULT_PRINT.printer,
+  ...DEFAULT_TUNING,
+  filaments: [],
+};
 
 /** The printer part of the print settings. */
 export function printerOf(settings: PrintSettings): PrinterSettings {
   return {
+    printer: settings.printer,
     nozzleMm: settings.nozzleMm,
     elephantFootMm: settings.elephantFootMm,
     simplifyMm: settings.simplifyMm,
@@ -73,19 +79,21 @@ export function readPrinter(storage: Pick<Storage, 'getItem'> | undefined): Prin
     const raw = storage?.getItem(PRINTER_KEY);
     if (!raw) return DEFAULT_PRINTER;
     const data = JSON.parse(raw) as Record<string, unknown>;
-    const printer = { ...DEFAULT_PRINTER };
+    const profile = { ...DEFAULT_PRINTER };
     for (const key of TUNING_KEYS) {
       const [min, max] = RANGES[key];
       const value = data[key];
-      if (typeof value === 'number' && value >= min && value <= max) printer[key] = value;
+      if (typeof value === 'number' && value >= min && value <= max) profile[key] = value;
     }
+    const printer = PRINTERS.find((item) => item.id === data.printer);
+    if (printer) profile.printer = printer.id;
     if (Array.isArray(data.filaments)) {
-      printer.filaments = data.filaments
+      profile.filaments = data.filaments
         .filter(isFilament)
         .slice(0, MAX_FILAMENTS)
         .map((filament) => ({ color: filament.color.toLowerCase(), td: filament.td }));
     }
-    return printer;
+    return profile;
   } catch {
     return DEFAULT_PRINTER;
   }

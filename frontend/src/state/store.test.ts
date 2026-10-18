@@ -771,6 +771,22 @@ describe('app store', () => {
     expect(localStorage.getItem('vectorsnap.printer')).toBeNull();
   });
 
+  it('fits nozzle and layer height to the chosen printer', () => {
+    store().setPrint({ nozzleMm: 0.5 });
+    store().setPrint({ printer: 'kobra-x' });
+    expect(store().print).toMatchObject({ printer: 'kobra-x', nozzleMm: 0.4, layerMm: 0.2 });
+
+    store().setPrint({ nozzleMm: 0.25 });
+    expect(store().print).toMatchObject({ nozzleMm: 0.25, layerMm: 0.1, baseLayers: 16 });
+
+    // Projects set 0.2 mm layers, too thick for the 0.25 nozzle.
+    store().chooseProject('keychain');
+    expect(store().print).toMatchObject({ project: 'keychain', layerMm: 0.1, baseLayers: 20 });
+
+    store().reset();
+    expect(store().print).toMatchObject({ printer: 'kobra-x', nozzleMm: 0.25, layerMm: 0.1 });
+  });
+
   it('resets colors and raised elements for a new SVG but keeps the project', async () => {
     store().chooseProject('magnet');
     store().setPrint({ shapeRaise: { 'p-0-0': 2 }, colorRaise: { 0: 1 }, excluded: [1] });

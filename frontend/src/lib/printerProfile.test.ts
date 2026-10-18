@@ -25,6 +25,7 @@ describe('printer profile', () => {
     const settings = {
       ...DEFAULT_PRINT,
       widthMm: 50,
+      printer: 'kobra-x' as const,
       nozzleMm: 0.6,
       elephantFootMm: 0.2,
       filaments: [{ color: '#FFFFFF', td: 3 }],
@@ -34,6 +35,7 @@ describe('printer profile', () => {
 
     expect(Object.keys(JSON.parse(storage.data[PRINTER_KEY]))).not.toContain('widthMm');
     expect(readPrinter(storage)).toEqual({
+      printer: 'kobra-x',
       nozzleMm: 0.6,
       elephantFootMm: 0.2,
       simplifyMm: 0,
@@ -51,6 +53,7 @@ describe('printer profile', () => {
       elephantFootMm: 3,
       simplifyMm: '0.1',
       colorGapMm: 0.1,
+      printer: 'ender',
       filaments: [
         { color: 'red', td: 3 },
         { color: '#000000', td: 0 },

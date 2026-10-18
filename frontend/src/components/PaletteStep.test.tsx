@@ -81,7 +81,14 @@ describe('PaletteStep', () => {
 
   it('removes the background and converts to SVG', async () => {
     const user = userEvent.setup();
-    useAppStore.setState({ file, quantized: QUANTIZED });
+    // Quantized for the current settings, so the debounced re-quantize after mounting
+    // (which would clear the removed background on slow runners) does nothing.
+    const { colors, algorithm, smooth, upscale, locked } = store();
+    useAppStore.setState({
+      file,
+      quantized: QUANTIZED,
+      quantizedFor: { file, colors, algorithm, smooth, upscale, locked, filaments: '' },
+    });
     vi.stubGlobal('fetch', fetchResponses(VECTORIZED));
     render(<PaletteStep />);
 

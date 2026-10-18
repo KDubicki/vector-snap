@@ -198,6 +198,20 @@ describe('inlay and printer tuning', () => {
       simplifyMm: 0.1,
       colorGapMm: 0.1,
     });
+    expect(applyProject(settings({ printer: 'kobra-x', nozzleMm: 0.6 }), 'magnet')).toMatchObject({
+      printer: 'kobra-x',
+      nozzleMm: 0.6,
+    });
+  });
+
+  it("checks the layer height against the printer's nozzle", () => {
+    const kobraX = settings({ printer: 'kobra-x', nozzleMm: 0.6, layerMm: 0.08 });
+
+    expect(validatePrint(doc, kobraX)).toEqual({
+      layerMm: 'The Anycubic Kobra X prints 0.6 mm nozzle layers of 0.12–0.42 mm.',
+    });
+    expect(validatePrint(doc, { ...kobraX, layerMm: 0.3 })).toEqual({});
+    expect(validatePrint(doc, settings({ nozzleMm: 0.6, layerMm: 0.08 }))).toEqual({});
   });
 });
 

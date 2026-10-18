@@ -211,12 +211,22 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
   **Set the colors into the base (flat top)** (`inlay`, sent as `relief=inlay`): colors
   sink their height into the plate, which must then be thicker than the tallest color —
   and a magnet pocket must fit below them; the total height is then the base alone.
+- **Printer** (`PrinterPicker`, `src/lib/printers.ts`): *Any printer* or the
+  **Anycubic Kobra X** — build volume 260 × 260 × 260 mm, ACE Gen 2 with 4 filaments
+  (up to 19 with ACE 2 Pro), nozzles 0.25 / 0.4 / 0.6 / 0.8 mm with the layer heights of
+  Anycubic Slicer Next's process profiles (e.g. 0.6 mm: 0.18–0.42 mm, default 0.30). For a
+  known printer the nozzle is a choice in **Printer tuning** and the layer height list
+  follows it; a layer height outside the nozzle's range (the slicer's min/max layer
+  height) is an error on the field. Choosing the printer, a nozzle or a project fits the
+  settings to the printer (`fitToPrinter`): a nozzle it has (0.4 mm by default) and, when
+  the layer height does not suit it, the nozzle's default layer height with base and
+  color heights kept in mm. The printer is remembered with the nozzle.
 - **Printer tuning** (collapsed, with "n changed" / "1 to fix" on its header,
   `PrinterTuningFields`): detail filter (nozzle width, `min_feature_mm`), elephant's foot
   compensation (`elephant_foot_mm`, needs a base), smooth outlines (`simplify_mm`) and
   gap between colors (`color_gap_mm`). These belong to the printer, so projects keep
   them like the style and the filaments.
-- **Remembered printer** (`src/lib/printerProfile.ts`): the nozzle width, the tuning and
+- **Remembered printer** (`src/lib/printerProfile.ts`): the printer, nozzle width, tuning and
   the loaded filaments are stored in `localStorage` (`vectorsnap.printer`) whenever one
   changes, and every new design (page load, **New image**) starts with them. Invalid or
   out-of-range values read as the defaults; with storage blocked they apply to the page

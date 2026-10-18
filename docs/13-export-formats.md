@@ -383,8 +383,10 @@ the 3MF, one filament per distinct color:
   (`app/services/color_changes.py`).
 - `change_s`, `purge_mm3` (per change) and `density_g_cm3` (default PLA, 1.24) turn the
   count into time and purged filament; 0 leaves them out. For the **Anycubic Kobra X**
-  (Anycubic Slicer Next 2.0, 0.4 nozzle profile): about **49 s** per change and
+  (Anycubic Slicer Next 2.0, 0.4 nozzle profile): about **53 s** per change and
   **226 mm³** (flush volume 280 mm³ × multiplier 0.7 + prime volume 30 mm³ ≈ 0.28 g PLA).
+  The time is the slicer's estimate with the prime tower: the same model sliced in one
+  color took 7 min 5 s, in two colors with 10 changes 15 min 56 s.
 - Checked against Anycubic Slicer Next on the same 3MF: 2 flat colors over 10 layers →
   10 changes, 4 flat colors over 5 layers → 15, 2 stepped colors sharing 2 layers → 3,
   each as counted here. Flat (AMS-style) colors change on every layer, so the count shows

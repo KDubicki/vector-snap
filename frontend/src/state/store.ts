@@ -16,6 +16,7 @@ import {
   type ProjectId,
 } from '../lib/printPlan';
 import { PRINTER_FIELDS, printerOf, readPrinter, savePrinter } from '../lib/printerProfile';
+import { fitToPrinter, printerById } from '../lib/printers';
 import { browserStorage } from '../lib/theme';
 import { DEFAULT_TRACING } from '../lib/tracing';
 import type {
@@ -157,9 +158,14 @@ function isAbort(error: unknown): boolean {
 /** Print settings that are not part of a project preset. */
 const KEPT_SETTINGS = new Set<string>(KEPT_BY_PROJECTS);
 
+/** The settings with a nozzle and layer height the chosen printer has. */
+function fitted(print: PrintSettings): PrintSettings {
+  return { ...print, ...fitToPrinter(print, printerById(print.printer)) };
+}
+
 /** New designs start with the printer remembered in this browser. */
 function startPrint(): PrintSettings {
-  return { ...DEFAULT_PRINT, ...readPrinter(browserStorage()) };
+  return fitted({ ...DEFAULT_PRINT, ...readPrinter(browserStorage()) });
 }
 
 let pending: AbortController | null = null;
@@ -359,13 +365,14 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
     set((state) => {
       // Editing what a project sets (sizes, base, loop, …) makes the settings custom.
       const custom = Object.keys(change).some((key) => !KEPT_SETTINGS.has(key));
-      const print = { ...state.print, ...change, ...(custom && { project: 'custom' as const }) };
+      let print = { ...state.print, ...change, ...(custom && { project: 'custom' as const }) };
+      if ('printer' in change || 'nozzleMm' in change) print = fitted(print);
       if (Object.keys(change).some((key) => PRINTER_FIELDS.includes(key))) {
         savePrinter(browserStorage(), printerOf(print));
       }
       return { print };
     }),
-  chooseProject: (id) => set((state) => ({ print: applyProject(state.print, id) })),
+  chooseProject: (id) => set((state) => ({ print: fitted(applyProject(state.print, id)) })),
 
   reset: () => {
     pending?.abort();

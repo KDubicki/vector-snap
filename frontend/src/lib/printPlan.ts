@@ -8,6 +8,7 @@ import type { EditorDoc } from '../editor/model';
 import { deltaE, isHexColor, relativeLuminance, toLab } from './color';
 import { MAGNET_ROOF_MM } from './exportFormats';
 import { bestRecipe, colorStacks, type Filament, type MixMatch } from './mixing';
+import { nozzleOf, printerById, type PrinterId } from './printers';
 
 export type BaseShape = 'outline' | 'rectangle' | 'rounded' | 'circle';
 
@@ -35,6 +36,8 @@ export type ProjectId = 'magnet' | 'keychain' | 'ornament' | 'sign' | 'coaster' 
 
 export interface PrintSettings {
   project: ProjectId;
+  /** Printer model: build volume, nozzles and layer heights (lib/printers.ts). */
+  printer: PrinterId;
   style: PrintStyle;
   /** Printer layer height (mm); every height below is a whole number of these. */
   layerMm: number;
@@ -76,6 +79,7 @@ export const KEPT_BY_PROJECTS = [
   'excluded',
   'shapeRaise',
   'filaments',
+  'printer',
   'nozzleMm',
   'elephantFootMm',
   'simplifyMm',
@@ -154,6 +158,7 @@ export const PROJECTS: Project[] = [
 
 export const DEFAULT_PRINT: PrintSettings = {
   project: 'custom',
+  printer: 'any',
   style: 'flat',
   ...COMMON,
   colorRaise: {},
@@ -241,6 +246,11 @@ export function validatePrint(doc: EditorDoc, settings: PrintSettings): Record<s
   if (settings.magnetMm > 0 && settings.magnetDepthMm > solid - MAGNET_ROOF_MM + 1e-9) {
     const layers = Math.ceil((settings.magnetDepthMm + MAGNET_ROOF_MM) / settings.layerMm - 1e-9);
     errors.magnetDepthMm = needed(layers + inlaid);
+  }
+  const printer = printerById(settings.printer);
+  const nozzle = nozzleOf(printer, settings.nozzleMm);
+  if (nozzle && (settings.layerMm < nozzle.minLayerMm || settings.layerMm > nozzle.maxLayerMm)) {
+    errors.layerMm = `The ${printer.label} prints ${nozzle.mm} mm nozzle layers of ${nozzle.minLayerMm}–${nozzle.maxLayerMm} mm.`;
   }
   if (printedGroups(doc, settings).length === 0) errors.colors = 'Include at least one color.';
   return errors;

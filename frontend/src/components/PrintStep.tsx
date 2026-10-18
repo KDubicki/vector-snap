@@ -28,6 +28,7 @@ import { MixTable } from './MixTable';
 import { LayerFields } from './LayerFields';
 import type { PreviewRequest } from './ModelPreview';
 import { PrintColorsTable } from './PrintColorsTable';
+import { PrinterPicker } from './PrinterPicker';
 import { PrinterTuningFields } from './PrinterTuningFields';
 import { ProjectPicker } from './ProjectPicker';
 import { RaisedElementsPanel } from './RaisedElementsPanel';
@@ -174,6 +175,8 @@ export function PrintStep() {
       </div>
 
       <aside className="panel print-panel">
+        <PrinterPicker printer={print.printer} onChoose={(printer) => update({ printer })} />
+
         <ProjectPicker project={print.project} onChoose={chooseProject} />
 
         <ColorStylePicker

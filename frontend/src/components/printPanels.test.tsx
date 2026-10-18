@@ -8,6 +8,7 @@ import { BasePlateFields } from './BasePlateFields';
 import { ColorStylePicker } from './ColorStylePicker';
 import { LayerFields } from './LayerFields';
 import { PrintColorsTable } from './PrintColorsTable';
+import { PrinterPicker } from './PrinterPicker';
 import { PrinterTuningFields } from './PrinterTuningFields';
 import { ProjectPicker } from './ProjectPicker';
 import { RaisedElementsPanel } from './RaisedElementsPanel';
@@ -312,5 +313,50 @@ describe('BasePlateFields inlay', () => {
     expect(screen.getByText('Needs a base of at least 3 layers (0.6 mm).')).toBeInTheDocument();
     await userEvent.click(inlay);
     expect(onChange).toHaveBeenLastCalledWith({ inlay: true });
+  });
+});
+
+describe('PrinterPicker and the Kobra X', () => {
+  it('chooses the printer and describes it', () => {
+    const onChoose = vi.fn();
+    const { rerender } = render(<PrinterPicker printer="any" onChoose={onChoose} />);
+
+    fireEvent.change(screen.getByLabelText('Printer'), { target: { value: 'kobra-x' } });
+    expect(onChoose).toHaveBeenLastCalledWith('kobra-x');
+    rerender(<PrinterPicker printer="kobra-x" onChoose={onChoose} />);
+    expect(
+      screen.getByText(/Build volume 260 × 260 × 260 mm, 4 filaments \(up to 19\)/),
+    ).toBeInTheDocument();
+  });
+
+  it("offers the printer's nozzles and their layer heights", async () => {
+    const onChange = vi.fn();
+    const kobraX = settings({ printer: 'kobra-x', nozzleMm: 0.6, layerMm: 0.08 });
+    render(
+      <>
+        <LayerFields
+          settings={kobraX}
+          errors={{ layerMm: 'The Anycubic Kobra X prints 0.6 mm nozzle layers of 0.12–0.42 mm.' }}
+          onChange={onChange}
+        />
+        <PrinterTuningFields settings={kobraX} errors={{}} onChange={onChange} />
+      </>,
+    );
+
+    const layers = screen.getByLabelText('Printer layer height');
+    expect([...layers.querySelectorAll('option')].map((o) => o.value)).toEqual([
+      '0.08', // not offered, kept visible and flagged
+      '0.18',
+      '0.24',
+      '0.3',
+      '0.36',
+      '0.42',
+    ]);
+    expect(layers).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByText(/prints 0.6 mm nozzle layers/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByText('Printer tuning'));
+    fireEvent.change(screen.getByLabelText('Nozzle'), { target: { value: '0.25' } });
+    expect(onChange).toHaveBeenLastCalledWith({ nozzleMm: 0.25 });
   });
 });
