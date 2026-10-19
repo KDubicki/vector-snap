@@ -54,17 +54,17 @@ describe('PaletteStep', () => {
 
   it('picks the palette from my filaments and names its colors', async () => {
     const user = userEvent.setup();
-    useAppStore.setState({
-      file,
-      quantized: {
-        ...QUANTIZED,
-        palette: [
-          { index: 0, hex: '#f7f7f5', coverage: 0.7 },
-          { index: 1, hex: '#c12e1f', coverage: 0.3 },
-        ],
-      },
-    });
-    vi.stubGlobal('fetch', fetchResponses(QUANTIZED));
+    const fromFilaments = {
+      ...QUANTIZED,
+      palette: [
+        { index: 0, hex: '#f7f7f5', coverage: 0.7 },
+        { index: 1, hex: '#c12e1f', coverage: 0.3 },
+      ],
+    };
+    useAppStore.setState({ file, quantized: fromFilaments });
+    // The debounced re-quantize after choosing the algorithm can fire mid-test on a slow
+    // runner: it gets the same palette back, so the names stay.
+    vi.stubGlobal('fetch', fetchResponses(fromFilaments));
     render(<PaletteStep />);
     expect(screen.queryByText('Available filaments')).not.toBeInTheDocument();
 
