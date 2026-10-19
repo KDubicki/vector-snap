@@ -32,13 +32,13 @@ import { ColorChangesSummary } from './ColorChangesSummary';
 import { FilamentSlotsCheck } from './FilamentSlotsCheck';
 import { ColorStylePicker } from './ColorStylePicker';
 import { ElementMap } from './ElementMap';
-import { ExportProgress } from './ExportProgress';
 import { FilamentPlanView } from './FilamentPlanView';
 import { FilamentSlots } from './FilamentSlots';
 import { MixTable } from './MixTable';
 import { LayerFields } from './LayerFields';
 import type { PreviewRequest } from './ModelPreview';
 import { PrintColorsTable } from './PrintColorsTable';
+import { PrintDownloads, type PrintFormat } from './PrintDownloads';
 import { PrintSettingsFile } from './PrintSettingsFile';
 import { PrintUndo } from './PrintUndo';
 import { PrinterPicker } from './PrinterPicker';
@@ -123,7 +123,7 @@ export function PrintStep() {
     setView('model');
   };
 
-  const run = (format: 'stl' | '3mf' | 'stl-parts') =>
+  const run = (format: PrintFormat) =>
     job.run(
       (signal) => exportFile(format, svg, options, signal),
       exportFileName(file?.name, format === 'stl-parts' ? 'parts.zip' : format),
@@ -311,45 +311,15 @@ export function PrintStep() {
             <> · {formatGrams(totalGrams)} g of filament (solid)</>
           )}
         </p>
-        {job.error && (
-          <p className="field-error" role="alert">
-            {job.error}
-          </p>
-        )}
-        <div className="actions">
-          <button
-            type="button"
-            className="primary"
-            disabled={invalid || job.exporting}
-            onClick={() => void run('3mf')}
-          >
-            Download 3MF
-          </button>
-          <button
-            type="button"
-            className="secondary"
-            disabled={invalid || job.exporting}
-            onClick={() => void run('stl')}
-          >
-            Download STL
-          </button>
-        </div>
-        <button
-          type="button"
-          className="link"
-          disabled={invalid || job.exporting}
-          onClick={() => void run('stl-parts')}
-        >
-          STL per color (ZIP)
-        </button>
-        <span className="hint">
-          {mixed
-            ? `3MF parts come only in the ${print.filaments.length} filament colors: assign each to the AMS slot with that filament.`
-            : '3MF keeps one part per color, so the slicer assigns AMS slots automatically. Slicers without 3MF colors: load the ZIP’s STL files together as one multi-part object.'}
-        </span>
-        {job.exporting && (
-          <ExportProgress what="the model" elapsed={job.elapsed} onCancel={job.cancel} />
-        )}
+        <PrintDownloads
+          invalid={invalid}
+          exporting={job.exporting}
+          elapsed={job.elapsed}
+          error={job.error}
+          mixedFilaments={mixed ? print.filaments.length : null}
+          onDownload={(format) => void run(format)}
+          onCancel={job.cancel}
+        />
         <div className="actions">
           <button type="button" className="secondary" disabled={invalid} onClick={showPreview}>
             {preview ? 'Update 3D preview' : 'Preview 3D'}

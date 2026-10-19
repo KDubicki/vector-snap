@@ -368,16 +368,25 @@ App                         header with step indicator, error banner
     ├── EditorPalettePanel  color groups: recolor, select group
     └── FragmentsPanel      save the selection as a fragment, saved fragments
 └── PrintStep               (step: print) — views, preview, exports (useExport)
-    ├── ElementMap          clickable design (selection, raised, predicted colors)
+    ├── ElementMap          clickable design (selection, raised, predicted colors, mirrored)
+    ├── PrinterPicker       printer model, loaded filaments
     ├── ProjectPicker       project presets
-    ├── ColorStylePicker    flat / mixed / stepped
+    ├── PrintSettingsFile   save / load print settings (JSON)
+    ├── PrintUndo           undo the last project or settings file
+    ├── ColorStylePicker    flat / mixed / cut out / stepped
     ├── FilamentSlots       loaded filaments (mixed)
-    ├── LayerFields         width, layer height, base and color layers (NumberField)
-    ├── PrintColorsTable    include / extra layers per color
+    ├── LayerFields         width, layer height, base and color layers, cut through
+    ├── PrintColorsTable    include / extra layers, nearest filament, slot, grams per color
     ├── MixTable            recipes, predictions, test card (mixed)
     ├── RaisedElementsPanel raise the selected elements
-    ├── BasePlateFields     shape, border, loop, magnet, inlay, detail filter
-    └── PrinterTuningFields elephant's foot, smooth outlines, gap between colors
+    ├── BasePlateFields     shape, border, rim, loop, magnet, inlay, mirror
+    ├── PrinterTuningFields nozzle, elephant's foot, smooth outlines, gap between colors
+    ├── FilamentSlotsCheck  more colors than loaded filaments
+    ├── BuildVolumeCheck    model size against the build volume, fit to the bed
+    ├── ColorChangesSummary filament changes, their time and purge
+    ├── PrintDownloads      Download 3MF / STL / STL per color, progress, errors
+    ├── FilamentPlanView    filament changes of stepped colors
+    └── ApiCommand          the 3MF export as a curl command
 ```
 
 ## State
