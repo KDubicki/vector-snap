@@ -263,6 +263,12 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
   goes back to the palette step with that many colors to convert again. Anycubic Slicer
   Next with the Kobra X profile fails on a 3MF that uses a 5th filament (the command line
   crashed), so the warning comes before the download.
+- **Nearest filament** (flat and stepped colors): under each color's hex the table names
+  the nearest available filament of the library (`nearestFilaments`, CIEDE2000) —
+  *≈ White* — or, when it is more than ΔE 10 away, *nearest: Red, ΔE 12*, so it is
+  clear which spool comes closest and how far off it is. The tooltip gives the
+  filament's color and ΔE. Mixed colors have their own recipes and cut-out colors are
+  holes, so they show none.
 - **Filament per color**: the color-changes request also runs for *Any printer* (with no
   change cost) and gives the filament each color takes. The colors table shows it next to
   each height (*0.4 mm · ≈ 1.3 g*; the bottom color includes the base plate) and the

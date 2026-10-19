@@ -68,6 +68,12 @@ export function ownedColors(library: FilamentLibrary): string[] {
   return [...new Set(library.owned)].filter((color) => known.has(color));
 }
 
+/** The filaments of the library that are available (catalog and own). */
+export function availableFilaments(library: FilamentLibrary): LibraryFilament[] {
+  const owned = new Set(ownedColors(library));
+  return allFilaments(library).filter((filament) => owned.has(filament.color));
+}
+
 /** Name of the library filament with exactly this color, if any. */
 export function filamentName(library: FilamentLibrary, color: string): string | null {
   const hex = color.toLowerCase();

@@ -17,7 +17,9 @@ import {
   validatePrint,
   type PrintSettings,
 } from '../lib/printPlan';
+import { availableFilaments } from '../lib/filamentLibrary';
 import { formatGrams, formatMillimetres } from '../lib/meshStats';
+import { nearestFilaments } from '../lib/paletteAdvice';
 import { printerById } from '../lib/printers';
 import { useExport } from '../lib/useExport';
 import { useColorChanges, useModelSize } from '../lib/useBackendResult';
@@ -55,6 +57,7 @@ export function PrintStep() {
   const file = useAppStore((s) => s.file);
   const print = useAppStore((s) => s.print);
   const limits = useAppStore((s) => s.limits);
+  const filamentLibrary = useAppStore((s) => s.filamentLibrary);
   const { setPrint, chooseProject, loadPrintSettings, goTo, setColors } = useAppStore.getState();
   const [view, setView] = useState<'design' | 'model'>('design');
   const [preview, setPreview] = useState<{ request: PreviewRequest; key: string } | null>(null);
@@ -90,6 +93,18 @@ export function PrintStep() {
   if (!editor || !svg) return null;
 
   const heights = heightPlan(editor, print);
+  // Mixed colors have their own recipes; cut-out colors are holes, not filament.
+  const nearest =
+    print.style === 'flat' || print.style === 'stepped'
+      ? nearestFilaments(
+          editor.groups.map((group) => ({
+            index: group.paletteIndex,
+            hex: group.fill,
+            coverage: 0,
+          })),
+          availableFilaments(filamentLibrary),
+        )
+      : undefined;
   // Previews and plans remember what they were built from, so stale ones are marked.
   const key = JSON.stringify([svg, options]);
   const mm = (layers: number) => layersToMm(layers, print.layerMm);
@@ -230,6 +245,7 @@ export function PrintStep() {
           doc={editor}
           settings={print}
           colors={heights.colors}
+          nearest={nearest}
           grams={mixed ? undefined : grams}
           error={errors.colors}
           onChange={update}

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  availableFilaments,
   COMMON_FILAMENTS,
   DEFAULT_FILAMENT_LIBRARY,
   FILAMENT_LIBRARY_KEY,
@@ -106,5 +107,14 @@ describe('filament library', () => {
       },
     };
     expect(() => saveFilamentLibrary(full, library)).not.toThrow();
+  });
+
+  it('lists the available filaments, catalog and own', () => {
+    const library = { owned: ['#c12e1f', '#123456'], custom: [{ name: 'Mine', color: '#123456' }] };
+
+    expect(availableFilaments(library)).toEqual([
+      { name: 'Red', color: '#c12e1f' },
+      { name: 'Mine', color: '#123456' },
+    ]);
   });
 });

@@ -1,5 +1,7 @@
 import type { EditorDoc } from '../editor/model';
+import type { LibraryFilament } from '../lib/filamentLibrary';
 import { formatGrams } from '../lib/meshStats';
+import { POOR_MATCH_DELTA_E } from '../lib/mixing';
 import { layersToMm, reliefRaise, type PrintSettings } from '../lib/printPlan';
 
 interface PrintColorsTableProps {
@@ -7,10 +9,26 @@ interface PrintColorsTableProps {
   settings: PrintSettings;
   /** Height above the base per printed color, in layers (`heightPlan().colors`). */
   colors: Map<number, number>;
+  /** Nearest available library filament per palette index (flat and stepped colors). */
+  nearest?: Map<number, { filament: LibraryFilament; delta: number }>;
   /** Filament per color (lowercase hex), from the backend; left out while unknown. */
   grams?: Map<string, number>;
   error?: string;
   onChange: (change: Partial<PrintSettings>) => void;
+}
+
+/** The nearest filament the user has; a poor match names it with its color difference. */
+function FilamentMatch({ filament, delta }: { filament: LibraryFilament; delta: number }) {
+  const title = `Nearest of your filaments: ${filament.name} (${filament.color}), ΔE ${delta.toFixed(1)}`;
+  return delta > POOR_MATCH_DELTA_E ? (
+    <small className="print-colors__match poor" title={title}>
+      nearest: {filament.name}, ΔE {delta.toFixed(0)}
+    </small>
+  ) : (
+    <small className="print-colors__match" title={title}>
+      ≈ {filament.name}
+    </small>
+  );
 }
 
 /** Include or leave out each color and raise it by extra layers. */
@@ -18,6 +36,7 @@ export function PrintColorsTable({
   doc: editor,
   settings: print,
   colors,
+  nearest,
   grams,
   error,
   onChange: update,
@@ -49,7 +68,12 @@ export function PrintColorsTable({
                   }
                 />
                 <span className="swatch" style={{ background: group.fill }} />
-                <label htmlFor={id}>{group.fill}</label>
+                <label htmlFor={id}>
+                  {group.fill}
+                  {included && nearest?.has(group.paletteIndex) && (
+                    <FilamentMatch {...nearest.get(group.paletteIndex)!} />
+                  )}
+                </label>
                 <input
                   id={id}
                   type="number"

@@ -286,4 +286,19 @@ describe('PrintStep', () => {
 
     await waitFor(() => expect(summary()).toContain('102 × 108 mm footprint'));
   });
+
+  it('names each printed color after the nearest filament the user has', async () => {
+    render(<PrintStep />);
+
+    // Sample design: white is close to the library's white; pure red is ΔE 12 from its red.
+    expect(screen.getByText('≈ White')).toHaveAttribute('title', expect.stringMatching(/ΔE 2.0/));
+    expect(screen.getByText('nearest: Red, ΔE 12')).toBeInTheDocument();
+
+    useAppStore.setState({ filamentLibrary: { owned: ['#c12e1f'], custom: [] } }); // red only
+    await waitFor(() => expect(screen.queryByText('≈ White')).not.toBeInTheDocument());
+    expect(screen.getAllByText(/nearest: Red, ΔE \d+/)).toHaveLength(2);
+
+    await userEvent.setup().click(screen.getByRole('radio', { name: 'Cut out' }));
+    expect(screen.queryByText(/nearest:/)).not.toBeInTheDocument();
+  });
 });
