@@ -41,6 +41,36 @@ describe('ColorStylePicker', () => {
   });
 });
 
+describe('Cut out', () => {
+  it('cuts the ticked colors out of the plate, to a depth or through it', async () => {
+    const onChange = vi.fn();
+    const cutout = settings({ style: 'cutout', excluded: [0] });
+    render(
+      <>
+        <ColorStylePicker style="cutout" onChoose={vi.fn()} />
+        <LayerFields settings={cutout} errors={{}} onChange={onChange} />
+        <PrintColorsTable
+          doc={sampleDoc()}
+          settings={cutout}
+          colors={heightPlan(sampleDoc(), cutout).colors}
+          onChange={onChange}
+        />
+        <BasePlateFields settings={cutout} errors={{}} onChange={onChange} />
+      </>,
+    );
+
+    expect(screen.getByText(/lettering made of missing filament/)).toBeInTheDocument();
+    expect(screen.getByLabelText('Cut depth (layers)')).toBeInTheDocument();
+    await userEvent.click(screen.getByLabelText('Cut through (stencil)'));
+    expect(onChange).toHaveBeenLastCalledWith({ cutThrough: true });
+    expect(screen.getByText('Cut out per color')).toBeInTheDocument();
+    expect(screen.getByLabelText('Cut out #ffffff')).not.toBeChecked();
+    expect(screen.getByText('solid')).toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Automatic relief' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Set the colors into the base/)).not.toBeInTheDocument();
+  });
+});
+
 describe('LayerFields', () => {
   it('shows heights in layers and millimetres and reports changes', () => {
     const onChange = vi.fn();

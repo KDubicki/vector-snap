@@ -62,7 +62,13 @@ export function LayerFields({ settings: print, errors, onChange: update }: Layer
       />
       <NumberField
         id="print-color"
-        label={print.style === 'stepped' ? 'Step per color (layers)' : 'Colors (layers)'}
+        label={
+          print.style === 'stepped'
+            ? 'Step per color (layers)'
+            : print.style === 'cutout'
+              ? 'Cut depth (layers)'
+              : 'Colors (layers)'
+        }
         value={print.colorLayers}
         min={1}
         max={50}
@@ -71,6 +77,24 @@ export function LayerFields({ settings: print, errors, onChange: update }: Layer
         error={errors.colorLayers}
         onChange={(colorLayers) => update({ colorLayers })}
       />
+      {print.style === 'cutout' && (
+        <>
+          <div className="checkbox">
+            <input
+              id="print-cut-through"
+              type="checkbox"
+              checked={print.cutThrough}
+              aria-describedby="print-cut-through-hint"
+              onChange={(event) => update({ cutThrough: event.target.checked })}
+            />
+            <label htmlFor="print-cut-through">Cut through (stencil)</label>
+          </div>
+          <span id="print-cut-through-hint" className="hint">
+            Holes through the plate instead of a recess. Areas inside letters — the middle of an O
+            or A — print as loose pieces.
+          </span>
+        </>
+      )}
     </div>
   );
 }

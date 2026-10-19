@@ -8,6 +8,7 @@ import {
   nextSelection,
   layersToMm,
   mixPlan,
+  cutoutChange,
   mixedChange,
   printOptions,
   printedGroups,
@@ -199,7 +200,13 @@ export function PrintStep() {
         <ColorStylePicker
           style={print.style}
           onChoose={(value) =>
-            update(value === 'mixed' ? mixedChange(editor, print) : { style: value })
+            update(
+              value === 'mixed'
+                ? mixedChange(editor, print)
+                : value === 'cutout'
+                  ? cutoutChange(editor, print)
+                  : { style: value },
+            )
           }
         />
 

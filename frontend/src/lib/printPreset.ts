@@ -20,7 +20,7 @@ export type PrintPreset = Omit<PrintSettings, DesignKey>;
 const CHOICES: Partial<Record<keyof PrintPreset, readonly string[]>> = {
   project: PROJECTS.map((project) => project.id),
   printer: PRINTERS.map((printer) => printer.id),
-  style: ['flat', 'stepped', 'mixed'],
+  style: ['flat', 'stepped', 'mixed', 'cutout'],
   baseShape: ['outline', 'rectangle', 'rounded', 'circle'],
 };
 

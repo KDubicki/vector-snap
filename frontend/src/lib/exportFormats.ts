@@ -281,8 +281,9 @@ const MODEL_OPTIONS: ExportOption[] = [
     choices: [
       { value: 'raised', label: 'Raised on the base plate' },
       { value: 'inlay', label: 'Inlaid flush into the base plate' },
+      { value: 'engrave', label: 'Cut out of the base plate (one filament)' },
     ],
-    hint: 'Inlaid colors sink their height into the base plate for a flat top (multi-material printers); the plate must be thicker than the tallest color.',
+    hint: 'Inlaid colors sink their height into the base plate for a flat top (multi-material printers); the plate must be thicker than the tallest color. Cut-out colors are only missing from the plate — one filament; as deep as the plate cuts through.',
   },
   {
     type: 'choice',

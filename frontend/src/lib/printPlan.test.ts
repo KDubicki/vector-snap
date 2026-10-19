@@ -4,6 +4,7 @@ import {
   DEFAULT_PRINT,
   PROJECTS,
   applyProject,
+  cutoutChange,
   heightPlan,
   layersToMm,
   mixPlan,
@@ -249,6 +250,54 @@ describe('raised elements', () => {
     expect(nextSelection(['a', 'b'], 'a', true)).toEqual(['b']);
     expect(nextSelection(['a'], null, false)).toEqual([]);
     expect(nextSelection(['a'], null, true)).toEqual(['a']);
+  });
+});
+
+describe('cut out', () => {
+  it('starts with a 3 mm plate, a 1 mm cut and the background left solid', () => {
+    expect(cutoutChange(doc, settings())).toEqual({
+      style: 'cutout',
+      baseLayers: 15,
+      colorLayers: 5,
+      excluded: [0], // white background, the bottom color
+    });
+    // Colors already chosen stay as they are; a thicker plate is kept.
+    expect(cutoutChange(doc, settings({ excluded: [1], baseLayers: 20 }))).toEqual({
+      style: 'cutout',
+      colorLayers: 5,
+    });
+  });
+
+  it('cuts into the plate, so the model is as high as the plate', () => {
+    const cutout = settings({ style: 'cutout', baseLayers: 15, colorLayers: 5, excluded: [0] });
+
+    expect(heightPlan(doc, cutout)).toMatchObject({ totalLayers: 15 });
+    expect(printOptions(doc, cutout)).toMatchObject({
+      relief: 'engrave',
+      base_mm: 3,
+      layer_heights: JSON.stringify({ 0: 0, 1: 1, 2: 0 }),
+    });
+    expect(filamentsNeeded(doc, cutout)).toBe(1);
+    expect(validatePrint(doc, cutout)).toEqual({});
+
+    // Through the plate: every cut as deep as the plate.
+    expect(
+      JSON.parse(String(printOptions(doc, { ...cutout, cutThrough: true }).layer_heights)),
+    ).toEqual({
+      0: 0,
+      1: 3,
+      2: 0,
+    });
+  });
+
+  it('needs a plate, and a cut no deeper than it', () => {
+    const cutout = settings({ style: 'cutout', excluded: [0] });
+
+    expect(validatePrint(doc, { ...cutout, baseLayers: 0 }).baseLayers).toMatch('base plate');
+    expect(validatePrint(doc, { ...cutout, baseLayers: 4, colorLayers: 5 }).colorLayers).toMatch(
+      'Cut through',
+    );
+    expect(validatePrint(doc, { ...cutout, baseLayers: 4, cutThrough: true })).toEqual({});
   });
 });
 

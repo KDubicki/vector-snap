@@ -19,8 +19,10 @@ export type BaseShape = 'outline' | 'rectangle' | 'rounded' | 'circle';
  * filament changes at the steps.
  * mixed: flat, but every color is mixed from a few loaded filaments by layering thin
  * translucent layers (see lib/mixing.ts) — more colors than AMS slots.
+ * cutout: one filament — the printed colors are cut out of the base plate (lettering
+ * made of missing filament), to their depth or through it; no filament changes.
  */
-export type PrintStyle = 'flat' | 'stepped' | 'mixed';
+export type PrintStyle = 'flat' | 'stepped' | 'mixed' | 'cutout';
 
 /** Filament slots for mixed colors (one AMS). */
 export const MAX_FILAMENTS = 4;
@@ -60,6 +62,8 @@ export interface PrintSettings {
   nozzleMm: number;
   /** Colors sunk into the base plate, flush with its top (a flat surface). */
   inlay: boolean;
+  /** Cut-out style: cut the colors through the plate (a stencil) instead of to a depth. */
+  cutThrough: boolean;
   /** Printer tuning (mm, 0 = off): first layer inset, outline smoothing, gap between colors. */
   elephantFootMm: number;
   simplifyMm: number;
@@ -77,6 +81,7 @@ export interface PrintSettings {
 /** Settings that belong to the design or the printer, so projects keep them. */
 export const KEPT_BY_PROJECTS = [
   'style',
+  'cutThrough',
   'colorRaise',
   'excluded',
   'shapeRaise',
@@ -169,6 +174,7 @@ export const DEFAULT_PRINT: PrintSettings = {
   excluded: [],
   shapeRaise: {},
   filaments: [],
+  cutThrough: false,
   nozzleMm: 0.4,
   elephantFootMm: 0,
   simplifyMm: 0,
@@ -196,12 +202,14 @@ export function printedGroups(doc: EditorDoc, settings: PrintSettings) {
 
 /** Filaments the print needs: the loaded ones for mixed colors, else one per color. */
 export function filamentsNeeded(doc: EditorDoc, settings: PrintSettings): number {
+  if (settings.style === 'cutout') return 1;
   if (settings.style === 'mixed') return settings.filaments.length;
   return new Set(printedGroups(doc, settings).map((group) => group.fill.toLowerCase())).size;
 }
 
 /** Height of a color above the base, in layers. */
 export function colorLayers(settings: PrintSettings, position: number, paletteIndex: number) {
+  if (settings.style === 'cutout' && settings.cutThrough) return settings.baseLayers;
   const steps = settings.style === 'stepped' ? position + 1 : 1;
   return settings.colorLayers * steps + (settings.colorRaise[paletteIndex] ?? 0);
 }
@@ -219,10 +227,14 @@ export function heightPlan(doc: EditorDoc, settings: PrintSettings) {
     }
   });
   const top = Math.max(...colors.values(), ...shapes.values(), 0);
-  // Inlaid colors sink into the base plate instead of standing on it.
-  const totalLayers = settings.inlay
-    ? Math.max(settings.baseLayers, top)
-    : settings.baseLayers + top;
+  // Inlaid colors sink into the base plate instead of standing on it; cut-out ones are
+  // only missing from it.
+  const totalLayers =
+    settings.style === 'cutout'
+      ? settings.baseLayers
+      : settings.inlay
+        ? Math.max(settings.baseLayers, top)
+        : settings.baseLayers + top;
   return { colors, shapes, top, totalLayers };
 }
 
@@ -247,11 +259,20 @@ export function validatePrint(doc: EditorDoc, settings: PrintSettings): Record<s
   if (settings.elephantFootMm > 0 && base <= 0) {
     errors.elephantFootMm = "Elephant's foot compensation needs a base.";
   }
+  const cutout = settings.style === 'cutout';
+  const sunk = cutout || settings.inlay;
   // Inlaid colors take the top of the base plate: it must be thicker than the tallest.
-  const inlaid = settings.inlay ? heightPlan(doc, settings).top : 0;
+  const inlaid = sunk ? Math.min(heightPlan(doc, settings).top, settings.baseLayers) : 0;
+  if (cutout && settings.baseLayers <= 0) {
+    errors.baseLayers = 'Cutting out needs a base plate to cut into.';
+  } else if (cutout && heightPlan(doc, settings).top > settings.baseLayers) {
+    errors.colorLayers = `Deeper than the base plate (${settings.baseLayers} layers): tick "Cut through" for holes.`;
+  }
   const needed = (layers: number) =>
     `Needs a base of at least ${layers} layers (${layersToMm(layers, settings.layerMm)} mm).`;
-  if (settings.inlay && settings.baseLayers <= inlaid) errors.inlay = needed(inlaid + 1);
+  if (!cutout && settings.inlay && settings.baseLayers <= inlaid) {
+    errors.inlay = needed(inlaid + 1);
+  }
   const solid = layersToMm(settings.baseLayers - inlaid, settings.layerMm);
   if (settings.magnetMm > 0 && settings.magnetDepthMm > solid - MAGNET_ROOF_MM + 1e-9) {
     const layers = Math.ceil((settings.magnetDepthMm + MAGNET_ROOF_MM) / settings.layerMm - 1e-9);
@@ -307,7 +328,7 @@ export function printOptions(
     loop_hole_mm: settings.loopHoleMm,
     magnet_mm: settings.magnetMm,
     magnet_depth_mm: settings.magnetDepthMm,
-    relief: settings.inlay ? 'inlay' : 'raised',
+    relief: settings.style === 'cutout' ? 'engrave' : settings.inlay ? 'inlay' : 'raised',
     elephant_foot_mm: settings.elephantFootMm,
     simplify_mm: settings.simplifyMm,
     color_gap_mm: settings.colorGapMm,
@@ -354,6 +375,29 @@ export function mixedChange(doc: EditorDoc, settings: PrintSettings): Partial<Pr
   const baseLayers = Math.round((settings.baseLayers * settings.layerMm) / layerMm);
   if (baseLayers !== settings.baseLayers) change.baseLayers = baseLayers;
   if (!settings.filaments.length) change.filaments = suggestFilaments(doc);
+  return change;
+}
+
+/** Cut-out depth (mm) and plate (mm) a switch to the cut-out style starts with, at least. */
+export const CUTOUT_DEPTH_MM = 1;
+export const CUTOUT_BASE_MM = 3;
+
+/**
+ * Settings change for switching to the cut-out style: a plate thick enough to cut into, a
+ * 1 mm deep cut, and — when every color is printed — the bottom color (the background)
+ * left solid, so only the lettering on it is cut out.
+ */
+export function cutoutChange(doc: EditorDoc, settings: PrintSettings): Partial<PrintSettings> {
+  const change: Partial<PrintSettings> = { style: 'cutout' };
+  const layers = (mm: number) => Math.max(1, Math.round(mm / settings.layerMm));
+  const depth = layers(CUTOUT_DEPTH_MM);
+  const base = Math.max(settings.baseLayers, layers(CUTOUT_BASE_MM), depth + 1);
+  if (base !== settings.baseLayers) change.baseLayers = base;
+  if (depth !== settings.colorLayers) change.colorLayers = depth;
+  const printed = printedGroups(doc, settings);
+  if (printed.length > 1 && printed.length === doc.groups.filter((g) => g.shapes.length).length) {
+    change.excluded = [...settings.excluded, printed[0].paletteIndex];
+  }
   return change;
 }
 

@@ -14,6 +14,11 @@ const STYLES: { value: PrintSettings['style']; label: string; hint: string }[] =
     hint: 'More colors than filaments: thin translucent layers printed over another filament blend into new colors (like HueForge). Flat top, AMS.',
   },
   {
+    value: 'cutout',
+    label: 'Cut out',
+    hint: 'One filament: the ticked colors are cut out of the plate — lettering made of missing filament. No filament changes, simple to print on any printer.',
+  },
+  {
     value: 'stepped',
     label: 'Stepped',
     hint: 'Each color one step higher — for a single extruder: change filament at each step (see the filament plan).',

@@ -19,9 +19,10 @@ export function PrintColorsTable({
   onChange: update,
 }: PrintColorsTableProps) {
   const mm = (layers: number) => layersToMm(layers, print.layerMm);
+  const cutout = print.style === 'cutout';
   return (
     <fieldset className="color-heights print-colors">
-      <legend>Height per color</legend>
+      <legend>{cutout ? 'Cut out per color' : 'Height per color'}</legend>
       <ul>
         {editor.groups
           .filter((group) => group.shapes.length > 0)
@@ -34,7 +35,7 @@ export function PrintColorsTable({
                 <input
                   type="checkbox"
                   checked={included}
-                  aria-label={`Print ${group.fill}`}
+                  aria-label={`${cutout ? 'Cut out' : 'Print'} ${group.fill}`}
                   onChange={() =>
                     update({
                       excluded: included
@@ -64,32 +65,36 @@ export function PrintColorsTable({
                   }
                 />
                 <span className="hint">
-                  {layers === undefined ? 'left out' : `${mm(layers)} mm`}
+                  {layers === undefined ? (cutout ? 'solid' : 'left out') : `${mm(layers)} mm`}
                 </span>
               </li>
             );
           })}
       </ul>
       <span className="hint">
-        The model starts flat: extra layers raise a whole color above the others.
+        {cutout
+          ? 'Ticked colors are cut out of the plate; the others stay solid. Extra layers cut deeper.'
+          : 'The model starts flat: extra layers raise a whole color above the others.'}
       </span>
-      <div className="print-relief" role="group" aria-label="Automatic relief">
-        <span className="hint">Automatic relief, one layer per color:</span>
-        <button
-          type="button"
-          className="link"
-          onClick={() => update({ colorRaise: reliefRaise(editor, print, 'dark') })}
-        >
-          dark on top
-        </button>
-        <button
-          type="button"
-          className="link"
-          onClick={() => update({ colorRaise: reliefRaise(editor, print, 'light') })}
-        >
-          light on top
-        </button>
-      </div>
+      {!cutout && (
+        <div className="print-relief" role="group" aria-label="Automatic relief">
+          <span className="hint">Automatic relief, one layer per color:</span>
+          <button
+            type="button"
+            className="link"
+            onClick={() => update({ colorRaise: reliefRaise(editor, print, 'dark') })}
+          >
+            dark on top
+          </button>
+          <button
+            type="button"
+            className="link"
+            onClick={() => update({ colorRaise: reliefRaise(editor, print, 'light') })}
+          >
+            light on top
+          </button>
+        </div>
+      )}
       {Object.values(print.colorRaise).some((layers) => layers > 0) && (
         <button type="button" className="link" onClick={() => update({ colorRaise: {} })}>
           Make all colors flat again

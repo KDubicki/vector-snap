@@ -13,6 +13,8 @@ describe('print settings file', () => {
       printer: 'kobra-x' as const,
       widthMm: 120,
       inlay: true,
+      style: 'cutout' as const,
+      cutThrough: true,
       filaments: [{ color: '#FFFFFF', td: 3 }],
       colorRaise: { 1: 2 },
       excluded: [3],

@@ -174,7 +174,20 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
 - **Colors: Flat (AMS)** — every color has the same height, so the top is level and a
   multi-color printer switches colors within the same layers; **Stepped** — each color
   one step higher, for a single extruder with filament changes (the filament plan is
-  offered); **Mixed** — flat, with more colors than filaments (see below).
+  offered); **Mixed** — flat, with more colors than filaments (see below); **Cut out** —
+  one filament, see below.
+- **Cut out** (`style: 'cutout'`, sent as `relief=engrave`): lettering made of missing
+  filament. The ticked colors are cut out of the base plate, the others stay solid (the
+  table reads *Cut out per color* and *solid*); the colors field is the **cut depth**, and
+  extra layers per color or element cut deeper. **Cut through (stencil)** (`cutThrough`)
+  makes every cut as deep as the plate: holes, where the middle of an O or A prints as a
+  loose piece. Switching to it (`cutoutChange`) keeps a plate of at least 3 mm, cuts
+  1 mm deep and, when every color was printed, leaves the bottom color — the background —
+  solid, so only the lettering on it is cut out. The model is as high as the plate and
+  needs one filament, so the filament checks and change estimate say no changes. A cut
+  deeper than the plate (without *Cut through*) or no plate is an error on the field; the
+  inlay checkbox is hidden. The export panel offers the same as *Cut out of the base
+  plate (one filament)*.
 - **Mixed colors** (`style: 'mixed'`): the panel lists the **loaded filaments**
   (`FilamentSlots`, up to 4 — one AMS; color and TD, slot 1 also prints the base plate)
   and, per design color, the predicted print color, the recipe (thin layers × count from
