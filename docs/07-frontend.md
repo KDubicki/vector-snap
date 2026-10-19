@@ -224,6 +224,12 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
   **Set the colors into the base (flat top)** (`inlay`, sent as `relief=inlay`): colors
   sink their height into the plate, which must then be thicker than the tallest color —
   and a magnet pocket must fit below them; the total height is then the base alone.
+- **API command (curl)** (`ApiCommand`, `src/lib/apiCommand.ts`, collapsed at the end of
+  the panel): the 3MF export of the current settings as a `curl` command — one `-F` field
+  per line, values quoted for a POSIX shell, the endpoint resolved against the page (or
+  `VITE_API_BASE_URL`) — for the SVG saved from the editor under the shown name. Shown in
+  the page and copied with **Copy command**; when the browser blocks the clipboard it says
+  so and the command stays selectable. Only shown for valid settings.
 - **Undo a project or settings file** (`PrintUndo`, `printUndo` / `undoPrintChange` in the
   store): both change many settings at once, so afterwards *Applied Keychain. Undo* (or
   the file's name) restores the settings from before — printer memory included. The next

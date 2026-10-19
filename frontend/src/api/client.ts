@@ -12,6 +12,8 @@ import type {
 } from '../types/api';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api';
+/** Where the API lives, relative to the page unless configured. */
+export const API_BASE_URL: string = BASE_URL;
 
 export class ApiError extends Error {
   constructor(

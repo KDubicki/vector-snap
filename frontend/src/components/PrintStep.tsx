@@ -25,6 +25,7 @@ import { useExport } from '../lib/useExport';
 import { useColorChanges, useModelSize } from '../lib/useBackendResult';
 import { useAppStore } from '../state/store';
 import type { FilamentPlan } from '../types/api';
+import { ApiCommand } from './ApiCommand';
 import { BasePlateFields } from './BasePlateFields';
 import { BuildVolumeCheck } from './BuildVolumeCheck';
 import { ColorChangesSummary } from './ColorChangesSummary';
@@ -367,6 +368,7 @@ export function PrintStep() {
         {plan && print.style === 'stepped' && plan.key === key && (
           <FilamentPlanView plan={plan.plan} />
         )}
+        {!invalid && <ApiCommand options={options} fileName={file?.name} />}
         <button type="button" className="link" onClick={() => goTo('result')}>
           Back to the SVG editor
         </button>
