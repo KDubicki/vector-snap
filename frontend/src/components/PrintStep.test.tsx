@@ -325,4 +325,15 @@ describe('PrintStep', () => {
     await userEvent.setup().click(screen.getByRole('radio', { name: 'Cut out' }));
     expect(screen.queryByTitle(/in the 3MF/)).not.toBeInTheDocument(); // one filament
   });
+
+  it('offers to undo a project, which changes many settings at once', async () => {
+    const user = userEvent.setup();
+    render(<PrintStep />);
+
+    await user.click(screen.getByRole('radio', { name: /Keychain/ }));
+    expect(screen.getByText(/Applied Keychain/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Undo' }));
+    expect(store().print.project).toBe('custom');
+    expect(screen.queryByText(/Applied Keychain/)).not.toBeInTheDocument();
+  });
 });

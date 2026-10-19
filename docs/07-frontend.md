@@ -224,6 +224,12 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
   **Set the colors into the base (flat top)** (`inlay`, sent as `relief=inlay`): colors
   sink their height into the plate, which must then be thicker than the tallest color —
   and a magnet pocket must fit below them; the total height is then the base alone.
+- **Undo a project or settings file** (`PrintUndo`, `printUndo` / `undoPrintChange` in the
+  store): both change many settings at once, so afterwards *Applied Keychain. Undo* (or
+  the file's name) restores the settings from before — printer memory included. The next
+  change of any setting removes the offer, as undoing would also revert that change;
+  *Custom* changes nothing and converting a new SVG drops it (its colors and raises
+  belong to the old design).
 - **Save / load print settings** (`PrintSettingsFile`, `src/lib/printPreset.ts`): below the
   projects, **Save print settings** downloads `<image>.print.json` (`kind`
   `vectorsnap-print-settings`, `version` 1) with the project, printer, sizes, base plate,

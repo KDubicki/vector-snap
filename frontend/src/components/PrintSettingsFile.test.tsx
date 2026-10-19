@@ -29,7 +29,10 @@ describe('PrintSettingsFile', () => {
     const good = presetJson({ ...DEFAULT_PRINT, widthMm: 120 });
     fireEvent.change(input, { target: { files: [new File([good], 'sign.print.json')] } });
     await waitFor(() =>
-      expect(onLoad).toHaveBeenCalledWith(expect.objectContaining({ widthMm: 120 })),
+      expect(onLoad).toHaveBeenCalledWith(
+        expect.objectContaining({ widthMm: 120 }),
+        'sign.print.json',
+      ),
     );
     expect(screen.getByRole('status')).toHaveTextContent(
       'Loaded the print settings of sign.print.json.',

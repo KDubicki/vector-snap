@@ -7,7 +7,7 @@ import { presetJson, readPreset } from '../lib/printPreset';
 interface PrintSettingsFileProps {
   settings: PrintSettings;
   fileName: string | undefined;
-  onLoad: (settings: Partial<PrintSettings>) => void;
+  onLoad: (settings: Partial<PrintSettings>, fileName: string) => void;
 }
 
 /** Save the print settings as a file, or load them from one, to reuse them for another design. */
@@ -24,7 +24,7 @@ export function PrintSettingsFile({ settings, fileName, onLoad }: PrintSettingsF
   const load = async (file: File | undefined) => {
     if (!file) return;
     try {
-      onLoad(readPreset(await file.text()));
+      onLoad(readPreset(await file.text()), file.name);
       setMessage({ text: `Loaded the print settings of ${file.name}.`, error: false });
     } catch (caught) {
       setMessage({ text: (caught as Error).message, error: true });

@@ -39,6 +39,7 @@ import { LayerFields } from './LayerFields';
 import type { PreviewRequest } from './ModelPreview';
 import { PrintColorsTable } from './PrintColorsTable';
 import { PrintSettingsFile } from './PrintSettingsFile';
+import { PrintUndo } from './PrintUndo';
 import { PrinterPicker } from './PrinterPicker';
 import { PrinterTuningFields } from './PrinterTuningFields';
 import { ProjectPicker } from './ProjectPicker';
@@ -58,7 +59,9 @@ export function PrintStep() {
   const print = useAppStore((s) => s.print);
   const limits = useAppStore((s) => s.limits);
   const filamentLibrary = useAppStore((s) => s.filamentLibrary);
-  const { setPrint, chooseProject, loadPrintSettings, goTo, setColors } = useAppStore.getState();
+  const printUndo = useAppStore((s) => s.printUndo);
+  const { setPrint, chooseProject, loadPrintSettings, undoPrintChange, goTo, setColors } =
+    useAppStore.getState();
   const [view, setView] = useState<'design' | 'model'>('design');
   const [preview, setPreview] = useState<{ request: PreviewRequest; key: string } | null>(null);
   const job = useExport();
@@ -221,6 +224,7 @@ export function PrintStep() {
 
         <ProjectPicker project={print.project} onChoose={chooseProject} />
         <PrintSettingsFile settings={print} fileName={file?.name} onLoad={loadPrintSettings} />
+        <PrintUndo what={printUndo?.what ?? null} onUndo={undoPrintChange} />
 
         <ColorStylePicker
           style={print.style}

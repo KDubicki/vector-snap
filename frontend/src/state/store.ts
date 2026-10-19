@@ -11,6 +11,7 @@ import {
 import {
   DEFAULT_PRINT,
   KEPT_BY_PROJECTS,
+  PROJECTS,
   applyProject,
   type PrintSettings,
   type ProjectId,
@@ -93,6 +94,11 @@ export interface WorkflowSlice {
   vectorized: VectorizeResponse | null;
   /** 3D print step settings (docs/07-frontend.md); colors and raises reset per SVG. */
   print: PrintSettings;
+  /**
+   * The print settings before the last project or settings file, which change many at
+   * once; gone after the next change, which it would undo too.
+   */
+  printUndo: { settings: PrintSettings; what: string } | null;
   status: Status;
   error: string | null;
 
@@ -124,7 +130,9 @@ export interface WorkflowSlice {
   /** Apply a project preset (magnet, keychain, …); colors and raised elements stay. */
   chooseProject: (id: ProjectId) => void;
   /** Apply print settings loaded from a file (lib/printPreset.ts), project included. */
-  loadPrintSettings: (settings: Partial<PrintSettings>) => void;
+  loadPrintSettings: (settings: Partial<PrintSettings>, what: string) => void;
+  /** Restore the settings from before the last project or settings file. */
+  undoPrintChange: () => void;
   reset: () => void;
 }
 
@@ -148,6 +156,7 @@ const initialState = {
   tracing: DEFAULT_TRACING,
   vectorized: null,
   print: DEFAULT_PRINT,
+  printUndo: null,
   ...initialEditorState,
   status: 'idle' as Status,
   error: null,
@@ -350,6 +359,7 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
         ...openDocument(vectorized.svg),
         // Palette indices and shape ids belong to the previous SVG.
         print: { ...state.print, colorRaise: {}, excluded: [], shapeRaise: {} },
+        printUndo: null, // it would bring back the old design's colors and raises
         step: 'result',
         status: 'idle',
       }));
@@ -372,14 +382,32 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
       if (Object.keys(change).some((key) => PRINTER_FIELDS.includes(key))) {
         savePrinter(browserStorage(), printerOf(print));
       }
-      return { print };
+      return { print, printUndo: null };
     }),
-  chooseProject: (id) => set((state) => ({ print: fitted(applyProject(state.print, id)) })),
-  loadPrintSettings: (settings) =>
+  chooseProject: (id) =>
+    set((state) => ({
+      print: fitted(applyProject(state.print, id)),
+      // Custom changes nothing, so there is nothing to undo.
+      printUndo:
+        id === 'custom'
+          ? null
+          : {
+              settings: state.print,
+              what: PROJECTS.find((project) => project.id === id)?.label ?? id,
+            },
+    })),
+  loadPrintSettings: (settings, what) =>
     set((state) => {
       const print = fitted({ ...state.print, ...settings });
       savePrinter(browserStorage(), printerOf(print));
-      return { print };
+      return { print, printUndo: { settings: state.print, what } };
+    }),
+  undoPrintChange: () =>
+    set((state) => {
+      if (!state.printUndo) return {};
+      const print = state.printUndo.settings;
+      savePrinter(browserStorage(), printerOf(print));
+      return { print, printUndo: null };
     }),
 
   reset: () => {

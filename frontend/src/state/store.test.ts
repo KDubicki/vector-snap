@@ -788,12 +788,15 @@ describe('app store', () => {
   });
 
   it('loads print settings with their project and remembers their printer', () => {
-    store().loadPrintSettings({
-      project: 'coaster',
-      printer: 'kobra-x',
-      nozzleMm: 0.6,
-      widthMm: 90,
-    });
+    store().loadPrintSettings(
+      {
+        project: 'coaster',
+        printer: 'kobra-x',
+        nozzleMm: 0.6,
+        widthMm: 90,
+      },
+      'sign.print.json',
+    );
 
     // 0.2 mm layers suit the 0.6 nozzle; the project stays even with a changed width.
     expect(store().print).toMatchObject({ project: 'coaster', widthMm: 90, layerMm: 0.2 });
@@ -801,6 +804,23 @@ describe('app store', () => {
       printer: 'kobra-x',
       nozzleMm: 0.6,
     });
+  });
+
+  it('undoes the last project or settings file, until the next change', () => {
+    store().setPrint({ widthMm: 50, loopHoleMm: 0 });
+    store().chooseProject('keychain');
+    expect(store().printUndo?.what).toBe('Keychain');
+    store().undoPrintChange();
+    expect(store().print).toMatchObject({ project: 'custom', widthMm: 50, loopHoleMm: 0 });
+    expect(store().printUndo).toBeNull();
+
+    store().loadPrintSettings({ widthMm: 120 }, 'sign.print.json');
+    expect(store().printUndo?.what).toBe('sign.print.json');
+    store().setPrint({ marginMm: 3 }); // a later change would be undone too: no undo
+    expect(store().printUndo).toBeNull();
+
+    store().chooseProject('custom'); // changes nothing
+    expect(store().printUndo).toBeNull();
   });
 
   it('resets colors and raised elements for a new SVG but keeps the project', async () => {

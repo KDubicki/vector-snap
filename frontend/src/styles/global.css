@@ -1324,6 +1324,11 @@ select {
   font-style: italic;
 }
 
+/* "Applied Keychain. Undo" under the projects. */
+.print-undo {
+  margin: 0;
+}
+
 /* Save / load print settings: two links in a row, the message below. */
 .print-settings-file {
   display: flex;
