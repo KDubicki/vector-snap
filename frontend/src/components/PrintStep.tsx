@@ -17,7 +17,7 @@ import {
   validatePrint,
   type PrintSettings,
 } from '../lib/printPlan';
-import { formatGrams } from '../lib/meshStats';
+import { formatGrams, formatMillimetres } from '../lib/meshStats';
 import { printerById } from '../lib/printers';
 import { useExport } from '../lib/useExport';
 import { useColorChanges, useModelSize } from '../lib/useBackendResult';
@@ -75,8 +75,9 @@ export function PrintStep() {
   const errors = editor ? validatePrint(editor, print) : {};
   const invalid = Object.keys(errors).length > 0;
   const options = editor ? printOptions(editor, print) : {};
-  // Only a printer with a known build volume needs the size; invalid settings have none.
-  const size = useModelSize(svg ?? '', options, Boolean(svg && printer.buildMm && !invalid));
+  // The size of the model as exported (border, round plate and loop included); invalid
+  // settings have none.
+  const size = useModelSize(svg ?? '', options, Boolean(svg && !invalid));
   const changes = useColorChanges(
     svg ?? '',
     { ...options, change_s: printer.changeS, purge_mm3: printer.purgeMm3 },
@@ -273,6 +274,12 @@ export function PrintStep() {
         <p className="print-summary" role="status">
           Total height <strong>{mm(heights.totalLayers)} mm</strong> · {heights.totalLayers} layers
           · base {mm(print.baseLayers)} mm
+          {!invalid && size && (
+            <>
+              {' '}
+              · {formatMillimetres(size.x_mm)} × {formatMillimetres(size.y_mm)} mm footprint
+            </>
+          )}
           {!invalid && totalGrams !== undefined && (
             <> · {formatGrams(totalGrams)} g of filament (solid)</>
           )}

@@ -279,4 +279,11 @@ describe('PrintStep', () => {
 
     expect(await screen.findByText(/too thin to print/)).toBeInTheDocument();
   });
+
+  it('shows the footprint of the model as exported, for any printer', async () => {
+    vi.mocked(getModelSize).mockResolvedValue({ x_mm: 102.37, y_mm: 108.37, z_mm: 4.8 });
+    render(<PrintStep />);
+
+    await waitFor(() => expect(summary()).toContain('102 × 108 mm footprint'));
+  });
 });

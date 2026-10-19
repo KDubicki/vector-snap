@@ -244,6 +244,9 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
   settings to the printer (`fitToPrinter`): a nozzle it has (0.4 mm by default) and, when
   the layer height does not suit it, the nozzle's default layer height with base and
   color heights kept in mm. The printer is remembered with the nozzle.
+- **Footprint**: for every printer the summary shows the model's footprint as exported
+  (*· 102 × 108 mm footprint*, from `POST /export/model-size`: border, round plate and
+  hanging loop included, which the width alone does not tell).
 - **Build volume** (`BuildVolumeCheck`, printers with a known build volume): 500 ms after
   the settings stop changing the panel asks the backend for the model's size
   (`POST /export/model-size`, `useModelSize` in `src/lib/useBackendResult.ts`) — border, round plate and loop included —
