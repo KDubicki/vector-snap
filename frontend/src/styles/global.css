@@ -1289,6 +1289,11 @@ select {
   margin: 0;
 }
 
+/* Mirrored prints (stamps): the design view shows the model as it will print. */
+.print-design--mirrored svg {
+  transform: scaleX(-1);
+}
+
 /* Nearest filament under a print color's hex; a poor match is muted. */
 .print-colors__match {
   display: block;

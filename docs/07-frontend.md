@@ -284,6 +284,10 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
   colors left out save the most; stepped colors can cost more than flat ones, since every
   step stands on the base and the lower layers hold all colors (the sample design: 10
   changes flat, 31 stepped).
+- **Mirror (stamps: print face down)** (`mirror`, sent as `mirror`): flips the model left to
+  right, so a stamp — or a model glued face down behind glass — reads the right way round.
+  The design view is then shown mirrored too (*Shown mirrored, as it will print*);
+  selecting elements works as before. Projects keep it.
 - **Printer tuning** (collapsed, with "n changed" / "1 to fix" on its header,
   `PrinterTuningFields`): detail filter (nozzle width, `min_feature_mm`), elephant's foot
   compensation (`elephant_foot_mm`, needs a base), smooth outlines (`simplify_mm`) and

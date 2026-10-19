@@ -161,7 +161,9 @@ export function PrintStep() {
           ))}
         </div>
         {view === 'design' ? (
-          <figure className="preview print-design">
+          <figure
+            className={`preview print-design${print.mirror ? ' print-design--mirrored' : ''}`}
+          >
             <ElementMap
               doc={editor}
               selected={selected}
@@ -177,6 +179,7 @@ export function PrintStep() {
             <figcaption className="hint">
               Click an element to select it, Shift+click to add more — then raise it in the panel.
               Dashed outlines mark raised elements.
+              {print.mirror && ' Shown mirrored, as it will print.'}
               {mixed && (
                 <label className="print-predicted">
                   <input

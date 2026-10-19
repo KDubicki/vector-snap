@@ -301,4 +301,17 @@ describe('PrintStep', () => {
     await userEvent.setup().click(screen.getByRole('radio', { name: 'Cut out' }));
     expect(screen.queryByText(/nearest:/)).not.toBeInTheDocument();
   });
+
+  it('shows a mirrored stamp mirrored in the design view and exports it so', async () => {
+    const user = userEvent.setup();
+    vi.mocked(exportFile).mockResolvedValue(new Blob(['3mf']));
+    render(<PrintStep />);
+
+    await user.click(screen.getByLabelText('Mirror (stamps: print face down)'));
+    expect(screen.getByText(/Shown mirrored, as it will print/)).toBeInTheDocument();
+    expect(document.querySelector('.print-design--mirrored')).not.toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Download 3MF' }));
+    await waitFor(() => expect(exportFile).toHaveBeenCalled());
+    expect(vi.mocked(exportFile).mock.calls[0][2]).toMatchObject({ mirror: true });
+  });
 });

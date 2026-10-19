@@ -328,6 +328,16 @@ describe('PrinterTuningFields', () => {
   });
 });
 
+describe('BasePlateFields mirror', () => {
+  it('mirrors the model for stamps', async () => {
+    const onChange = vi.fn();
+    render(<BasePlateFields settings={settings()} errors={{}} onChange={onChange} />);
+
+    await userEvent.click(screen.getByLabelText('Mirror (stamps: print face down)'));
+    expect(onChange).toHaveBeenLastCalledWith({ mirror: true });
+  });
+});
+
 describe('BasePlateFields inlay', () => {
   it('sets the colors into the base and explains a too thin base', async () => {
     const onChange = vi.fn();

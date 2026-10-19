@@ -253,6 +253,14 @@ describe('raised elements', () => {
   });
 });
 
+describe('mirror', () => {
+  it('mirrors stamps and keeps it across projects', () => {
+    expect(printOptions(doc, settings()).mirror).toBe(false);
+    expect(printOptions(doc, settings({ mirror: true })).mirror).toBe(true);
+    expect(applyProject(settings({ mirror: true }), 'keychain').mirror).toBe(true);
+  });
+});
+
 describe('cut out', () => {
   it('starts with a 3 mm plate, a 1 mm cut and the background left solid', () => {
     expect(cutoutChange(doc, settings())).toEqual({

@@ -64,6 +64,8 @@ export interface PrintSettings {
   inlay: boolean;
   /** Cut-out style: cut the colors through the plate (a stencil) instead of to a depth. */
   cutThrough: boolean;
+  /** Mirror the model left to right: stamps print face down and read right on paper. */
+  mirror: boolean;
   /** Printer tuning (mm, 0 = off): first layer inset, outline smoothing, gap between colors. */
   elephantFootMm: number;
   simplifyMm: number;
@@ -82,6 +84,7 @@ export interface PrintSettings {
 export const KEPT_BY_PROJECTS = [
   'style',
   'cutThrough',
+  'mirror',
   'colorRaise',
   'excluded',
   'shapeRaise',
@@ -175,6 +178,7 @@ export const DEFAULT_PRINT: PrintSettings = {
   shapeRaise: {},
   filaments: [],
   cutThrough: false,
+  mirror: false,
   nozzleMm: 0.4,
   elephantFootMm: 0,
   simplifyMm: 0,
@@ -332,7 +336,7 @@ export function printOptions(
     elephant_foot_mm: settings.elephantFootMm,
     simplify_mm: settings.simplifyMm,
     color_gap_mm: settings.colorGapMm,
-    mirror: false,
+    mirror: settings.mirror,
     ...mixed,
   };
 }

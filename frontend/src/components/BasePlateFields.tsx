@@ -14,7 +14,7 @@ interface BasePlateFieldsProps {
   onChange: (change: Partial<PrintSettings>) => void;
 }
 
-/** Base plate shape, border, raised rim, hanging loop, magnet pocket and inlay. */
+/** Base plate shape, border, raised rim, hanging loop, magnet pocket, inlay and mirror. */
 export function BasePlateFields({
   settings: print,
   errors,
@@ -115,6 +115,20 @@ export function BasePlateFields({
             )}
           </>
         )}
+        <div className="checkbox">
+          <input
+            id="print-mirror"
+            type="checkbox"
+            checked={print.mirror}
+            aria-describedby="print-mirror-hint"
+            onChange={(event) => update({ mirror: event.target.checked })}
+          />
+          <label htmlFor="print-mirror">Mirror (stamps: print face down)</label>
+        </div>
+        <span id="print-mirror-hint" className="hint">
+          Flips the model left to right, so a stamp — or a model glued face down behind glass —
+          reads the right way round.
+        </span>
       </div>
     </div>
   );
