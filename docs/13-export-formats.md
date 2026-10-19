@@ -543,7 +543,9 @@ cancelling) and the `ExportProgress` status line.
 For STL and 3MF the panel also lists every color with an *include* checkbox and a height field
 (empty = automatic, shown as placeholder — following the chosen color order and already rounded to the printer layer height
 when one is set); this becomes `layer_heights`. Leaving out
-every color disables the export with an explanation.
+every color disables the export with an explanation. The rules mirror the backend and
+live in `src/lib/colorHeights.ts` (automatic heights, brightness order, layer snapping,
+the `layer_heights` value and its validation).
 
 The model starts **flat**: the panel sends `layered=false` until *Stack colors at
 increasing heights (relief)* is ticked, so the first preview shows every color at the

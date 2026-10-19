@@ -1,11 +1,11 @@
 import type { ColorGroup } from '../editor/model';
+import type { ExportValues } from '../lib/exportFormats';
 import {
   autoLayerHeight,
   hasCustomHeights,
   stackPositions,
   type ColorHeight,
-  type ExportValues,
-} from '../lib/exportFormats';
+} from '../lib/colorHeights';
 
 interface ColorHeightsTableProps {
   groups: ColorGroup[];

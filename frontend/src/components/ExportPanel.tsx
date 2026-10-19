@@ -6,14 +6,12 @@ import {
   changedCount,
   defaultValues,
   exportFileName,
-  layerHeightsJson,
   optionSections,
   validate,
-  validateColorHeights,
-  type ColorHeight,
   type ExportOption,
   type ExportValues,
 } from '../lib/exportFormats';
+import { layerHeightsJson, validateColorHeights, type ColorHeight } from '../lib/colorHeights';
 import { rasterSize, svgToPng } from '../lib/raster';
 import { useExport } from '../lib/useExport';
 import { useAppStore } from '../state/store';
