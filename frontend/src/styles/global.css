@@ -1294,6 +1294,25 @@ select {
   transform: scaleX(-1);
 }
 
+/* The 3MF filament (slot) number on a print color's swatch. */
+.print-colors .swatch {
+  position: relative;
+}
+
+.print-colors__slot {
+  position: absolute;
+  inset: auto -6px -6px auto;
+  min-width: 14px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  font-size: 0.65rem;
+  line-height: 12px;
+  text-align: center;
+}
+
 /* Nearest filament under a print color's hex; a poor match is muted. */
 .print-colors__match {
   display: block;

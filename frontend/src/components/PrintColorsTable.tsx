@@ -13,6 +13,8 @@ interface PrintColorsTableProps {
   nearest?: Map<number, { filament: LibraryFilament; delta: number }>;
   /** Filament per color (lowercase hex), from the backend; left out while unknown. */
   grams?: Map<string, number>;
+  /** The 3MF filament (AMS/ACE slot, 1-based) of each color (lowercase hex). */
+  slots?: Map<string, number>;
   error?: string;
   onChange: (change: Partial<PrintSettings>) => void;
 }
@@ -38,6 +40,7 @@ export function PrintColorsTable({
   colors,
   nearest,
   grams,
+  slots,
   error,
   onChange: update,
 }: PrintColorsTableProps) {
@@ -67,7 +70,16 @@ export function PrintColorsTable({
                     })
                   }
                 />
-                <span className="swatch" style={{ background: group.fill }} />
+                <span className="swatch" style={{ background: group.fill }}>
+                  {included && slots?.has(group.fill) && (
+                    <span
+                      className="print-colors__slot"
+                      title={`Filament ${slots.get(group.fill)} in the 3MF: load it in slot ${slots.get(group.fill)}`}
+                    >
+                      {slots.get(group.fill)}
+                    </span>
+                  )}
+                </span>
                 <label htmlFor={id}>
                   {group.fill}
                   {included && nearest?.has(group.paletteIndex) && (

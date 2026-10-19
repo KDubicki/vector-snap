@@ -269,6 +269,11 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
   clear which spool comes closest and how far off it is. The tooltip gives the
   filament's color and ΔE. Mixed colors have their own recipes and cut-out colors are
   holes, so they show none.
+- **Filament slots** (flat and stepped colors): each color's swatch carries its filament
+  number in the 3MF — the order of the color-changes response, the base plate's color
+  first — so the spools go into the AMS/ACE slots of the same numbers; the tooltip says
+  so. Mixed colors use the loaded filaments' order and cut-out prints one filament, so
+  they show none.
 - **Filament per color**: the color-changes request also runs for *Any printer* (with no
   change cost) and gives the filament each color takes. The colors table shows it next to
   each height, on a second line (*≈ 1.3 g*; the bottom color includes the base plate; *too thin* when every shape is thinner than the nozzle, so the backend leaves the color out) and the

@@ -88,6 +88,8 @@ export function PrintStep() {
     Boolean(svg && !invalid),
   );
   const grams = new Map(changes?.filaments.map((use) => [use.color, use.grams]));
+  // The 3MF numbers its filaments in this order (base plate's color first): the slots.
+  const slots = new Map(changes?.filaments.map((use, index) => [use.color, index + 1]));
   const totalGrams = changes?.filaments.reduce((sum, use) => sum + use.grams, 0);
 
   if (!editor || !svg) return null;
@@ -250,6 +252,7 @@ export function PrintStep() {
           colors={heights.colors}
           nearest={nearest}
           grams={mixed ? undefined : grams}
+          slots={mixed || print.style === 'cutout' ? undefined : slots}
           error={errors.colors}
           onChange={update}
         />

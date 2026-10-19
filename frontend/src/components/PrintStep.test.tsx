@@ -314,4 +314,15 @@ describe('PrintStep', () => {
     await waitFor(() => expect(exportFile).toHaveBeenCalled());
     expect(vi.mocked(exportFile).mock.calls[0][2]).toMatchObject({ mirror: true });
   });
+
+  it('numbers each color with its filament slot in the 3MF', async () => {
+    render(<PrintStep />);
+
+    // Response order: white (with the base plate) is filament 1, red filament 2.
+    expect(await screen.findByTitle(/Filament 1 in the 3MF/)).toHaveTextContent('1');
+    expect(screen.getByTitle(/Filament 2 in the 3MF: load it in slot 2/)).toHaveTextContent('2');
+
+    await userEvent.setup().click(screen.getByRole('radio', { name: 'Cut out' }));
+    expect(screen.queryByTitle(/in the 3MF/)).not.toBeInTheDocument(); // one filament
+  });
 });
