@@ -34,16 +34,22 @@ describe('PrintStep', () => {
   beforeEach(() => {
     vi.mocked(exportFile).mockReset();
     vi.mocked(getFilamentPlan).mockReset();
-    // The Kobra X asks for the size and the color changes on its own.
+    // The panel asks for the color changes (and the Kobra X for the size) on its own.
     vi.mocked(getModelSize).mockReset().mockResolvedValue({ x_mm: 80, y_mm: 40, z_mm: 2 });
-    vi.mocked(getColorChanges).mockReset().mockResolvedValue({
-      layers: 10,
-      changes: 10,
-      max_colors_per_layer: 2,
-      change_time_s: 530,
-      purge_mm3: 2260,
-      purge_g: 2.8,
-    });
+    vi.mocked(getColorChanges)
+      .mockReset()
+      .mockResolvedValue({
+        filaments: [
+          { color: '#ffffff', volume_mm3: 9677.4, grams: 12 },
+          { color: '#ff0000', volume_mm3: 241.9, grams: 0.3 },
+        ],
+        layers: 10,
+        changes: 10,
+        max_colors_per_layer: 2,
+        change_time_s: 530,
+        purge_mm3: 2260,
+        purge_g: 2.8,
+      });
     vi.mocked(download).mockReset();
     store().reset();
     useAppStore.setState({
@@ -253,5 +259,24 @@ describe('PrintStep', () => {
       purge_mm3: 226,
       print_layer_mm: 0.2,
     });
+  });
+
+  it('shows the filament each color takes and the total, for any printer', async () => {
+    render(<PrintStep />);
+
+    expect(await screen.findByText(/≈ 12 g$/)).toBeInTheDocument(); // white, base plate included
+    expect(screen.getByText(/≈ 0.3 g$/)).toBeInTheDocument();
+    expect(summary()).toContain('≈ 12 g of filament (solid)');
+    expect(screen.queryByText(/filament changes/)).not.toBeInTheDocument(); // no change cost
+  });
+
+  it('marks a color the backend leaves out as too thin to print', async () => {
+    vi.mocked(getColorChanges).mockResolvedValue({
+      ...(await vi.mocked(getColorChanges).getMockImplementation()!('', {})),
+      filaments: [{ color: '#ffffff', volume_mm3: 9677.4, grams: 12 }],
+    });
+    render(<PrintStep />);
+
+    expect(await screen.findByText(/too thin to print/)).toBeInTheDocument();
   });
 });

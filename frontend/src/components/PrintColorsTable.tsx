@@ -1,4 +1,5 @@
 import type { EditorDoc } from '../editor/model';
+import { formatGrams } from '../lib/meshStats';
 import { layersToMm, reliefRaise, type PrintSettings } from '../lib/printPlan';
 
 interface PrintColorsTableProps {
@@ -6,6 +7,8 @@ interface PrintColorsTableProps {
   settings: PrintSettings;
   /** Height above the base per printed color, in layers (`heightPlan().colors`). */
   colors: Map<number, number>;
+  /** Filament per color (lowercase hex), from the backend; left out while unknown. */
+  grams?: Map<string, number>;
   error?: string;
   onChange: (change: Partial<PrintSettings>) => void;
 }
@@ -15,6 +18,7 @@ export function PrintColorsTable({
   doc: editor,
   settings: print,
   colors,
+  grams,
   error,
   onChange: update,
 }: PrintColorsTableProps) {
@@ -66,6 +70,15 @@ export function PrintColorsTable({
                 />
                 <span className="hint">
                   {layers === undefined ? (cutout ? 'solid' : 'left out') : `${mm(layers)} mm`}
+                  {layers !== undefined &&
+                    grams !== undefined &&
+                    grams.size > 0 &&
+                    (grams.has(group.fill) ? (
+                      <> · {formatGrams(grams.get(group.fill)!)} g</>
+                    ) : (
+                      // Every shape thinner than the nozzle: the backend leaves it out.
+                      <> · too thin to print</>
+                    ))}
                 </span>
               </li>
             );

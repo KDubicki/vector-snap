@@ -17,6 +17,7 @@ import {
   validatePrint,
   type PrintSettings,
 } from '../lib/printPlan';
+import { formatGrams } from '../lib/meshStats';
 import { printerById } from '../lib/printers';
 import { useExport } from '../lib/useExport';
 import { useColorChanges, useModelSize } from '../lib/useBackendResult';
@@ -79,8 +80,11 @@ export function PrintStep() {
   const changes = useColorChanges(
     svg ?? '',
     { ...options, change_s: printer.changeS, purge_mm3: printer.purgeMm3 },
-    Boolean(svg && printer.changeS && !invalid),
+    // Asked for every printer: it also gives the filament each color takes.
+    Boolean(svg && !invalid),
   );
+  const grams = new Map(changes?.filaments.map((use) => [use.color, use.grams]));
+  const totalGrams = changes?.filaments.reduce((sum, use) => sum + use.grams, 0);
 
   if (!editor || !svg) return null;
 
@@ -225,6 +229,7 @@ export function PrintStep() {
           doc={editor}
           settings={print}
           colors={heights.colors}
+          grams={mixed ? undefined : grams}
           error={errors.colors}
           onChange={update}
         />
@@ -268,6 +273,9 @@ export function PrintStep() {
         <p className="print-summary" role="status">
           Total height <strong>{mm(heights.totalLayers)} mm</strong> · {heights.totalLayers} layers
           · base {mm(print.baseLayers)} mm
+          {!invalid && totalGrams !== undefined && (
+            <> · {formatGrams(totalGrams)} g of filament (solid)</>
+          )}
         </p>
         {job.error && (
           <p className="field-error" role="alert">

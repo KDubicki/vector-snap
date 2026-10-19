@@ -66,6 +66,7 @@ describe('Cut out', () => {
     expect(screen.getByText('Cut out per color')).toBeInTheDocument();
     expect(screen.getByLabelText('Cut out #ffffff')).not.toBeChecked();
     expect(screen.getByText('solid')).toBeInTheDocument();
+    expect(screen.queryByText(/^0$/)).not.toBeInTheDocument(); // no grams known yet
     expect(screen.queryByRole('group', { name: 'Automatic relief' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/Set the colors into the base/)).not.toBeInTheDocument();
   });

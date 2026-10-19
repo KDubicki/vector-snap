@@ -41,6 +41,13 @@ export function solidWeight(volumeMm3: number, filament: Filament): number {
   return (volumeMm3 / 1000) * FILAMENTS[filament];
 }
 
+/** "≈ 0.4", "≈ 12": one decimal below 10 g; "< 0.1" for traces. */
+export function formatGrams(grams: number): string {
+  const tenths = Math.round(grams * 10) / 10;
+  if (tenths < 0.1) return '< 0.1';
+  return `≈ ${tenths >= 10 ? tenths.toFixed(0) : tenths.toFixed(1)}`;
+}
+
 export function formatMillimetres(value: number): string {
   return value >= 100 ? value.toFixed(0) : value.toFixed(1);
 }

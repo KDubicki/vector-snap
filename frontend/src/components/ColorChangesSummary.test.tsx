@@ -6,6 +6,7 @@ import { ColorChangesSummary } from './ColorChangesSummary';
 
 const kobraX = printerById('kobra-x');
 const changes = {
+  filaments: [],
   layers: 24,
   changes: 57,
   max_colors_per_layer: 8,

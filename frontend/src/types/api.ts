@@ -96,6 +96,8 @@ export interface ModelSize {
 
 /** Filament changes of a multi-color printer (`POST /export/color-changes`). */
 export interface ColorChanges {
+  /** Per distinct color, in 3MF filament order: solid volume and weight (PLA). */
+  filaments: { color: string; volume_mm3: number; grams: number }[];
   layers: number;
   changes: number;
   max_colors_per_layer: number;

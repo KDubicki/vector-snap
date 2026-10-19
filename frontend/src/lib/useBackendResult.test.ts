@@ -47,6 +47,7 @@ describe('useBackendResult', () => {
 
   it('asks for the color changes with their options', async () => {
     const changes = {
+      filaments: [],
       layers: 10,
       changes: 9,
       max_colors_per_layer: 2,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FILAMENTS, formatMillimetres, meshVolume, solidWeight } from './meshStats';
+import { FILAMENTS, formatGrams, formatMillimetres, meshVolume, solidWeight } from './meshStats';
 
 // Unit cube scaled to 10 mm as an indexed mesh with outward normals.
 const CUBE_VERTICES = [
@@ -35,5 +35,9 @@ describe('mesh stats', () => {
   it('formats millimetres', () => {
     expect(formatMillimetres(12.345)).toBe('12.3');
     expect(formatMillimetres(150.4)).toBe('150');
+  });
+
+  it('formats grams with one decimal below 10 g and traces as < 0.1', () => {
+    expect([0.04, 0.34, 9.96, 12.3].map(formatGrams)).toEqual(['< 0.1', '≈ 0.3', '≈ 10', '≈ 12']);
   });
 });
