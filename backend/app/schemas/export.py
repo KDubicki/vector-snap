@@ -36,6 +36,27 @@ def _parse_heights(raw: str, field_name: str) -> dict[str, float]:
     return {str(key): float(value) for key, value in values.items()}
 
 
+_TRUE = {"true", "1", "yes", "on"}
+_FALSE = {"false", "0", "no", "off"}
+
+
+def parse_flag(raw: str | None, field_name: str, default: bool) -> bool:
+    """A true/false form field whose default is `true`.
+
+    FastAPI 0.149 reads a missing `bool` form field as an unchecked HTML checkbox, i.e.
+    false, whatever its default; such fields are taken as text and parsed here instead,
+    so leaving them out keeps the default.
+    """
+    if raw is None or raw == "":
+        return default
+    value = raw.strip().lower()
+    if value in _TRUE:
+        return True
+    if value in _FALSE:
+        return False
+    raise InvalidParameters(f"`{field_name}` must be true or false.", {"field": field_name})
+
+
 def parse_layer_heights(raw: str) -> dict[int, float]:
     """Parse `{"<paletteIndex>": <mm>, ...}` sent as a multipart form field."""
     heights: dict[int, float] = {}

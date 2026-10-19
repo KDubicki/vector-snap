@@ -169,6 +169,24 @@ def test_3mf_assigns_filaments_for_slicers_unless_turned_off(client: TestClient)
         assert not any(name.startswith("Metadata/") for name in package.namelist())
 
 
+def test_true_by_default_flags_keep_their_default_when_left_out(client: TestClient) -> None:
+    # FastAPI 0.149 reads a missing `bool` form field as false; these are parsed instead.
+    stepped = read_binary_stl(_post(client, "stl", {"base_mm": "1"}).content)
+    flat = read_binary_stl(_post(client, "stl", {"base_mm": "1", "layered": "no"}).content)
+    assert stepped[..., 2].max() > flat[..., 2].max()
+    names = zipfile.ZipFile(
+        io.BytesIO(_post(client, "3mf", {"layered": "TRUE"}).content)
+    ).namelist()
+    assert {"Metadata/model_settings.config", "Metadata/thumbnail.png"} <= set(names)
+
+
+def test_flags_must_be_true_or_false(client: TestClient) -> None:
+    response = _post(client, "3mf", {"thumbnail": "maybe"})
+
+    assert response.status_code == 422
+    assert response.json()["error"]["message"] == "`thumbnail` must be true or false."
+
+
 def test_3mf_rejects_unknown_layout(client: TestClient) -> None:
     response = _post(client, "3mf", {"layout": "grid"})
 

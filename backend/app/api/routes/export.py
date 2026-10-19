@@ -16,6 +16,7 @@ from app.schemas.export import (
     ModelSizeResponse,
     parse_color_stacks,
     parse_filaments,
+    parse_flag,
     parse_layer_heights,
     parse_shape_heights,
 )
@@ -66,7 +67,10 @@ def stl_options(
     width_mm: Annotated[float, Form(gt=0, le=10_000, description="Model width")] = 100.0,
     base_mm: Annotated[float, Form(ge=0, le=100, description="Base plate thickness")] = 1.0,
     layer_mm: Annotated[float, Form(gt=0, le=100, description="Height per color layer")] = 1.0,
-    layered: Annotated[bool, Form(description="Stack color layers at increasing heights")] = True,
+    layered: Annotated[
+        str | None,
+        Form(description="Stack color layers at increasing heights (true or false, default true)"),
+    ] = None,
     layer_heights: Annotated[
         str, Form(description='Per-color height, e.g. {"0": 0, "2": 3.5}; 0 omits a color')
     ] = "{}",
@@ -141,7 +145,7 @@ def stl_options(
         width_mm=width_mm,
         base_mm=base_mm,
         layer_mm=layer_mm,
-        layered=layered,
+        layered=parse_flag(layered, "layered", default=True),
         layer_heights=parse_layer_heights(layer_heights),
         shape_heights=parse_shape_heights(shape_heights),
         mirror=mirror,
@@ -212,15 +216,19 @@ async def export_to_3mf(
         Layout, Form(description="assembly: parts of one model; objects: separate models")
     ] = "assembly",
     slicer_config: Annotated[
-        bool,
+        str | None,
         Form(
             description="Assign a filament in its color to every part for Orca-based slicers "
-            "(Anycubic Slicer Next, OrcaSlicer, Bambu Studio)"
+            "(Anycubic Slicer Next, OrcaSlicer, Bambu Studio); true or false, default true"
         ),
-    ] = True,
+    ] = None,
     thumbnail: Annotated[
-        bool, Form(description="Top view of the colored model as the package thumbnail (PNG)")
-    ] = True,
+        str | None,
+        Form(
+            description="Top view of the colored model as the package thumbnail (PNG); "
+            "true or false, default true"
+        ),
+    ] = None,
 ) -> Response:
     """Like STL, but one colored part per color in one model — for multi-color printers."""
     package = ThreeMfOptions(
@@ -228,8 +236,8 @@ async def export_to_3mf(
         designer=designer.strip(),
         description=description.strip(),
         layout=layout,
-        slicer_config=slicer_config,
-        thumbnail=thumbnail,
+        slicer_config=parse_flag(slicer_config, "slicer_config", default=True),
+        thumbnail=parse_flag(thumbnail, "thumbnail", default=True),
     )
     content = await run_in_threadpool(export_3mf, document, options, package)
     return _attachment(content, "model/3mf", "3mf")

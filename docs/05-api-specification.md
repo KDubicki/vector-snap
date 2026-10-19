@@ -239,6 +239,11 @@ Request: `multipart/form-data` with an `svg` file and format options; response: 
 as an attachment (`Content-Disposition: attachment; filename="vectorsnap.<ext>"`).
 Formats, options and geometry are described in [13-export-formats.md](13-export-formats.md).
 
+**True/false form fields** that default to `true` (`layered`, and `slicer_config` and
+`thumbnail` of the 3MF) are read as text — `true`/`false`, `1`/`0`, `yes`/`no`, `on`/`off`;
+anything else is `422 INVALID_PARAMETERS` — so leaving them out keeps the default.
+FastAPI 0.149 and later read a missing `bool` form field as an unchecked checkbox (false).
+
 | Format | Media type | Options |
 |--------|------------|---------|
 | `stl` | `model/stl` | `width_mm` (0–10000, default 100), `base_mm` (0–100, 1), `layer_mm` (0–100, 1), `layered` (bool, true), `layer_heights` (JSON `{"<index>": mm}`, 0 = omit), `shape_heights` (JSON `{"<shape id>": mm}`, per element, overrides its color; 0 = omit), `mirror` (bool, false), `origin` (`corner` \| `center`), `min_feature_mm` (0–10, 0), `simplify_mm` (0–2, 0), `color_gap_mm` (0–2, 0), `print_layer_mm` (0–1, 0), `base_shape` (`outline` \| `rectangle` \| `rounded` \| `circle`), `base_margin_mm` (0–100, 0), `stack_order` (`document` \| `light_to_dark` \| `dark_to_light`), `relief` (`raised` \| `inlay` \| `engrave`; inlay needs `base_mm` > deepest color; engrave cuts the colors out of the plate, `base_mm` ≥ deepest, equal = through), `rim_mm` (0–50, 0; needs `base_mm` > 0), `rim_height_mm` (0–100, 0 = tallest color), `loop_hole_mm` (0–20, 0; needs `base_mm` > 0), `magnet_mm` (0–50, 0), `magnet_depth_mm` (0–20, 2; ≤ `base_mm` − 0.4), `elephant_foot_mm` (0–0.5, 0; needs `base_mm` > 0), `filaments` (JSON `["#rrggbb", ...]`, up to 16; mixed colors), `color_stacks` (JSON `{"<index>": {"base": f, "top": [[f, mm], ...]}}`, filament indices, up to 8 top layers; required for every included color when `filaments` is set), `stl_format` (`binary` \| `ascii`) |
