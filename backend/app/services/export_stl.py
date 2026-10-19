@@ -9,7 +9,9 @@ plate follows the design's outline or is a rectangle, rounded rectangle or circl
 it, optionally with a raised rim along its edge; colors can be stacked in document order
 or by brightness. A hanging loop can be added at the top of the base plate, a magnet
 pocket in its underside, and its first layer inset against elephant's foot. With
-`relief="inlay"` the colors are set into the base plate instead, flush with its top.
+`relief="inlay"` the colors are set into the base plate instead, flush with its top;
+with `relief="engrave"` they are only cut out of it — lettering made of missing
+filament, a single-filament print — down to their height, or through the plate.
 Coordinates are converted to millimetres and the y axis is flipped (SVG y points down,
 STL z-up models are viewed from above with y up). The meshes come from `mesh`, the base
 plate from `base_plate`. `export_stl_parts` puts every body in an STL file of its own.
@@ -51,7 +53,7 @@ from app.services.svg_geometry import (
 # or by brightness.
 StackOrder = Literal["document", "light_to_dark", "dark_to_light"]
 # Colors stand on the base plate (`raised`) or are set into it, flush with its top (`inlay`).
-Relief = Literal["raised", "inlay"]
+Relief = Literal["raised", "inlay", "engrave"]
 # Where the model sits: the design's coordinates (`corner`: x and y from 0) or with the
 # middle of its footprint at x = y = 0 (`center`), e.g. for CAD or CNC tools.
 Origin = Literal["corner", "center"]
@@ -279,6 +281,15 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
         _check_stacks(included, options)
 
     base = base_height(options)
+    engrave = options.relief == "engrave"
+    if engrave and options.filaments:
+        raise InvalidParameters(
+            "An engraving is one filament: it cannot use mixed colors.", {"field": "filaments"}
+        )
+    if engrave and base <= 0:
+        raise InvalidParameters(
+            "An engraving needs a base plate to cut into (base_mm > 0).", {"field": "base_mm"}
+        )
     if options.loop_hole_mm > 0 and base <= 0:
         raise InvalidParameters(
             "A hanging loop needs a base plate (base_mm > 0).", {"field": "loop_hole_mm"}
@@ -302,17 +313,18 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
     bodies: list[Body] = []
     border: BaseGeometry = Polygon()
     silhouette: BaseGeometry = Polygon()
-    base_color = options.filaments[0] if options.filaments else included[0].layer.fill
+    base_color = _plate_color(document, included, options)
     if base > 0:
-        silhouette = printable(
-            unary_union([part.geometry for part in included]), options.min_feature_mm
-        )
+        outline = _design_outline(document, options) if engrave else [p.geometry for p in included]
+        silhouette = printable(unary_union(outline), options.min_feature_mm)
         silhouette = base_outline(silhouette, options.base_shape, options.base_margin_mm)
         border = rim(silhouette, options.rim_mm)
         silhouette = with_loop(silhouette, options.loop_hole_mm)
         pocket = magnet_pocket(silhouette, options.magnet_mm)
+        # Cut through (an engraving as deep as the plate): no solid plate below the cuts.
         parts = [
-            _plate(polygon, plate_top, pocket, options) for polygon in without_pinches(silhouette)
+            _plate(polygon, plate_top, pocket, options)
+            for polygon in (without_pinches(silhouette) if plate_top > 0 else [])
         ]
         if parts:
             bodies.append(Body("base", base_color, np.concatenate(parts)))
@@ -323,8 +335,9 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
         visible = [_with_gap(geometry, options.color_gap_mm) for geometry in visible]
     if plate_top < base:
         bodies.extend(_inlay_bands(silhouette, included, visible, base, base_color, options))
-    make_bodies = _filament_bodies if options.filaments else _color_bodies
-    bodies.extend(make_bodies(included, visible, base, options))
+    if not engrave:  # an engraving leaves the cut colors empty
+        make_bodies = _filament_bodies if options.filaments else _color_bodies
+        bodies.extend(make_bodies(included, visible, base, options))
     if not border.is_empty:
         bodies.extend(_rim_body(border, included, base, base_color, options))
     if not bodies:
@@ -345,16 +358,47 @@ def _placed(bodies: list[Body], origin: Origin) -> list[Body]:
     return [Body(body.name, body.color, body.triangles - shift) for body in bodies]
 
 
+def _design_outline(document: VectorDocument, options: StlOptions) -> list[BaseGeometry]:
+    """Every shape of the design, whatever its height: the area an engraving is cut into."""
+    shapes = [shape for layer in document.layers for shape in layer.shapes]
+    return [_in_millimetres(shapes_geometry(shapes), document, options)] if shapes else []
+
+
+def _plate_color(document: VectorDocument, parts: list[_Part], options: StlOptions) -> str:
+    """The base plate's filament: the first loaded filament for mixed colors, the bottom
+    color left solid for an engraving, else the bottom printed color."""
+    if options.filaments:
+        return options.filaments[0]
+    if options.relief == "engrave":
+        cut = {id(part.layer) for part in parts}
+        layers = stack_layers(
+            document.layers, [layer.fill for layer in document.layers], options.stack_order
+        )
+        solid = [layer for layer in layers if id(layer) not in cut and layer.shapes]
+        if solid:
+            return solid[0].fill
+    return parts[0].layer.fill
+
+
 def _bottom(part: _Part, base: float, options: StlOptions) -> float:
     """Where a part starts: on top of the base plate, or sunk its height into it."""
     return base - part.height if options.relief == "inlay" else base
 
 
 def _deepest_inlay(parts: list[_Part], base: float, options: StlOptions) -> float:
-    """How deep the inlaid colors reach into the base plate (0 for raised colors)."""
-    if options.relief != "inlay":
+    """How deep the inlaid or engraved colors reach into the base plate (0 for raised
+    colors). An engraving may go through the plate."""
+    if options.relief == "raised":
         return 0.0
     deepest = max(part.height for part in parts)
+    if options.relief == "engrave":
+        if deepest > base + 1e-9:
+            raise InvalidParameters(
+                f"Engraved colors cannot be deeper than the base plate ({base:g} mm); the "
+                f"deepest is {deepest:g} mm. As deep as the plate cuts through.",
+                {"field": "base_mm"},
+            )
+        return deepest
     if deepest > base - 1e-9:
         raise InvalidParameters(
             f"Inlaid colors need a base plate thicker than the deepest color ({deepest:g} mm); "

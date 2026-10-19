@@ -209,7 +209,8 @@ def test_thumbnail_shows_the_colors_seen_from_above() -> None:
     assert image.size == (256, 256)
     # 40 x 20 mm, centered (rows 69-187); the base plate follows the design's outline.
     assert _rgba(image, 5, 5)[3] == 0  # transparent around the model
-    assert _rgba(image, 20, 128)[:3] == (0x11, 0x22, 0x33)  # frame
+    # Shaded by height: the frame's top (2 mm) is darker than the dot's (3 mm, the top).
+    assert _rgba(image, 20, 128)[:3] == (14, 29, 43)  # frame, #112233 at 0.85
     assert _rgba(image, 68, 128)[3] == 0  # the frame's hole goes through the base
     assert _rgba(image, 216, 128 - 25)[:3] == (0xFF, 0x00, 0x00)  # dot, top right
 
@@ -219,3 +220,14 @@ def test_thumbnail_can_be_left_out() -> None:
     with zipfile.ZipFile(io.BytesIO(data)) as package:
         assert THUMBNAIL_PATH not in package.namelist()
         assert b"thumbnail" not in package.read("_rels/.rels")
+
+
+def test_thumbnail_shows_an_engraving_in_the_plates_color() -> None:
+    options = StlOptions(width_mm=40, base_mm=2, relief="engrave", layer_heights={0: 0, 1: 1})
+    data = export_3mf(parse_svg(SVG), options)
+    with zipfile.ZipFile(io.BytesIO(data)) as package:
+        image = Image.open(io.BytesIO(package.read(THUMBNAIL_PATH))).convert("RGBA")
+
+    plate, engraved = _rgba(image, 20, 128), _rgba(image, 216, 128 - 25)
+    assert plate[:3] == (0x11, 0x22, 0x33)
+    assert engraved[:3] < plate[:3]  # 1 mm lower, darker

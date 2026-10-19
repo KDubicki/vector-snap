@@ -97,7 +97,11 @@ def stl_options(
         StackOrder, Form(description="Bottom-to-top color order: document or by brightness")
     ] = "document",
     relief: Annotated[
-        Relief, Form(description="Colors raised on the base plate, or inlaid flush into it")
+        Relief,
+        Form(
+            description="Colors raised on the base plate, inlaid flush into it, or engraved "
+            "(cut out of it: lettering made of missing filament)"
+        ),
     ] = "raised",
     origin: Annotated[
         Origin, Form(description="corner: x and y from 0; center: footprint centered on 0")

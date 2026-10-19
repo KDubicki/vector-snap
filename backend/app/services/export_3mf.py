@@ -49,6 +49,8 @@ THUMBNAIL_RELATIONSHIP = (
 # Thumbnail edge (px), drawn at SUPERSAMPLE times the size for smooth edges.
 THUMBNAIL_PX = 256
 SUPERSAMPLE = 4
+# Brightness of faces at z = 0 in the thumbnail; the model's top is drawn in full color.
+SHADE_FLOOR = 0.55
 MODEL_PATH = "3D/3dmodel.model"
 # Orca / Bambu Studio project files: filament per object and part, and filament colors.
 MODEL_SETTINGS_PATH = "Metadata/model_settings.config"
@@ -155,7 +157,8 @@ def model_xml(bodies: list[Body], options: ThreeMfOptions | None = None) -> str:
 
 def thumbnail_png(bodies: list[Body], size_px: int = THUMBNAIL_PX) -> bytes:
     """Top view of the model in its colors on a transparent background: the upward faces
-    of every body, lower bodies first, so the colors seen from above end up on top."""
+    of every body, lower bodies first, so the colors seen from above end up on top, and
+    shaded by height, so an engraving in the plate's own color still shows."""
     points = np.concatenate([body.triangles.reshape(-1, 3) for body in bodies])
     low, high = points[:, :2].min(axis=0), points[:, :2].max(axis=0)
     canvas = size_px * SUPERSAMPLE
@@ -164,16 +167,21 @@ def thumbnail_png(bodies: list[Body], size_px: int = THUMBNAIL_PX) -> bytes:
     offset = (canvas - (high - low) * scale) / 2  # centered
     image = Image.new("RGBA", (canvas, canvas), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
+    top_z = max(float(points[:, 2].max()), 1e-9)
     for body in sorted(bodies, key=lambda item: float(item.triangles[..., 2].max())):
         triangles = body.triangles
         normals_z = np.cross(triangles[:, 1] - triangles[:, 0], triangles[:, 2] - triangles[:, 0])[
             :, 2
         ]
-        top = triangles[normals_z > 0][..., :2]
-        pixels = (top - low) * scale + offset
+        top = triangles[normals_z > 0]
+        pixels = (top[..., :2] - low) * scale + offset
         pixels[..., 1] = canvas - pixels[..., 1]  # image rows grow downwards
-        for triangle in pixels.tolist():
-            draw.polygon([tuple(point) for point in triangle], fill=body.color)
+        red, green, blue = (int(body.color[i : i + 2], 16) for i in (1, 3, 5))
+        for triangle, z in zip(pixels.tolist(), top[:, 0, 2].tolist(), strict=True):
+            # Lower faces darker, so engravings and raised colors show from above.
+            shade = SHADE_FLOOR + (1 - SHADE_FLOOR) * z / top_z
+            fill = (round(red * shade), round(green * shade), round(blue * shade))
+            draw.polygon([tuple(point) for point in triangle], fill=fill)
     buffer = io.BytesIO()
     image.resize((size_px, size_px), Image.Resampling.LANCZOS).save(buffer, "PNG", optimize=True)
     return buffer.getvalue()

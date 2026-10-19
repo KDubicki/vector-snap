@@ -59,7 +59,7 @@ curl -F svg=@logo.svg -F width_mm=120 -F base_mm=1.5 -F layer_mm=0.8 \
 | `filaments` | `[]` | **Mixed colors**: JSON list of the loaded filaments `["#rrggbb", ...]` (up to 16; e.g. the 4 AMS slots). The first one prints the base plate. With filaments, bodies are made per filament (see [Mixed colors](#mixed-colors-filament-stacks)) |
 | `color_stacks` | `{}` | With `filaments`: per palette index `{"base": f, "top": [[f, mm], ...]}` — filament indices; `top` lists thin layers from the top surface down (up to 8), `base` fills the rest of the color's height. Every included color needs one |
 | `stack_order` | `document` | Bottom-to-top order of the colors for automatic heights: `document` (as in the SVG — largest coverage at the bottom), `light_to_dark` or `dark_to_light` |
-| `relief` | `raised` | `raised`: colors stand on the base plate; `inlay`: every color is sunk its height into the plate, flush with its top — a flat multi-color surface (coasters, signs, multi-material prints). The plate must be thicker than the deepest color |
+| `relief` | `raised` | `raised`: colors stand on the base plate; `inlay`: every color is sunk its height into the plate, flush with its top — a flat multi-color surface (coasters, signs, multi-material prints). The plate must be thicker than the deepest color; `engrave`: the colors are only cut out of the plate (lettering of missing filament, one filament), as deep as the plate = through |
 | `rim_mm` | `0` | Raised rim along the outer edge of the base plate, this wide (0–50 mm) — coasters, signs, badges; needs `base_mm > 0`. `0` = no rim |
 | `rim_height_mm` | `0` | Rim height above the base plate (0–100 mm); `0` = as high as the tallest color |
 | `loop_hole_mm` | `0` | Hanging loop on top of the base plate with a hole of this diameter (0–20 mm) — keyrings, ornaments, hooks; needs `base_mm > 0`. `0` = no loop |
@@ -169,6 +169,19 @@ Model construction:
   `422 INVALID_PARAMETERS`. All colors end at the plate's top, so a single-extruder
   filament plan cannot separate them (it reports a conflict): inlays are for
   multi-material printers.
+- **Engrave / cut out** (`relief=engrave`): lettering made of **missing filament**. The
+  included colors (height > 0) are only cut out of the base plate, to their height; the
+  colors left out (height 0) stay solid plate. The plate follows the whole design (or the
+  chosen shape around it), so there is something to cut into, and takes the filament of
+  the bottom color left solid. The bodies are those of the inlay — `base` below the
+  deepest cut and the `base-<bottom>-<top>mm` bands — without the colored parts, so the
+  model is **one filament**: no filament changes, simple to print on any printer.
+  A color as deep as the plate **cuts through** (a stencil): there is no solid `base`, and
+  areas enclosed by a cut-through color — the inside of an "O" or "A" — stay as loose
+  pieces that are printed but not held by the plate. Deeper than the plate, no base plate
+  or mixed colors (`filaments`) are `422 INVALID_PARAMETERS`. Checked with Anycubic
+  Slicer Next (Kobra X profile): both an engraved and a cut-through plate slice with one
+  filament (T0 only). The 3MF thumbnail is shaded by height, so an engraving shows.
 - **Stack order** (`stack_order`): with `light_to_dark` / `dark_to_light` the colors are
   ranked by WCAG relative luminance (equally bright colors keep the document order)
   before automatic heights are assigned, so e.g. dark outlines and text end up on top

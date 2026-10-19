@@ -757,6 +757,63 @@ def test_inlay_keeps_the_magnet_pocket_below_the_colors() -> None:
         _export(options, [("#000000", [FRAME])])
 
 
+GROUPS = [("#000000", [FRAME]), ("#ff0000", [DOT])]
+
+
+def test_engraving_cuts_the_lettering_out_of_a_one_color_plate() -> None:
+    # The red dot (the "lettering") is cut 1 mm into a 2 mm plate; the black frame,
+    # left out with height 0, stays solid plate. No colored bodies: one filament.
+    options = StlOptions(width_mm=40, base_mm=2, relief="engrave", layer_heights={0: 0, 1: 1})
+
+    bodies = _bodies(options, GROUPS)
+
+    assert list(bodies) == ["base", "base-1-2mm"]
+    assert {body.color for body in bodies.values()} == {"#000000"}
+    assert all(is_closed(body.triangles) for body in bodies.values())
+    assert {name: _z_range(body) for name, body in bodies.items()} == {
+        "base": (0.0, 1.0),
+        "base-1-2mm": (1.0, 2.0),
+    }
+    # The plate follows the whole design (frame 300 + dot 100 mm²), the dot 1 mm deep.
+    everything = np.concatenate([body.triangles for body in bodies.values()])
+    assert signed_volume(everything) == pytest.approx(400 * 2 - 100 * 1)
+
+
+def test_engraving_as_deep_as_the_plate_cuts_through() -> None:
+    options = StlOptions(
+        width_mm=40,
+        base_mm=2,
+        relief="engrave",
+        base_shape="rectangle",
+        layer_heights={0: 2, 1: 0},
+    )
+
+    bodies = _bodies(options, GROUPS)
+
+    # A 40 x 20 mm stencil: the frame is a hole; its inside (10 x 10 mm, like the inside
+    # of an "O") stays as a loose piece, printed but not held by the plate.
+    assert list(bodies) == ["base-0-2mm"]
+    assert _z_range(bodies["base-0-2mm"]) == (0.0, 2.0)
+    assert signed_volume(bodies["base-0-2mm"].triangles) == pytest.approx((800 - 300) * 2)
+
+
+def test_engraving_needs_a_plate_and_one_filament() -> None:
+    with pytest.raises(InvalidParameters, match="deeper than the base plate"):
+        _export(StlOptions(base_mm=2, relief="engrave", layer_heights={0: 3}), GROUPS)
+    with pytest.raises(InvalidParameters, match="needs a base plate"):
+        _export(StlOptions(base_mm=0, relief="engrave"), GROUPS)
+    with pytest.raises(InvalidParameters, match="one filament"):
+        _export(
+            StlOptions(
+                base_mm=2,
+                relief="engrave",
+                filaments=("#ffffff",),
+                color_stacks={0: ColorStack(0), 1: ColorStack(0)},
+            ),
+            GROUPS,
+        )
+
+
 def test_center_origin_centers_the_footprint_on_zero() -> None:
     groups = [("#000000", [FRAME]), ("#ff0000", [DOT])]
     corner = _export(StlOptions(width_mm=40, base_mm=1, base_margin_mm=2), groups)
