@@ -264,8 +264,8 @@ describe('PrintStep', () => {
   it('shows the filament each color takes and the total, for any printer', async () => {
     render(<PrintStep />);
 
-    expect(await screen.findByText(/≈ 12 g$/)).toBeInTheDocument(); // white, base plate included
-    expect(screen.getByText(/≈ 0.3 g$/)).toBeInTheDocument();
+    expect(await screen.findByText('≈ 12 g')).toBeInTheDocument(); // white, base plate included
+    expect(screen.getByText('≈ 0.3 g')).toBeInTheDocument();
     expect(summary()).toContain('≈ 12 g of filament (solid)');
     expect(screen.queryByText(/filament changes/)).not.toBeInTheDocument(); // no change cost
   });
@@ -277,7 +277,7 @@ describe('PrintStep', () => {
     });
     render(<PrintStep />);
 
-    expect(await screen.findByText(/too thin to print/)).toBeInTheDocument();
+    expect(await screen.findByText('too thin')).toBeInTheDocument();
   });
 
   it('shows the footprint of the model as exported, for any printer', async () => {

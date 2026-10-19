@@ -1367,7 +1367,7 @@ select {
 }
 
 .print-colors li {
-  grid-template-columns: auto auto minmax(0, 1fr) 60px 56px;
+  grid-template-columns: auto auto minmax(0, 1fr) 60px minmax(56px, auto);
 }
 
 .print-colors input[type='number'] {
@@ -1377,6 +1377,11 @@ select {
 .print-colors li .hint {
   white-space: nowrap;
   text-align: right;
+}
+
+/* The filament a color takes, on its own line under the height. */
+.print-colors__grams {
+  display: block;
 }
 
 .print-summary {

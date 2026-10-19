@@ -271,7 +271,7 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
   holes, so they show none.
 - **Filament per color**: the color-changes request also runs for *Any printer* (with no
   change cost) and gives the filament each color takes. The colors table shows it next to
-  each height (*0.4 mm · ≈ 1.3 g*; the bottom color includes the base plate) and the
+  each height, on a second line (*≈ 1.3 g*; the bottom color includes the base plate; *too thin* when every shape is thinner than the nozzle, so the backend leaves the color out) and the
   summary adds the total (*≈ 12 g of filament (solid)*). It is the solid volume in PLA, an
   upper bound: slicers fill the inside sparsely (Anycubic Slicer Next: 3.64 g for 4.46 g
   solid on a 2 mm plate). Mixed colors show only the total, as their filaments are not

@@ -98,10 +98,17 @@ export function PrintColorsTable({
                     grams !== undefined &&
                     grams.size > 0 &&
                     (grams.has(group.fill) ? (
-                      <> · {formatGrams(grams.get(group.fill)!)} g</>
+                      <span className="print-colors__grams">
+                        {formatGrams(grams.get(group.fill)!)} g
+                      </span>
                     ) : (
                       // Every shape thinner than the nozzle: the backend leaves it out.
-                      <> · too thin to print</>
+                      <span
+                        className="print-colors__grams"
+                        title="Every shape of this color is thinner than the nozzle, so it is not printed."
+                      >
+                        too thin
+                      </span>
                     ))}
                 </span>
               </li>
