@@ -29,6 +29,8 @@ dev = [
     "ruff>=0.6",
     "mypy>=1.11",
     "pip-audit>=2.7",
+    # Pulled in by httpx and pip-audit; older versions have GHSA-6q48-6c7w-9gw2.
+    "certifi>=2026.10.19",
     "pypdfium2>=4.30",
 ]
 
