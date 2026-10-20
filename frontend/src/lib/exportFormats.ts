@@ -175,9 +175,23 @@ const MODEL_OPTIONS: ExportOption[] = [
     min: 0,
     max: 20,
     step: 0.5,
-    hint: 'Adds a loop at the top of the base plate for a keyring or hook, with a hole of this diameter (e.g. 4). 0 = no loop.',
+    hint: 'Adds a loop to the base plate for a keyring or hook, with a hole of this diameter (e.g. 4). 0 = no loop.',
     check: (value, values) =>
       value > 0 && !(Number(values.base_mm) > 0) ? 'A hanging loop needs a base plate.' : null,
+  },
+  {
+    type: 'choice',
+    name: 'loop_position',
+    section: BASE_EXTRAS,
+    label: 'Hanging loop side',
+    default: 'top',
+    choices: [
+      { value: 'top', label: 'Top' },
+      { value: 'right', label: 'Right' },
+      { value: 'bottom', label: 'Bottom' },
+      { value: 'left', label: 'Left' },
+    ],
+    hint: 'Side of the base plate the loop sticks out of.',
   },
   {
     type: 'number',

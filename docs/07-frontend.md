@@ -219,7 +219,7 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
   shape id and sent as `shape_heights` (color height + extra layers), so the backend
   prints them as their own parts — e.g. letters 3 layers above a flat AMS sign.
 - **Base plate**: shape (outline, rectangle, rounded, circle), border, raised rim (as
-  high as the colors), hanging loop,
+  high as the colors), hanging loop (with the side it sticks out of, `loop_position`),
   magnet pocket (depth checked against the base), and
   **Set the colors into the base (flat top)** (`inlay`, sent as `relief=inlay`): colors
   sink their height into the plate, which must then be thicker than the tallest color —

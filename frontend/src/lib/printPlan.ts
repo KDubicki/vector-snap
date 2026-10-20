@@ -11,6 +11,8 @@ import { bestRecipe, colorStacks, type Filament, type MixMatch } from './mixing'
 import { nozzleOf, printerById, type PrinterId } from './printers';
 
 export type BaseShape = 'outline' | 'rectangle' | 'rounded' | 'circle';
+/** Side of the base plate the hanging loop sticks out of. */
+export type LoopPosition = 'top' | 'right' | 'bottom' | 'left';
 
 /**
  * flat: every color has the same height, so the top is level — multi-color printers
@@ -55,6 +57,7 @@ export interface PrintSettings {
   rimMm: number;
   /** Hanging loop hole diameter (mm); 0 = no loop. */
   loopHoleMm: number;
+  loopPosition: LoopPosition;
   /** Magnet pocket diameter (mm); 0 = none. */
   magnetMm: number;
   magnetDepthMm: number;
@@ -109,6 +112,7 @@ const COMMON: ProjectSettings = {
   marginMm: 0,
   rimMm: 0,
   loopHoleMm: 0,
+  loopPosition: 'top',
   magnetMm: 0,
   magnetDepthMm: 2,
   inlay: false,
@@ -330,6 +334,7 @@ export function printOptions(
     rim_mm: settings.rimMm,
     rim_height_mm: 0,
     loop_hole_mm: settings.loopHoleMm,
+    loop_position: settings.loopPosition,
     magnet_mm: settings.magnetMm,
     magnet_depth_mm: settings.magnetDepthMm,
     relief: settings.style === 'cutout' ? 'engrave' : settings.inlay ? 'inlay' : 'raised',

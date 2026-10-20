@@ -146,6 +146,10 @@ describe('print plan', () => {
       rimMm: 'A rim needs a base.',
     });
     expect(printOptions(doc, settings({ rimMm: 2 }))).toMatchObject({ rim_mm: 2 });
+    expect(printOptions(doc, settings({ loopHoleMm: 4, loopPosition: 'left' }))).toMatchObject({
+      loop_hole_mm: 4,
+      loop_position: 'left',
+    });
   });
 });
 

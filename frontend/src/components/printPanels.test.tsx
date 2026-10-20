@@ -260,6 +260,21 @@ describe('BasePlateFields', () => {
     expect(onChange).toHaveBeenLastCalledWith({ magnetDepthMm: 1.5 });
     expect(screen.getByText(/Needs a base of at least 12 layers/)).toBeInTheDocument();
   });
+
+  it('asks for the side of the hanging loop only with a loop', () => {
+    const onChange = vi.fn();
+    const { rerender } = render(
+      <BasePlateFields settings={settings()} errors={{}} onChange={onChange} />,
+    );
+    expect(screen.queryByLabelText('Loop on the')).not.toBeInTheDocument();
+
+    rerender(
+      <BasePlateFields settings={settings({ loopHoleMm: 4 })} errors={{}} onChange={onChange} />,
+    );
+    expect(screen.getByLabelText('Loop on the')).toHaveValue('top');
+    fireEvent.change(screen.getByLabelText('Loop on the'), { target: { value: 'left' } });
+    expect(onChange).toHaveBeenLastCalledWith({ loopPosition: 'left' });
+  });
 });
 
 describe('PrinterTuningFields', () => {

@@ -22,6 +22,7 @@ const CHOICES: Partial<Record<keyof PrintPreset, readonly string[]>> = {
   printer: PRINTERS.map((printer) => printer.id),
   style: ['flat', 'stepped', 'mixed', 'cutout'],
   baseShape: ['outline', 'rectangle', 'rounded', 'circle'],
+  loopPosition: ['top', 'right', 'bottom', 'left'],
 };
 
 export function presetJson(settings: PrintSettings): string {

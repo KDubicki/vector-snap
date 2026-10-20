@@ -1,4 +1,4 @@
-import type { BaseShape, PrintSettings } from '../lib/printPlan';
+import type { BaseShape, LoopPosition, PrintSettings } from '../lib/printPlan';
 import { NumberField } from './NumberField';
 
 const BASE_SHAPES: { value: BaseShape; label: string }[] = [
@@ -6,6 +6,13 @@ const BASE_SHAPES: { value: BaseShape; label: string }[] = [
   { value: 'rectangle', label: 'Rectangle' },
   { value: 'rounded', label: 'Rounded rectangle' },
   { value: 'circle', label: 'Circle' },
+];
+
+const LOOP_POSITIONS: { value: LoopPosition; label: string }[] = [
+  { value: 'top', label: 'Top' },
+  { value: 'right', label: 'Right' },
+  { value: 'bottom', label: 'Bottom' },
+  { value: 'left', label: 'Left' },
 ];
 
 interface BasePlateFieldsProps {
@@ -69,6 +76,22 @@ export function BasePlateFields({
           error={errors.loopHoleMm}
           onChange={(loopHoleMm) => update({ loopHoleMm })}
         />
+        {print.loopHoleMm > 0 && (
+          <div className="option">
+            <label htmlFor="print-loop-position">Loop on the</label>
+            <select
+              id="print-loop-position"
+              value={print.loopPosition}
+              onChange={(event) => update({ loopPosition: event.target.value as LoopPosition })}
+            >
+              {LOOP_POSITIONS.map((position) => (
+                <option key={position.value} value={position.value}>
+                  {position.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <NumberField
           id="print-magnet"
           label="Magnet pocket diameter (mm)"

@@ -22,6 +22,7 @@ describe('export formats', () => {
       rim_mm: 0,
       rim_height_mm: 0,
       loop_hole_mm: 0,
+      loop_position: 'top',
       magnet_mm: 0,
       magnet_depth_mm: 2,
       min_feature_mm: 0,
