@@ -22,7 +22,7 @@ import { formatGrams, formatMillimetres } from '../lib/meshStats';
 import { nearestFilaments } from '../lib/paletteAdvice';
 import { printerById } from '../lib/printers';
 import { useExport } from '../lib/useExport';
-import { useColorChanges, useModelSize } from '../lib/useBackendResult';
+import { usePrintStats } from '../lib/usePrintStats';
 import { useAppStore } from '../state/store';
 import type { FilamentPlan } from '../types/api';
 import { ApiCommand } from './ApiCommand';
@@ -91,19 +91,13 @@ export function PrintStep() {
   const errors = editor ? validatePrint(editor, print) : {};
   const invalid = Object.keys(errors).length > 0;
   const options = editor ? printOptions(editor, print) : {};
-  // The size of the model as exported (border, round plate and loop included); invalid
-  // settings have none.
-  const size = useModelSize(svg ?? '', options, Boolean(svg && !invalid));
-  const changes = useColorChanges(
+  // Invalid settings have no size or filament use.
+  const { size, changes, grams, slots, totalGrams } = usePrintStats(
     svg ?? '',
-    { ...options, change_s: printer.changeS, purge_mm3: printer.purgeMm3 },
-    // Asked for every printer: it also gives the filament each color takes.
+    options,
+    printer,
     Boolean(svg && !invalid),
   );
-  const grams = new Map(changes?.filaments.map((use) => [use.color, use.grams]));
-  // The 3MF numbers its filaments in this order (base plate's color first): the slots.
-  const slots = new Map(changes?.filaments.map((use, index) => [use.color, index + 1]));
-  const totalGrams = changes?.filaments.reduce((sum, use) => sum + use.grams, 0);
 
   if (!editor || !svg) return null;
 

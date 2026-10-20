@@ -268,7 +268,9 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
   hanging loop included, which the width alone does not tell).
 - **Build volume** (`BuildVolumeCheck`, printers with a known build volume): 500 ms after
   the settings stop changing the panel asks the backend for the model's size
-  (`POST /export/model-size`, `useModelSize` in `src/lib/useBackendResult.ts`) — border, round plate and loop included —
+  (`POST /export/model-size`; `usePrintStats` in `src/lib/usePrintStats.ts` asks for it
+  and for the color changes, which it turns into each color's grams and filament slot)
+  — border, round plate and loop included —
   and says *Model 102.4 × 108.4 × 4.8 mm — fits the Anycubic Kobra X*, or names what is
   too large (*300 mm wide (max 260)*). **Fit to the bed** sets the largest whole-mm width
   whose footprint fits (`fitWidthMm`: border and loop keep their size when the design
