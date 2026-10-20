@@ -98,12 +98,18 @@ describe('PrintStep', () => {
     const [format, svg, options] = vi.mocked(exportFile).mock.calls[0];
     expect(format).toBe('3mf');
     expect(svg).toContain('id="p-1-0"');
-    expect(options).toMatchObject({ base_mm: 1.6, layered: false, stack_order: 'document' });
+    expect(options).toMatchObject({
+      base_mm: 1.6,
+      layered: false,
+      stack_order: 'document',
+      title: 'logo',
+    });
 
     vi.mocked(exportFile).mockResolvedValueOnce(new Blob(['zip']));
     await user.click(screen.getByRole('button', { name: 'STL per color (ZIP)' }));
     await waitFor(() => expect(download).toHaveBeenCalledWith(expect.any(Blob), 'logo.parts.zip'));
     expect(vi.mocked(exportFile).mock.lastCall?.[0]).toBe('stl-parts');
+    expect(vi.mocked(exportFile).mock.lastCall?.[2]).not.toHaveProperty('title');
 
     vi.mocked(exportFile).mockRejectedValueOnce(new Error('Backend down'));
     await user.click(screen.getByRole('button', { name: 'Download STL' }));

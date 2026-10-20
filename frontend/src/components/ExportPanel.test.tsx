@@ -65,6 +65,18 @@ describe('ExportPanel', () => {
     expect(JSON.parse(String(options.layer_heights))).toEqual({ '0': 0, '1': 3 });
   });
 
+  it('names the 3MF model after the image', async () => {
+    const u = user();
+    vi.mocked(exportFile).mockResolvedValue(new Blob(['3mf']));
+    await renderPanel();
+
+    await u.click(screen.getByRole('radio', { name: '3MF' }));
+    await u.click(screen.getByRole('button', { name: 'Export 3MF' }));
+
+    await waitFor(() => expect(download).toHaveBeenCalledWith(expect.any(Blob), 'logo.3mf'));
+    expect(vi.mocked(exportFile).mock.calls[0][2]).toMatchObject({ title: 'logo' });
+  });
+
   it('starts with a flat model and resets raised colors to flat', async () => {
     const u = user();
     vi.mocked(exportFile).mockResolvedValue(new Blob(['stl']));

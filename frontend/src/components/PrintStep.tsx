@@ -1,7 +1,7 @@
 import { Suspense, lazy, useMemo, useState } from 'react';
 import { errorMessage, exportFile, getFilamentPlan } from '../api/client';
 import { serializeSvg } from '../editor/export';
-import { exportFileName } from '../lib/exportFormats';
+import { exportFileName, modelTitle } from '../lib/exportFormats';
 import {
   filamentsNeeded,
   heightPlan,
@@ -111,13 +111,15 @@ export function PrintStep() {
           availableFilaments(filamentLibrary),
         )
       : undefined;
+  // The 3MF also names the model in the slicer after the image.
+  const model = { ...options, title: modelTitle(file?.name) };
   // Previews and plans remember what they were built from, so stale ones are marked.
   const key = JSON.stringify([svg, options]);
   const mm = (layers: number) => layersToMm(layers, print.layerMm);
   const update = (change: Partial<PrintSettings>) => setPrint(change);
   const showPreview = () => {
     setPreview({
-      request: { kind: '3mf', load: (signal) => exportFile('3mf', svg, options, signal) },
+      request: { kind: '3mf', load: (signal) => exportFile('3mf', svg, model, signal) },
       key,
     });
     setView('model');
@@ -125,7 +127,7 @@ export function PrintStep() {
 
   const run = (format: PrintFormat) =>
     job.run(
-      (signal) => exportFile(format, svg, options, signal),
+      (signal) => exportFile(format, svg, format === '3mf' ? model : options, signal),
       exportFileName(file?.name, format === 'stl-parts' ? 'parts.zip' : format),
     );
 
@@ -338,7 +340,7 @@ export function PrintStep() {
         {plan && print.style === 'stepped' && plan.key === key && (
           <FilamentPlanView plan={plan.plan} />
         )}
-        {!invalid && <ApiCommand options={options} fileName={file?.name} />}
+        {!invalid && <ApiCommand options={model} fileName={file?.name} />}
         <button type="button" className="link" onClick={() => goTo('result')}>
           Back to the SVG editor
         </button>

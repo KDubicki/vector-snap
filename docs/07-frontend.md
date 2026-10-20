@@ -319,7 +319,9 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
   settings, since heights are counted in layers.
 - Summary of the total height, **Download 3MF** (one part per color → AMS slots in the
   slicer) or **STL**, a 3D preview (marked stale when settings change) and cancellable
-  progress.
+  progress. The 3MF (here and in the export panel) is sent with `title` = the image's
+  name without its extension, so the slicer lists the object as e.g. `logo` instead of
+  `VectorSnap`.
 
 The heights are sent explicitly (`layer_heights` for every color, `shape_heights` for
 raised elements), so what the panel shows is exactly what the backend builds. Color

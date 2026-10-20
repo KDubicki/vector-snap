@@ -622,3 +622,14 @@ export function exportFileName(sourceName: string | undefined, extension: string
   const base = sourceName?.replace(/\.[^.]+$/, '') || 'vectorsnap';
   return `${base}.${extension}`;
 }
+
+/** Longest 3MF title the backend takes. */
+const MAX_TITLE = 200;
+
+/**
+ * The 3MF `title` for an image: its name without the extension, which slicers show as
+ * the object's name. Empty without a file (the backend then names it VectorSnap).
+ */
+export function modelTitle(sourceName: string | undefined): string {
+  return (sourceName?.replace(/\.[^.]+$/, '') ?? '').trim().slice(0, MAX_TITLE);
+}

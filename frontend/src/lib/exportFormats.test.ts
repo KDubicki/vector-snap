@@ -5,6 +5,7 @@ import {
   optionSections,
   defaultValues,
   exportFileName,
+  modelTitle,
   validate,
 } from './exportFormats';
 
@@ -217,6 +218,12 @@ describe('export formats', () => {
   it('builds file names from the source file', () => {
     expect(exportFileName('logo.final.png', 'stl')).toBe('logo.final.stl');
     expect(exportFileName(undefined, 'dxf')).toBe('vectorsnap.dxf');
+  });
+
+  it('names the 3MF model after the image', () => {
+    expect(modelTitle('Team logo.final.png')).toBe('Team logo.final');
+    expect(modelTitle(undefined)).toBe('');
+    expect(modelTitle(`${'a'.repeat(250)}.png`)).toHaveLength(200);
   });
 });
 

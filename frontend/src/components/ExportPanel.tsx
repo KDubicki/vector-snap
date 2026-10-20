@@ -6,6 +6,7 @@ import {
   changedCount,
   defaultValues,
   exportFileName,
+  modelTitle,
   optionSections,
   validate,
   type ExportOption,
@@ -67,6 +68,8 @@ export function ExportPanel() {
     format.perColorHeights
       ? { ...current, layer_heights: layerHeightsJson(colorHeights) }
       : current;
+  // 3MF models are named after the image in the slicer.
+  const titled = (options: ExportValues) => ({ ...options, title: modelTitle(file?.name) });
   const invalid = Object.keys(errors).length > 0 || colorHeightsError !== null;
   const raster =
     format.client && !invalid
@@ -82,7 +85,8 @@ export function ExportPanel() {
       if (!file) throw new Error('The original image is no longer available.');
       return exportLithophane(file, current, signal);
     }
-    return exportFile(format.id, svg, requestOptions(), signal);
+    const options = requestOptions();
+    return exportFile(format.id, svg, format.id === '3mf' ? titled(options) : options, signal);
   };
 
   // STL/3MF preview the colored 3MF; a lithophane previews its own STL.
@@ -93,7 +97,7 @@ export function ExportPanel() {
       return { kind: 'stl', load: (signal) => exportLithophane(file, options, signal) };
     }
     const svg = serializeSvg(editor);
-    const options = requestOptions();
+    const options = titled(requestOptions());
     return { kind: '3mf', load: (signal) => exportFile('3mf', svg, options, signal) };
   };
   const canPreview = format.perColorHeights || (format.source === 'image' && file !== null);
