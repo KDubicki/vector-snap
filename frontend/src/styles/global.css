@@ -1341,6 +1341,46 @@ select {
   margin: 0;
 }
 
+/* My projects: saved settings as buttons with a remove cross, and the name form. */
+.my-projects {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.my-projects__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.my-project {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.my-projects__form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  width: 100%;
+}
+
+.my-projects__form input {
+  flex: 1 1 8rem;
+  min-width: 0;
+}
+
+.my-projects__form .hint {
+  flex-basis: 100%;
+}
+
 /* Save / load print settings: two links in a row, the message below. */
 .print-settings-file {
   display: flex;

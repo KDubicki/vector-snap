@@ -236,6 +236,13 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
   change of any setting removes the offer, as undoing would also revert that change;
   *Custom* changes nothing and converting a new SVG drops it (its colors and raises
   belong to the old design).
+- **My projects** (`MyProjects`, `src/lib/myProjects.ts`): under the projects, **Save as
+  my project…** asks for a name and keeps the current print settings in this browser
+  (`localStorage` `vectorsnap.my-projects`, at most 12, newest first; the same name, in
+  any case, is replaced). Each is stored as a print settings file (below), so the
+  per-design choices stay out. A click applies it like loading that file
+  (`loadPrintSettings`, with undo), marked *Custom*; × removes it. Saved projects stay
+  when a new image is opened; unreadable ones are skipped.
 - **Save / load print settings** (`PrintSettingsFile`, `src/lib/printPreset.ts`): below the
   projects, **Save print settings** downloads `<image>.print.json` (`kind`
   `vectorsnap-print-settings`, `version` 1) with the project, printer, sizes, base plate,
@@ -373,6 +380,7 @@ App                         header with step indicator, error banner
     ├── ElementMap          clickable design (selection, raised, predicted colors, mirrored)
     ├── PrinterPicker       printer model, loaded filaments
     ├── ProjectPicker       project presets
+    ├── MyProjects          print settings saved under a name in the browser
     ├── PrintSettingsFile   save / load print settings (JSON)
     ├── PrintUndo           undo the last project or settings file
     ├── ColorStylePicker    flat / mixed / cut out / stepped

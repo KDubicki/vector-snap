@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { DEFAULT_PRINT } from '../lib/printPlan';
+import { presetJson } from '../lib/printPreset';
 import { DEFAULT_TRACING } from '../lib/tracing';
 import type { QuantizeResponse, VectorizeResponse } from '../types/api';
 import { hasUnsavedEdits } from './editorSlice';
@@ -147,6 +149,15 @@ describe('app store', () => {
     await store().runQuantize();
     expect(fetch).toHaveBeenCalledTimes(2);
     expect(store().error).toMatch('Choose at least one filament');
+  });
+
+  it('remembers my projects in the browser, across images', () => {
+    const projects = [{ name: 'Dog tag', preset: presetJson(DEFAULT_PRINT) }];
+    store().setMyProjects(projects);
+
+    expect(JSON.parse(localStorage.getItem('vectorsnap.my-projects')!)).toEqual(projects);
+    store().reset();
+    expect(store().myProjects).toEqual(projects);
   });
 
   it('locks colors up to the palette size and re-quantizes with them', async () => {

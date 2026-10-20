@@ -16,6 +16,7 @@ import {
   type PrintSettings,
   type ProjectId,
 } from '../lib/printPlan';
+import { readMyProjects, saveMyProjects, type MyProject } from '../lib/myProjects';
 import { PRINTER_FIELDS, printerOf, readPrinter, savePrinter } from '../lib/printerProfile';
 import { fitToPrinter, printerById } from '../lib/printers';
 import { browserStorage } from '../lib/theme';
@@ -82,6 +83,8 @@ export interface WorkflowSlice {
   } | null;
   /** Filaments to choose the palette from (`filaments` algorithm); kept across images. */
   filamentLibrary: FilamentLibrary;
+  /** Print settings saved under a name in this browser; kept across images. */
+  myProjects: MyProject[];
   /** Color count suggested for `file` by the backend, once requested. */
   suggestedColors: number | null;
   suggesting: boolean;
@@ -110,6 +113,8 @@ export interface WorkflowSlice {
   setUpscale: (upscale: boolean) => void;
   /** Replace the filament library (stored in the browser). */
   setFilamentLibrary: (library: FilamentLibrary) => void;
+  /** Replace the saved print projects (stored in the browser). */
+  setMyProjects: (projects: MyProject[]) => void;
   /** Ask the backend for a good color count for the current file and apply it. */
   suggestColors: () => Promise<void>;
   /** Lock a color into the palette; ignored when it is locked already or no slot is free. */
@@ -195,6 +200,7 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
   ...createEditorSlice(set, get, api),
   ...createFragmentsSlice(set, get, api),
   filamentLibrary: readFilamentLibrary(browserStorage()),
+  myProjects: readMyProjects(browserStorage()),
   ...initialState,
   print: startPrint(),
 
@@ -238,6 +244,10 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
   setFilamentLibrary: (filamentLibrary) => {
     saveFilamentLibrary(browserStorage(), filamentLibrary);
     set({ filamentLibrary });
+  },
+  setMyProjects: (myProjects) => {
+    saveMyProjects(browserStorage(), myProjects);
+    set({ myProjects });
   },
 
   suggestColors: async () => {
