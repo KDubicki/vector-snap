@@ -34,6 +34,7 @@ from app.core.errors import InvalidParameters
 from app.services.base_plate import (
     MAGNET_ROOF_MM,
     BaseShape,
+    LoopPosition,
     base_outline,
     magnet_pocket,
     printable,
@@ -107,8 +108,10 @@ class StlOptions:
     # a height of 0 makes it as high as the tallest color. Colors under it are cut away.
     rim_mm: float = 0.0
     rim_height_mm: float = 0.0
-    # Hole diameter of a hanging loop on top of the base plate (keyrings, hooks); 0 = none.
+    # Hole diameter of a hanging loop on the base plate (keyrings, hooks); 0 = none,
+    # and the side of the plate it sticks out of.
     loop_hole_mm: float = 0.0
+    loop_position: LoopPosition = "top"
     # Round pocket in the underside of the base plate for a magnet (diameter, depth; mm).
     magnet_mm: float = 0.0
     magnet_depth_mm: float = 2.0
@@ -319,7 +322,7 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
         silhouette = printable(unary_union(outline), options.min_feature_mm)
         silhouette = base_outline(silhouette, options.base_shape, options.base_margin_mm)
         border = rim(silhouette, options.rim_mm)
-        silhouette = with_loop(silhouette, options.loop_hole_mm)
+        silhouette = with_loop(silhouette, options.loop_hole_mm, options.loop_position)
         pocket = magnet_pocket(silhouette, options.magnet_mm)
         # Cut through (an engraving as deep as the plate): no solid plate below the cuts.
         parts = [

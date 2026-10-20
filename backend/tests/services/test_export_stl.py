@@ -1,5 +1,6 @@
 import io
 import zipfile
+from dataclasses import replace
 
 import numpy as np
 import pytest
@@ -847,3 +848,14 @@ def test_model_size_includes_the_base_plate_and_its_loop() -> None:
         ),
     )
     assert looped.y_mm > 30 + 4
+
+
+def test_hanging_loop_on_the_side_widens_the_model() -> None:
+    document = parse_svg(contract_svg(40, 20, [("#112233", [FRAME])]))
+    options = StlOptions(width_mm=40, base_mm=1, base_shape="rectangle", loop_hole_mm=4)
+
+    plain = model_size(document, replace(options, loop_hole_mm=0))
+    side = model_size(document, replace(options, loop_position="left"))
+
+    # The ring (4 mm hole, 2 mm wall) sticks out 6 mm to the left; the height is unchanged.
+    assert (side.x_mm, side.y_mm) == pytest.approx((plain.x_mm + 6, plain.y_mm), abs=0.01)

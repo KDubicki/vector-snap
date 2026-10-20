@@ -5,6 +5,7 @@ from app.core.errors import InvalidParameters
 from app.services.base_plate import (
     LOOP_WALL_MM,
     MAGNET_WALL_MM,
+    LoopPosition,
     base_outline,
     magnet_pocket,
     printable,
@@ -51,6 +52,24 @@ def test_hanging_loop_sits_above_the_middle_with_an_open_hole() -> None:
     assert not plate.contains(hole_center)
     assert plate.contains(Point(20, 20 + 4 + LOOP_WALL_MM / 2))
     assert with_loop(DESIGN, 0).equals(DESIGN)
+
+
+@pytest.mark.parametrize(
+    ("position", "bounds", "hole"),
+    [
+        ("right", (0, 0, 46, 20), (42, 10)),
+        ("bottom", (0, -6, 40, 20), (20, -2)),
+        ("left", (-6, 0, 40, 20), (-2, 10)),
+    ],
+)
+def test_hanging_loop_can_stick_out_of_any_side(
+    position: LoopPosition, bounds: tuple[float, ...], hole: tuple[float, float]
+) -> None:
+    plate = with_loop(DESIGN, 4, position)
+
+    # Only the chosen side grows, by the hole and one wall; the hole stays open.
+    assert plate.bounds == pytest.approx(bounds, abs=0.01)
+    assert not plate.contains(Point(hole))
 
 
 def test_magnet_pocket_goes_to_the_widest_spot() -> None:

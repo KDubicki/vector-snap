@@ -20,7 +20,7 @@ from app.schemas.export import (
     parse_layer_heights,
     parse_shape_heights,
 )
-from app.services.base_plate import BaseShape
+from app.services.base_plate import BaseShape, LoopPosition
 from app.services.color_changes import PLA_DENSITY, ChangeCosts, estimate_color_changes
 from app.services.export_3mf import Layout, ThreeMfOptions, export_3mf
 from app.services.export_dxf import DxfOptions, export_dxf
@@ -119,6 +119,9 @@ def stl_options(
     loop_hole_mm: Annotated[
         float, Form(ge=0, le=20, description="Hanging loop hole diameter on the base; 0 = none")
     ] = 0.0,
+    loop_position: Annotated[
+        LoopPosition, Form(description="Side of the base plate the hanging loop is on")
+    ] = "top",
     magnet_mm: Annotated[
         float, Form(ge=0, le=50, description="Magnet pocket diameter under the base; 0 = none")
     ] = 0.0,
@@ -161,6 +164,7 @@ def stl_options(
         rim_mm=rim_mm,
         rim_height_mm=rim_height_mm,
         loop_hole_mm=loop_hole_mm,
+        loop_position=loop_position,
         magnet_mm=magnet_mm,
         magnet_depth_mm=magnet_depth_mm,
         elephant_foot_mm=elephant_foot_mm,

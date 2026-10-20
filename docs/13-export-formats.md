@@ -63,6 +63,7 @@ curl -F svg=@logo.svg -F width_mm=120 -F base_mm=1.5 -F layer_mm=0.8 \
 | `rim_mm` | `0` | Raised rim along the outer edge of the base plate, this wide (0–50 mm) — coasters, signs, badges; needs `base_mm > 0`. `0` = no rim |
 | `rim_height_mm` | `0` | Rim height above the base plate (0–100 mm); `0` = as high as the tallest color |
 | `loop_hole_mm` | `0` | Hanging loop on top of the base plate with a hole of this diameter (0–20 mm) — keyrings, ornaments, hooks; needs `base_mm > 0`. `0` = no loop |
+| `loop_position` | `top` | Side of the base plate the loop sticks out of: `top`, `right`, `bottom` or `left` (of the model as printed, after `mirror`) |
 | `magnet_mm` | `0` | Round pocket in the underside of the base plate for a magnet (0–50 mm diameter; add ≈0.2 mm clearance, e.g. `10.2` for a 10 mm magnet). `0` = none |
 | `magnet_depth_mm` | `2` | Pocket depth (0–20 mm); at least 0.4 mm of base plate must remain above it |
 | `elephant_foot_mm` | `0` | Elephant's foot compensation (0–0.5 mm): the first printer layer of the base plate (`print_layer_mm`, or 0.2 mm) is inset by this much, so the squashed first layer does not bulge past the walls; needs `base_mm > 0`. `0` = off |
@@ -142,6 +143,8 @@ Model construction:
   the middle — and reaching half a wall into the plate so it is solidly joined. The hole
   starts just above the plate, so it never cuts the design. It follows the base shape
   and margin; without a base plate the export is `422 INVALID_PARAMETERS`.
+  `loop_position` puts it on another side the same way: the plate is turned so that
+  side is on top, the loop added, and the plate turned back.
 - **Magnet pocket** (`magnet_mm`, `magnet_depth_mm`): fridge magnets, magnetic
   badges. The pocket is placed at the **pole of inaccessibility** (`shapely.ops.polylabel`)
   of the largest base polygon — the point farthest from its outline and holes — and
@@ -237,7 +240,7 @@ curl -F svg=@logo.svg -F base_mm=1 -F layer_heights='{"0": 0}' \
 ```
 
 Same options and the same bodies as STL (`width_mm`, `base_mm`, `base_shape`,
-`base_margin_mm`, `stack_order`, `relief`, `origin`, `simplify_mm`, `color_gap_mm`, `rim_mm`, `rim_height_mm`, `loop_hole_mm`, `magnet_mm`, `magnet_depth_mm`, `elephant_foot_mm`, `layer_mm`, `layered`, `layer_heights`, `shape_heights`, `mirror`, `min_feature_mm`,
+`base_margin_mm`, `stack_order`, `relief`, `origin`, `simplify_mm`, `color_gap_mm`, `rim_mm`, `rim_height_mm`, `loop_hole_mm`, `loop_position`, `magnet_mm`, `magnet_depth_mm`, `elephant_foot_mm`, `layer_mm`, `layered`, `layer_heights`, `shape_heights`, `mirror`, `min_feature_mm`,
 `print_layer_mm`, `filaments`, `color_stacks`), but packaged so a slicer keeps the colors apart — STL has no
 notion of parts or colors.
 

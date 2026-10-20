@@ -15,6 +15,7 @@ from shapely import (
     minimum_bounding_radius,
     unary_union,
 )
+from shapely.affinity import rotate
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import nearest_points, polylabel
 
@@ -22,6 +23,8 @@ from app.core.errors import InvalidParameters
 from app.services.svg_geometry import polygons
 
 BaseShape = Literal["outline", "rectangle", "rounded", "circle"]
+# Side of the base plate the hanging loop sticks out of.
+LoopPosition = Literal["top", "right", "bottom", "left"]
 
 # Corner radius of the "rounded" base plate, relative to its shorter side.
 ROUNDED_CORNER_RATIO = 0.15
@@ -102,15 +105,26 @@ def rim(outline: BaseGeometry, width_mm: float) -> BaseGeometry:
     return band.intersection(outline)
 
 
-def with_loop(outline: BaseGeometry, hole_mm: float) -> BaseGeometry:
-    """Add a ring with a `hole_mm` hole above the top of `outline` (millimetres).
+# Rotation (degrees, counterclockwise) that turns each side of the plate to the top.
+LOOP_TURNS: dict[LoopPosition, float] = {"top": 0, "right": 90, "bottom": 180, "left": -90}
 
-    The ring is centered on the outline's top, as close to the middle as possible, and
-    reaches half a wall into it, so it is joined to the plate; the hole starts just above
-    the outline and never cuts into the design.
+
+def with_loop(
+    outline: BaseGeometry, hole_mm: float, position: LoopPosition = "top"
+) -> BaseGeometry:
+    """Add a ring with a `hole_mm` hole beyond the `position` side of `outline` (mm).
+
+    The ring is centered on that side, as close to its middle as possible, and reaches
+    half a wall into the outline, so it is joined to the plate; the hole starts just
+    beyond the outline and never cuts into the design.
     """
     if hole_mm <= 0 or outline.is_empty:
         return outline
+    turn = LOOP_TURNS[position]
+    if turn:
+        # The loop is added on top of the turned outline, then turned back with it.
+        pivot = outline.centroid
+        return rotate(with_loop(rotate(outline, turn, origin=pivot), hole_mm), -turn, origin=pivot)
     minx, _, maxx, maxy = outline.bounds
     top = outline.intersection(box(minx, maxy - LOOP_WALL_MM / 2, maxx, maxy))
     anchor = nearest_points(top, Point((minx + maxx) / 2, maxy))[0]
