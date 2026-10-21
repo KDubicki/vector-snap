@@ -61,6 +61,8 @@ export interface PrintSettings {
   /** Magnet pocket diameter (mm); 0 = none. */
   magnetMm: number;
   magnetDepthMm: number;
+  /** Magnet pockets, spread along the plate's longer side. */
+  magnetCount: number;
   /** Details thinner than this are dropped (mm): the nozzle width. */
   nozzleMm: number;
   /** Colors sunk into the base plate, flush with its top (a flat surface). */
@@ -115,6 +117,7 @@ const COMMON: ProjectSettings = {
   loopPosition: 'top',
   magnetMm: 0,
   magnetDepthMm: 2,
+  magnetCount: 1,
   inlay: false,
 };
 
@@ -263,6 +266,10 @@ export function validatePrint(doc: EditorDoc, settings: PrintSettings): Record<s
   if (!(settings.colorLayers >= 1)) errors.colorLayers = 'At least 1 layer.';
   if (!(settings.baseLayers >= 0)) errors.baseLayers = 'Cannot be negative.';
   if (settings.loopHoleMm > 0 && base <= 0) errors.loopHoleMm = 'A hanging loop needs a base.';
+  const magnets = settings.magnetCount;
+  if (!Number.isInteger(magnets) || magnets < 1 || magnets > 4) {
+    errors.magnetCount = 'Between 1 and 4 magnets.';
+  }
   if (settings.rimMm > 0 && base <= 0) errors.rimMm = 'A rim needs a base.';
   if (settings.elephantFootMm > 0 && base <= 0) {
     errors.elephantFootMm = "Elephant's foot compensation needs a base.";
@@ -337,6 +344,7 @@ export function printOptions(
     loop_position: settings.loopPosition,
     magnet_mm: settings.magnetMm,
     magnet_depth_mm: settings.magnetDepthMm,
+    magnet_count: settings.magnetCount,
     relief: settings.style === 'cutout' ? 'engrave' : settings.inlay ? 'inlay' : 'raised',
     elephant_foot_mm: settings.elephantFootMm,
     simplify_mm: settings.simplifyMm,

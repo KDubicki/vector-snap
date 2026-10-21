@@ -234,6 +234,7 @@ describe('BasePlateFields', () => {
       <BasePlateFields settings={settings()} errors={{}} onChange={onChange} />,
     );
     expect(screen.queryByLabelText('Magnet pocket depth (mm)')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Magnets')).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Shape'), { target: { value: 'circle' } });
     expect(onChange).toHaveBeenLastCalledWith({ baseShape: 'circle' });
@@ -258,6 +259,8 @@ describe('BasePlateFields', () => {
       target: { value: '1.5' },
     });
     expect(onChange).toHaveBeenLastCalledWith({ magnetDepthMm: 1.5 });
+    fireEvent.change(screen.getByLabelText('Magnets'), { target: { value: '2' } });
+    expect(onChange).toHaveBeenLastCalledWith({ magnetCount: 2 });
     expect(screen.getByText(/Needs a base of at least 12 layers/)).toBeInTheDocument();
   });
 

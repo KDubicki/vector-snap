@@ -146,6 +146,15 @@ describe('print plan', () => {
       rimMm: 'A rim needs a base.',
     });
     expect(printOptions(doc, settings({ rimMm: 2 }))).toMatchObject({ rim_mm: 2 });
+    expect(printOptions(doc, settings({ magnetMm: 10, magnetCount: 2 }))).toMatchObject({
+      magnet_mm: 10,
+      magnet_count: 2,
+    });
+    expect(
+      validatePrint(doc, settings({ magnetMm: 10, magnetDepthMm: 1, magnetCount: 5 })),
+    ).toEqual({
+      magnetCount: 'Between 1 and 4 magnets.',
+    });
     expect(printOptions(doc, settings({ loopHoleMm: 4, loopPosition: 'left' }))).toMatchObject({
       loop_hole_mm: 4,
       loop_position: 'left',

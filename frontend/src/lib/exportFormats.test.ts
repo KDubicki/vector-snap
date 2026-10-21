@@ -26,6 +26,7 @@ describe('export formats', () => {
       loop_position: 'top',
       magnet_mm: 0,
       magnet_depth_mm: 2,
+      magnet_count: 1,
       min_feature_mm: 0,
       print_layer_mm: 0,
       simplify_mm: 0,

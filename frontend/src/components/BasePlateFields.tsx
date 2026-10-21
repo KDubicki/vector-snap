@@ -114,6 +114,19 @@ export function BasePlateFields({
             onChange={(magnetDepthMm) => update({ magnetDepthMm })}
           />
         )}
+        {print.magnetMm > 0 && (
+          <NumberField
+            id="print-magnet-count"
+            label="Magnets"
+            value={print.magnetCount}
+            min={1}
+            max={4}
+            step={1}
+            hint="Two or more, spread along the longer side, keep long signs from tilting."
+            error={errors.magnetCount}
+            onChange={(magnetCount) => update({ magnetCount })}
+          />
+        )}
         {print.style !== 'cutout' && (
           <>
             <div className="checkbox">

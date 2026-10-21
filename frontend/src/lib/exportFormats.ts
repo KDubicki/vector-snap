@@ -224,6 +224,17 @@ const MODEL_OPTIONS: ExportOption[] = [
   },
   {
     type: 'number',
+    name: 'magnet_count',
+    section: BASE_EXTRAS,
+    label: 'Magnet pockets',
+    default: 1,
+    min: 1,
+    max: 4,
+    step: 1,
+    hint: 'Several pockets are spread along the plate’s longer side, so long signs do not tilt.',
+  },
+  {
+    type: 'number',
     name: 'min_feature_mm',
     section: PRINT_TUNING,
     label: 'Remove details thinner than',

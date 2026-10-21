@@ -220,7 +220,8 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
   prints them as their own parts — e.g. letters 3 layers above a flat AMS sign.
 - **Base plate**: shape (outline, rectangle, rounded, circle), border, raised rim (as
   high as the colors), hanging loop (with the side it sticks out of, `loop_position`),
-  magnet pocket (depth checked against the base), and
+  magnet pocket (depth checked against the base; **Magnets** 1–4 spreads several along
+  the longer side, `magnet_count`), and
   **Set the colors into the base (flat top)** (`inlay`, sent as `relief=inlay`): colors
   sink their height into the plate, which must then be thicker than the tallest color —
   and a magnet pocket must fit below them; the total height is then the base alone.
