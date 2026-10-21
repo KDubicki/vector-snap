@@ -298,6 +298,11 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
   first — so the spools go into the AMS/ACE slots of the same numbers; the tooltip says
   so. Mixed colors use the loaded filaments' order and cut-out prints one filament, so
   they show none.
+- **Filament cost** (`FilamentCost`, `src/lib/filamentCost.ts`): under the summary,
+  **Filament price per kg** (any currency, kept in this browser as
+  `vectorsnap.filament-price`) prices the solid model plus the filament purged at color
+  changes: *≈ 0.80 for this print, purge included*. An invalid price is forgotten and
+  shows no cost.
 - **Filament per color**: the color-changes request also runs for *Any printer* (with no
   change cost) and gives the filament each color takes. The colors table shows it next to
   each height, on a second line (*≈ 1.3 g*; the bottom color includes the base plate; *too thin* when every shape is thinner than the nozzle, so the backend leaves the color out) and the
@@ -399,6 +404,7 @@ App                         header with step indicator, error banner
     ├── FilamentSlotsCheck  more colors than loaded filaments
     ├── BuildVolumeCheck    model size against the build volume, fit to the bed
     ├── ColorChangesSummary filament changes, their time and purge
+    ├── FilamentCost        filament cost at a price per kg
     ├── PrintDownloads      Download 3MF / STL / STL per color, progress, errors
     ├── FilamentPlanView    filament changes of stepped colors
     └── ApiCommand          the 3MF export as a curl command

@@ -32,6 +32,7 @@ import { ColorChangesSummary } from './ColorChangesSummary';
 import { FilamentSlotsCheck } from './FilamentSlotsCheck';
 import { ColorStylePicker } from './ColorStylePicker';
 import { ElementMap } from './ElementMap';
+import { FilamentCost } from './FilamentCost';
 import { FilamentPlanView } from './FilamentPlanView';
 import { FilamentSlots } from './FilamentSlots';
 import { MixTable } from './MixTable';
@@ -327,6 +328,7 @@ export function PrintStep() {
             <> · {formatGrams(totalGrams)} g of filament (solid)</>
           )}
         </p>
+        {!invalid && <FilamentCost modelGrams={totalGrams} purgeGrams={changes?.purge_g ?? 0} />}
         <PrintDownloads
           invalid={invalid}
           exporting={job.exporting}
