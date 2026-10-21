@@ -260,7 +260,12 @@ export function PrintStep() {
           />
         )}
 
-        <LayerFields settings={print} errors={errors} onChange={update} />
+        <LayerFields
+          settings={print}
+          errors={errors}
+          aspect={editor.width > 0 ? editor.height / editor.width : undefined}
+          onChange={update}
+        />
 
         <PrintColorsTable
           doc={editor}

@@ -204,6 +204,8 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
   rectangular base, with the same recipes and heights but without loop, magnet or raised
   elements — a quick print to compare the real colors with the predictions and adjust
   the TDs before printing the design.
+- **Size**: **Width (mm)** of the design, or its **Height (mm)**, which sets the width
+  from the design's proportions (border and loop come on top).
 - **Heights in printer layers**: printer layer height (0.08–0.28 mm), base plate and color
   height are whole layers (shown in mm too), so colors change exactly at a layer.
 - **Height per color**: the model starts flat; include/leave out a color and give it

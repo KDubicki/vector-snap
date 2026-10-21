@@ -96,6 +96,23 @@ describe('LayerFields', () => {
     expect(onChange).toHaveBeenLastCalledWith({ colorLayers: 3 });
     fireEvent.change(screen.getByLabelText('Width (mm)'), { target: { value: '60' } });
     expect(onChange).toHaveBeenLastCalledWith({ widthMm: 60 });
+    expect(screen.queryByLabelText('Height (mm)')).not.toBeInTheDocument();
+  });
+
+  it('sets the width from the height the design should have', () => {
+    const onChange = vi.fn();
+    render(
+      <LayerFields
+        settings={settings({ widthMm: 80 })}
+        errors={{}}
+        aspect={0.625}
+        onChange={onChange}
+      />,
+    );
+
+    expect(screen.getByLabelText('Height (mm)')).toHaveValue(50);
+    fireEvent.change(screen.getByLabelText('Height (mm)'), { target: { value: '60' } });
+    expect(onChange).toHaveBeenLastCalledWith({ widthMm: 96 });
   });
 
   it('names the color height a step in stepped mode', () => {

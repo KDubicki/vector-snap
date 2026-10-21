@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { EditorDoc } from '../editor/model';
 import {
+  designHeightMm,
+  widthForHeight,
   DEFAULT_PRINT,
   PROJECTS,
   applyProject,
@@ -146,6 +148,8 @@ describe('print plan', () => {
       rimMm: 'A rim needs a base.',
     });
     expect(printOptions(doc, settings({ rimMm: 2 }))).toMatchObject({ rim_mm: 2 });
+    expect(designHeightMm(80, 2 / 3)).toBe(53.3);
+    expect(widthForHeight(60, 2 / 3)).toBe(90);
     expect(printOptions(doc, settings({ magnetMm: 10, magnetCount: 2 }))).toMatchObject({
       magnet_mm: 10,
       magnet_count: 2,

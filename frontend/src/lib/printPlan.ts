@@ -199,6 +199,16 @@ export function applyProject(settings: PrintSettings, id: ProjectId): PrintSetti
   return { ...settings, ...project.settings, project: id };
 }
 
+/** Height of the design (mm) at a width, for a design `aspect` (height / width) tall. */
+export function designHeightMm(widthMm: number, aspect: number): number {
+  return Number((widthMm * aspect).toFixed(1));
+}
+
+/** The width (mm) that makes the design `heightMm` tall. */
+export function widthForHeight(heightMm: number, aspect: number): number {
+  return Number((heightMm / aspect).toFixed(2));
+}
+
 /** Layers to millimetres, without float noise (3 × 0.2 = 0.6, not 0.6000000000000001). */
 export function layersToMm(layers: number, layerMm: number): number {
   return Number((layers * layerMm).toFixed(4));

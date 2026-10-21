@@ -1,15 +1,22 @@
-import { layersToMm, type PrintSettings } from '../lib/printPlan';
+import { designHeightMm, layersToMm, widthForHeight, type PrintSettings } from '../lib/printPlan';
 import { layerChoices, printerById } from '../lib/printers';
 import { NumberField } from './NumberField';
 
 interface LayerFieldsProps {
   settings: PrintSettings;
   errors: Record<string, string>;
+  /** The design's height / width; with it the size can also be set by its height. */
+  aspect?: number;
   onChange: (change: Partial<PrintSettings>) => void;
 }
 
-/** Width, printer layer height, base plate and color heights (in layers). */
-export function LayerFields({ settings: print, errors, onChange: update }: LayerFieldsProps) {
+/** Size, printer layer height, base plate and color heights (in layers). */
+export function LayerFields({
+  settings: print,
+  errors,
+  aspect,
+  onChange: update,
+}: LayerFieldsProps) {
   const mm = (layers: number) => layersToMm(layers, print.layerMm);
   const choices = layerChoices(printerById(print.printer), print.nozzleMm);
   // A layer height the printer does not offer stays visible (and is flagged).
@@ -28,6 +35,18 @@ export function LayerFields({ settings: print, errors, onChange: update }: Layer
         error={errors.widthMm}
         onChange={(widthMm) => update({ widthMm })}
       />
+      {aspect !== undefined && aspect > 0 && (
+        <NumberField
+          id="print-height"
+          label="Height (mm)"
+          value={designHeightMm(print.widthMm, aspect)}
+          min={0.1}
+          max={designHeightMm(1000, aspect)}
+          step={1}
+          hint="Of the design; changes the width to match. A border or loop comes on top."
+          onChange={(heightMm) => update({ widthMm: widthForHeight(heightMm, aspect) })}
+        />
+      )}
       <div className="option">
         <label htmlFor="print-layer">Printer layer height</label>
         <select
