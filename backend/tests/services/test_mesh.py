@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from shapely import Polygon, box
+from shapely import Polygon, box, unary_union
 
 from app.services.mesh import (
     PINCH_SEPARATION_MM,
@@ -40,6 +40,15 @@ def test_pocket_is_recessed_into_the_bottom() -> None:
 
     assert is_closed(mesh)
     assert signed_volume(mesh) == pytest.approx(300 * 2 - 4 * 0.5)
+
+
+def test_several_pockets_are_recessed_and_outside_ones_skipped() -> None:
+    pockets = unary_union([box(1, 1, 3, 3), box(17, 1, 19, 3), box(40, 40, 42, 42)])
+
+    mesh = prism(FRAME, 0, 2, pockets, 0.5)
+
+    assert is_closed(mesh)
+    assert signed_volume(mesh) == pytest.approx(300 * 2 - 2 * 4 * 0.5)
 
 
 def test_binary_stl_has_a_header_count_and_unit_normals() -> None:

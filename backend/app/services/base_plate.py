@@ -5,6 +5,7 @@ See docs/13-export-formats.md.
 """
 
 import math
+from itertools import pairwise
 from typing import Literal
 
 from shapely import (
@@ -134,10 +135,11 @@ def with_loop(
     return outline.union(ring).difference(center.buffer(radius, quad_segs=QUAD_SEGS))
 
 
-def magnet_pocket(outline: BaseGeometry, diameter_mm: float) -> Polygon | None:
-    """Round pocket for a magnet in the widest spot of the largest base polygon.
+def magnet_pocket(outline: BaseGeometry, diameter_mm: float, count: int = 1) -> BaseGeometry | None:
+    """Round pockets for `count` magnets in the largest base polygon: one in its widest
+    spot, several in the widest spot of equal slices along its longer side.
 
-    None when no magnet is requested; raises when the plate has no spot wide enough.
+    None when no magnet is requested; raises when the plate has no room for them.
     """
     if diameter_mm <= 0:
         return None
@@ -145,6 +147,8 @@ def magnet_pocket(outline: BaseGeometry, diameter_mm: float) -> Polygon | None:
     if not parts:
         return None
     largest = max(parts, key=lambda part: part.area)
+    if count > 1:
+        return _magnet_row(largest, diameter_mm, count)
     center = polylabel(largest, tolerance=0.01)
     room = largest.boundary.distance(center)
     radius = diameter_mm / 2
@@ -155,3 +159,35 @@ def magnet_pocket(outline: BaseGeometry, diameter_mm: float) -> Polygon | None:
             {"field": "magnet_mm"},
         )
     return center.buffer(radius, quad_segs=QUAD_SEGS)
+
+
+def _magnet_row(plate: Polygon, diameter_mm: float, count: int) -> BaseGeometry:
+    """`count` pockets, one in the widest spot of each equal slice of `plate` along its
+    longer side, each with a wall to the edge and to its neighbours."""
+    minx, miny, maxx, maxy = plate.bounds
+    wide = maxx - minx >= maxy - miny
+    step = ((maxx - minx) if wide else (maxy - miny)) / count
+    radius = diameter_mm / 2
+    centers: list[Point] = []
+    for index in range(count):
+        start = (minx if wide else miny) + index * step
+        strip = (
+            box(start, miny, start + step, maxy) if wide else box(minx, start, maxx, start + step)
+        )
+        pieces = polygons(plate.intersection(strip))
+        if pieces:
+            centers.append(polylabel(max(pieces, key=lambda part: part.area), tolerance=0.01))
+    roomy = len(centers) == count and all(
+        plate.boundary.distance(center) >= radius + MAGNET_WALL_MM for center in centers
+    )
+    apart = all(
+        first.distance(second) >= diameter_mm + MAGNET_WALL_MM
+        for first, second in pairwise(centers)
+    )
+    if not (roomy and apart):
+        raise InvalidParameters(
+            f"No room for {count} magnets of {diameter_mm:g} mm side by side: use fewer or "
+            "smaller magnets, or a larger plate.",
+            {"field": "magnet_count"},
+        )
+    return unary_union([center.buffer(radius, quad_segs=QUAD_SEGS) for center in centers])

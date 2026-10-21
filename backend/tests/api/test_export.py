@@ -72,6 +72,7 @@ def test_stl_defaults(client: TestClient) -> None:
         ({"relief": "inlay"}, "INVALID_PARAMETERS"),  # base 1 mm, colors 1 and 2 mm deep
         ({"loop_hole_mm": "21"}, "VALIDATION_ERROR"),
         ({"loop_position": "corner"}, "VALIDATION_ERROR"),
+        ({"magnet_count": "5"}, "VALIDATION_ERROR"),
         ({"loop_hole_mm": "4", "base_mm": "0"}, "INVALID_PARAMETERS"),
         ({"rim_mm": "-1"}, "VALIDATION_ERROR"),
         ({"rim_mm": "2", "base_mm": "0"}, "INVALID_PARAMETERS"),

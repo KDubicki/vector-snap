@@ -425,6 +425,22 @@ def test_magnet_pocket_is_recessed_into_the_underside_of_the_base() -> None:
     assert np.hypot(floor[..., 0] - 10, floor[..., 1] - 10).max() == pytest.approx(5, abs=1e-6)
 
 
+def test_several_magnet_pockets_are_recessed_into_the_base() -> None:
+    plate = "M0,0 L40,0 L40,20 L0,20 Z"
+    options = StlOptions(width_mm=40, base_mm=3, magnet_mm=8, magnet_depth_mm=2, magnet_count=2)
+
+    base = _base(options, [("#000000", [plate])])
+
+    pocket = np.pi * 16 * np.cos(np.pi / 128) * np.sinc(1 / 64)  # area of the 128-gon
+    assert signed_volume(base) == pytest.approx(800 * 3 - 2 * pocket * 2, rel=1e-4)
+    # Pocket ceilings at 2 mm, centered in the two halves (y flipped: center y = 10).
+    ceiling = base[(base[..., 2] == 2).all(axis=1)]
+    to_left = np.hypot(ceiling[..., 0] - 10, ceiling[..., 1] - 10)
+    to_right = np.hypot(ceiling[..., 0] - 30, ceiling[..., 1] - 10)
+    assert np.minimum(to_left, to_right).max() == pytest.approx(4, abs=1e-6)
+    assert (to_left < 4.01).any() and (to_right < 4.01).any()
+
+
 SQUARE_20 = "M0,0 L20,0 L20,20 L0,20 Z"
 
 

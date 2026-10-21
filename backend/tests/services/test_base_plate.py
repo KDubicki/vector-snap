@@ -11,6 +11,7 @@ from app.services.base_plate import (
     printable,
     with_loop,
 )
+from app.services.svg_geometry import polygons
 
 DESIGN = box(0, 0, 40, 20)
 
@@ -83,6 +84,27 @@ def test_magnet_pocket_goes_to_the_widest_spot() -> None:
     assert DESIGN.contains(pocket)
     assert magnet_pocket(DESIGN, 0) is None
     assert magnet_pocket(Polygon(), 10) is None
+
+
+def test_magnets_are_spread_along_the_longer_side() -> None:
+    pockets = magnet_pocket(DESIGN, 8, 2)
+
+    assert pockets is not None
+    centers = sorted(
+        (round(part.centroid.x, 1), round(part.centroid.y, 1)) for part in polygons(pockets)
+    )
+    assert centers == [(10, 10), (30, 10)]
+    # Upright plates get them one above the other.
+    upright = magnet_pocket(box(0, 0, 20, 40), 8, 2)
+    assert upright is not None
+    assert sorted(round(part.centroid.y, 1) for part in polygons(upright)) == [10, 30]
+
+
+def test_magnets_need_room_between_them_and_to_the_edge() -> None:
+    with pytest.raises(InvalidParameters, match="No room for 4 magnets of 10 mm"):
+        magnet_pocket(DESIGN, 10, 4)
+    with pytest.raises(InvalidParameters, match="No room for 2 magnets"):
+        magnet_pocket(DESIGN, 19, 2)
 
 
 def test_magnet_pocket_needs_room_for_its_wall() -> None:

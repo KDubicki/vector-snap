@@ -45,33 +45,48 @@ def _walls(ring: NDArray[np.float64], bottom: float, top: float) -> NDArray[np.f
     return np.concatenate([np.stack([a0, b0, b1], axis=1), np.stack([a0, b1, a1], axis=1)])
 
 
-def _floor(
-    polygon: Polygon, bottom: float, pocket: Polygon | None, depth: float
-) -> list[NDArray[np.float64]]:
-    """Downward bottom face of an oriented polygon, with `pocket` recessed `depth` into it."""
+def _inside(pocket: BaseGeometry | None, polygon: Polygon) -> list[Polygon]:
+    """The pockets (one polygon or several) that lie within `polygon`."""
     if pocket is None:
+        return []
+    return [part for part in polygons(pocket) if part.within(polygon)]
+
+
+def _floor(
+    polygon: Polygon, bottom: float, pockets: list[Polygon], depth: float
+) -> list[NDArray[np.float64]]:
+    """Downward bottom face of an oriented polygon, with `pockets` recessed `depth` into it."""
+    if not pockets:
         return [_cap(polygon, bottom, up=False)]
-    pocket = orient(pocket, sign=-1.0)  # a hole of the bottom face: clockwise
-    floor = Polygon(polygon.exterior, [*polygon.interiors, pocket.exterior])
-    return [
-        _cap(floor, bottom, up=False),
-        _walls(np.asarray(pocket.exterior.coords), bottom, bottom + depth),
-        _cap(pocket, bottom + depth, up=False),
-    ]
+    # Holes of the bottom face: clockwise.
+    pockets = [orient(pocket, sign=-1.0) for pocket in pockets]
+    floor = Polygon(polygon.exterior, [*polygon.interiors, *(p.exterior for p in pockets)])
+    parts = [_cap(floor, bottom, up=False)]
+    for pocket in pockets:
+        parts += [
+            _walls(np.asarray(pocket.exterior.coords), bottom, bottom + depth),
+            _cap(pocket, bottom + depth, up=False),
+        ]
+    return parts
 
 
 def prism(
-    polygon: Polygon, bottom: float, top: float, pocket: Polygon | None = None, depth: float = 0
+    polygon: Polygon,
+    bottom: float,
+    top: float,
+    pocket: BaseGeometry | None = None,
+    depth: float = 0,
 ) -> NDArray[np.float64]:
     """Closed triangle mesh (N x 3 x 3) of a polygon with holes extruded from bottom to top.
 
-    `pocket` (inside the polygon, clear of its holes) is recessed `depth` into the bottom.
+    `pocket` (one polygon or several, clear of the polygon's holes) is recessed `depth`
+    into the bottom where it lies within the polygon.
     """
     polygon = orient(polygon, sign=1.0)  # exterior counter-clockwise, holes clockwise
     rings = [polygon.exterior, *polygon.interiors]
     parts = [_cap(polygon, top, up=True)]
     parts += [_walls(np.asarray(ring.coords), bottom, top) for ring in rings]
-    parts += _floor(polygon, bottom, pocket, depth)
+    parts += _floor(polygon, bottom, _inside(pocket, polygon), depth)
     return np.concatenate(parts)
 
 
@@ -80,14 +95,14 @@ def footed_prism(
     inset: list[Polygon],
     foot: float,
     top: float,
-    pocket: Polygon | None = None,
+    pocket: BaseGeometry | None = None,
     depth: float = 0,
 ) -> NDArray[np.float64]:
     """Closed mesh of `polygon` extruded from 0 to `top` whose lowest `foot` mm are only
     the smaller `inset` polygons (inside it, not touching its rings): a stepped bottom.
 
     One manifold solid — the step is a downward face between the two outlines — so a
-    pocket in the bottom may reach above the step. `pocket` is recessed into the inset
+    pocket in the bottom may reach above the step. Each pocket is recessed into the inset
     polygon that contains it.
     """
     polygon = orient(polygon, sign=1.0)
@@ -105,8 +120,7 @@ def footed_prism(
             _walls(np.asarray(ring.coords), 0.0, foot)
             for ring in [piece.exterior, *piece.interiors]
         ]
-        inside = pocket is not None and pocket.within(piece)
-        parts += _floor(piece, 0.0, pocket if inside else None, depth)
+        parts += _floor(piece, 0.0, _inside(pocket, piece), depth)
     return np.concatenate(parts)
 
 

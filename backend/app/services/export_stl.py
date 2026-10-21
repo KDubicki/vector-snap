@@ -112,8 +112,10 @@ class StlOptions:
     # and the side of the plate it sticks out of.
     loop_hole_mm: float = 0.0
     loop_position: LoopPosition = "top"
-    # Round pocket in the underside of the base plate for a magnet (diameter, depth; mm).
+    # Round pockets in the underside of the base plate for magnets (diameter, depth; mm)
+    # and how many, spread along the plate's longer side.
     magnet_mm: float = 0.0
+    magnet_count: int = 1
     magnet_depth_mm: float = 2.0
     # Elephant's foot compensation (mm): the first printer layer of the base plate is
     # inset by this much, as the squashed first layer bulges out; 0 = off.
@@ -323,7 +325,7 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
         silhouette = base_outline(silhouette, options.base_shape, options.base_margin_mm)
         border = rim(silhouette, options.rim_mm)
         silhouette = with_loop(silhouette, options.loop_hole_mm, options.loop_position)
-        pocket = magnet_pocket(silhouette, options.magnet_mm)
+        pocket = magnet_pocket(silhouette, options.magnet_mm, options.magnet_count)
         # Cut through (an engraving as deep as the plate): no solid plate below the cuts.
         parts = [
             _plate(polygon, plate_top, pocket, options)
@@ -443,13 +445,11 @@ FIRST_LAYER_MM = 0.2
 
 
 def _plate(
-    polygon: Polygon, base: float, pocket: Polygon | None, options: StlOptions
+    polygon: Polygon, base: float, pocket: BaseGeometry | None, options: StlOptions
 ) -> NDArray[np.float64]:
-    """One polygon of the base plate, with the magnet pocket if it lies in it and the
+    """One polygon of the base plate, with the magnet pockets that lie in it and the
     first layer inset by `elephant_foot_mm` (polygons too thin for it stay as they are)."""
     depth = options.magnet_depth_mm
-    if not _holds(polygon, pocket):
-        pocket = None
     inset: list[Polygon] = []
     if options.elephant_foot_mm > 0:
         shrunk = polygon.buffer(-options.elephant_foot_mm, join_style="mitre")
@@ -460,16 +460,7 @@ def _plate(
     if foot < base:
         return footed_prism(polygon, inset, foot, base, pocket, depth)
     # A one-layer plate is all first layer.
-    return np.concatenate(
-        [
-            prism(piece, 0.0, base, pocket if _holds(piece, pocket) else None, depth)
-            for piece in inset
-        ]
-    )
-
-
-def _holds(polygon: Polygon, pocket: Polygon | None) -> bool:
-    return pocket is not None and pocket.within(polygon)
+    return np.concatenate([prism(piece, 0.0, base, pocket, depth) for piece in inset])
 
 
 def _with_gap(geometry: BaseGeometry, gap_mm: float) -> BaseGeometry:

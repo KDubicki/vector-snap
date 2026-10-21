@@ -66,6 +66,7 @@ curl -F svg=@logo.svg -F width_mm=120 -F base_mm=1.5 -F layer_mm=0.8 \
 | `loop_position` | `top` | Side of the base plate the loop sticks out of: `top`, `right`, `bottom` or `left` (of the model as printed, after `mirror`) |
 | `magnet_mm` | `0` | Round pocket in the underside of the base plate for a magnet (0–50 mm diameter; add ≈0.2 mm clearance, e.g. `10.2` for a 10 mm magnet). `0` = none |
 | `magnet_depth_mm` | `2` | Pocket depth (0–20 mm); at least 0.4 mm of base plate must remain above it |
+| `magnet_count` | `1` | Number of magnet pockets (1–4), spread along the plate's longer side — long signs and badges that should not tilt |
 | `elephant_foot_mm` | `0` | Elephant's foot compensation (0–0.5 mm): the first printer layer of the base plate (`print_layer_mm`, or 0.2 mm) is inset by this much, so the squashed first layer does not bulge past the walls; needs `base_mm > 0`. `0` = off |
 | `mirror` | `false` | Mirror horizontally — for stamps or printing the top face down on the bed |
 | `origin` | `corner` | Where the model sits: `corner` keeps the design's coordinates (x and y from 0), `center` puts the middle of its footprint at x = y = 0 — for CAD, CNC and tools that do not re-center imports. z always starts at 0 |
@@ -149,7 +150,10 @@ Model construction:
   badges. The pocket is placed at the **pole of inaccessibility** (`shapely.ops.polylabel`)
   of the largest base polygon — the point farthest from its outline and holes — and
   needs 1 mm of wall around it, otherwise the export is `422 INVALID_PARAMETERS` with the
-  largest diameter that fits. Its depth must leave a 0.4 mm roof under the (layer-snapped)
+  largest diameter that fits. With `magnet_count` > 1 the plate is cut into equal slices
+  along its longer side and each slice gets a pocket at its own pole of inaccessibility;
+  every pocket needs the 1 mm wall to the edge and to its neighbour, otherwise the export
+  is `422 INVALID_PARAMETERS` (`field` `magnet_count`). Its depth must leave a 0.4 mm roof under the (layer-snapped)
   base top. The base body stays one closed mesh: a floor cap with the pocket as a hole,
   the pocket walls and a downward-facing pocket ceiling share their ring vertices;
   printed upside up, the ceiling bridges over the pocket.
@@ -240,7 +244,7 @@ curl -F svg=@logo.svg -F base_mm=1 -F layer_heights='{"0": 0}' \
 ```
 
 Same options and the same bodies as STL (`width_mm`, `base_mm`, `base_shape`,
-`base_margin_mm`, `stack_order`, `relief`, `origin`, `simplify_mm`, `color_gap_mm`, `rim_mm`, `rim_height_mm`, `loop_hole_mm`, `loop_position`, `magnet_mm`, `magnet_depth_mm`, `elephant_foot_mm`, `layer_mm`, `layered`, `layer_heights`, `shape_heights`, `mirror`, `min_feature_mm`,
+`base_margin_mm`, `stack_order`, `relief`, `origin`, `simplify_mm`, `color_gap_mm`, `rim_mm`, `rim_height_mm`, `loop_hole_mm`, `loop_position`, `magnet_mm`, `magnet_depth_mm`, `magnet_count`, `elephant_foot_mm`, `layer_mm`, `layered`, `layer_heights`, `shape_heights`, `mirror`, `min_feature_mm`,
 `print_layer_mm`, `filaments`, `color_stacks`), but packaged so a slicer keeps the colors apart — STL has no
 notion of parts or colors.
 
