@@ -9,6 +9,7 @@ import {
   layersToMm,
   mixPlan,
   cutoutChange,
+  filamentMatches,
   mixedChange,
   printOptions,
   printedGroups,
@@ -19,7 +20,6 @@ import {
 } from '../lib/printPlan';
 import { availableFilaments } from '../lib/filamentLibrary';
 import { formatGrams, formatMillimetres } from '../lib/meshStats';
-import { nearestFilaments } from '../lib/paletteAdvice';
 import { printerById } from '../lib/printers';
 import { useExport } from '../lib/useExport';
 import { usePrintStats } from '../lib/usePrintStats';
@@ -103,18 +103,7 @@ export function PrintStep() {
   if (!editor || !svg) return null;
 
   const heights = heightPlan(editor, print);
-  // Mixed colors have their own recipes; cut-out colors are holes, not filament.
-  const nearest =
-    print.style === 'flat' || print.style === 'stepped'
-      ? nearestFilaments(
-          editor.groups.map((group) => ({
-            index: group.paletteIndex,
-            hex: group.fill,
-            coverage: 0,
-          })),
-          availableFilaments(filamentLibrary),
-        )
-      : undefined;
+  const nearest = filamentMatches(editor, print, availableFilaments(filamentLibrary));
   // The 3MF also names the model in the slicer after the image.
   const model = { ...options, title: modelTitle(file?.name) };
   // Previews and plans remember what they were built from, so stale ones are marked.

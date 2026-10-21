@@ -7,7 +7,9 @@
 import type { EditorDoc } from '../editor/model';
 import { deltaE, isHexColor, relativeLuminance, toLab } from './color';
 import { MAGNET_ROOF_MM } from './exportFormats';
+import type { LibraryFilament } from './filamentLibrary';
 import { bestRecipe, colorStacks, type Filament, type MixMatch } from './mixing';
+import { nearestFilaments } from './paletteAdvice';
 import { nozzleOf, printerById, type PrinterId } from './printers';
 
 export type BaseShape = 'outline' | 'rectangle' | 'rounded' | 'circle';
@@ -226,6 +228,25 @@ export function filamentsNeeded(doc: EditorDoc, settings: PrintSettings): number
   if (settings.style === 'cutout') return 1;
   if (settings.style === 'mixed') return settings.filaments.length;
   return new Set(printedGroups(doc, settings).map((group) => group.fill.toLowerCase())).size;
+}
+
+/**
+ * The nearest of `filaments` for every color, by palette index, when each color prints in
+ * its own filament. Mixed colors have their own recipes and cut-out colors are holes, not
+ * filament, so they get none.
+ */
+export function filamentMatches(
+  doc: EditorDoc,
+  settings: PrintSettings,
+  filaments: LibraryFilament[],
+): Map<number, { filament: LibraryFilament; delta: number }> | undefined {
+  if (settings.style !== 'flat' && settings.style !== 'stepped') return undefined;
+  const entries = doc.groups.map((group) => ({
+    index: group.paletteIndex,
+    hex: group.fill,
+    coverage: 0,
+  }));
+  return nearestFilaments(entries, filaments);
 }
 
 /** Height of a color above the base, in layers. */

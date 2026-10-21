@@ -4,6 +4,7 @@ import {
   designHeightMm,
   widthForHeight,
   DEFAULT_PRINT,
+  filamentMatches,
   PROJECTS,
   applyProject,
   cutoutChange,
@@ -445,5 +446,17 @@ describe('reliefRaise', () => {
   it('leaves out colors that are not printed', () => {
     expect(reliefRaise(three, settings({ excluded: [1] }), 'dark')).toEqual({ 0: 0, 2: 1, 3: 2 });
     expect(reliefRaise(doc, settings(), 'dark')).toEqual({ 0: 0, 1: 1 });
+  });
+
+  it('matches the nearest filament only for colors printed in their own filament', () => {
+    const white = { name: 'White', color: '#ffffff' };
+    const red = { name: 'Red', color: '#ee1111' };
+
+    const matches = filamentMatches(doc, settings(), [white, red]);
+    expect(matches?.get(0)).toEqual({ filament: white, delta: 0 });
+    expect(matches?.get(1)?.filament).toBe(red);
+    expect(filamentMatches(doc, settings({ style: 'mixed' }), [white])).toBeUndefined();
+    expect(filamentMatches(doc, settings({ style: 'cutout' }), [white])).toBeUndefined();
+    expect(filamentMatches(doc, settings(), [])?.size).toBe(0);
   });
 });
