@@ -5,6 +5,7 @@ description = "Stateless image-processing service converting raster images to SV
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",
+    "opentelemetry-api>=1.45.1",  # pulled in by fastapi; 1.45.0 has CVE-2026-114603
     "uvicorn[standard]>=0.30",
     "pydantic>=2.8",
     "pydantic-settings>=2.7",
