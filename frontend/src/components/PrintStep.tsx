@@ -9,6 +9,7 @@ import {
   layersToMm,
   mixPlan,
   cutoutChange,
+  designHeightMm,
   filamentMatches,
   mixedChange,
   printOptions,
@@ -162,11 +163,18 @@ export function PrintStep() {
           ))}
         </div>
         {view === 'design' ? (
-          <figure
-            className={`preview print-design${print.mirror ? ' print-design--mirrored' : ''}`}
-          >
+          <figure className="preview print-design">
             <ElementMap
               doc={editor}
+              mirror={print.mirror}
+              size={
+                editor.width > 0
+                  ? {
+                      widthMm: print.widthMm,
+                      heightMm: designHeightMm(print.widthMm, editor.height / editor.width),
+                    }
+                  : undefined
+              }
               selected={selected}
               raised={print.shapeRaise}
               excluded={print.excluded}

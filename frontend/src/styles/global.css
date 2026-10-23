@@ -1313,11 +1313,6 @@ select {
   margin: 0;
 }
 
-/* Mirrored prints (stamps): the design view shows the model as it will print. */
-.print-design--mirrored svg {
-  transform: scaleX(-1);
-}
-
 /* The 3MF filament (slot) number on a print color's swatch. */
 .print-colors .swatch {
   position: relative;
@@ -1544,6 +1539,31 @@ select {
   width: 100%;
   max-height: 60vh;
   border-radius: 8px;
+}
+
+.element-map__checker-light {
+  fill: var(--color-surface);
+}
+
+.element-map__checker-dark {
+  fill: var(--checker);
+}
+
+/* The printed width and height, drawn beside the design. */
+.element-map__dimensions {
+  pointer-events: none;
+}
+
+.element-map__dimensions path {
+  fill: none;
+  stroke: var(--color-muted);
+  stroke-width: 1.5px;
+  vector-effect: non-scaling-stroke;
+}
+
+.element-map__dimensions text {
+  fill: var(--color-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .element-map__shape {

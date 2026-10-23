@@ -320,7 +320,10 @@ describe('PrintStep', () => {
 
     await user.click(screen.getByLabelText('Mirror (stamps: print face down)'));
     expect(screen.getByText(/Shown mirrored, as it will print/)).toBeInTheDocument();
-    expect(document.querySelector('.print-design--mirrored')).not.toBeNull();
+    expect(document.querySelector('.element-map > g')).toHaveAttribute(
+      'transform',
+      'matrix(-1 0 0 1 100 0)',
+    );
     await user.click(screen.getByRole('button', { name: 'Download 3MF' }));
     await waitFor(() => expect(exportFile).toHaveBeenCalled());
     expect(vi.mocked(exportFile).mock.calls[0][2]).toMatchObject({ mirror: true });

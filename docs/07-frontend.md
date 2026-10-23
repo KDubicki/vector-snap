@@ -216,6 +216,9 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
   on top / light on top, `reliefRaise` in `src/lib/printPlan.ts`) ranks the printed
   colors by brightness and raises each one layer above the previous one; the values can
   be adjusted afterwards, and **Make all colors flat again** clears them.
+- **Printed size**: the design view draws dimension lines under and beside the design
+  with its printed width and height (*80 mm*, *50 mm*), following the width and height
+  fields. Only the design is mirrored for a stamp, so the labels stay readable.
 - **Raised elements**: the design view is a clickable map (`ElementMap`, the shapes of
   the edited document): click selects an element, Shift/Ctrl/Cmd+click adds or removes,
   clicking empty space clears. The panel raises the selection by whole layers (− / +),
@@ -392,7 +395,7 @@ App                         header with step indicator, error banner
     ├── EditorPalettePanel  color groups: recolor, select group
     └── FragmentsPanel      save the selection as a fragment, saved fragments
 └── PrintStep               (step: print) — views, preview, exports (useExport)
-    ├── ElementMap          clickable design (selection, raised, predicted colors, mirrored)
+    ├── ElementMap          clickable design (selection, raised, predicted colors, mirrored, size)
     ├── PrinterPicker       printer model, loaded filaments
     ├── ProjectPicker       project presets
     ├── MyProjects          print settings saved under a name in the browser

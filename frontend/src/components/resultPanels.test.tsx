@@ -89,6 +89,28 @@ describe('ElementMap', () => {
     fireEvent.click(screen.getByRole('img'));
     expect(onSelect).toHaveBeenLastCalledWith(null, false);
   });
+
+  it('draws the printed size beside the design and mirrors only the design', () => {
+    const { container } = render(
+      <ElementMap
+        doc={sampleDoc()}
+        selected={[]}
+        raised={{}}
+        excluded={[]}
+        mirror
+        size={{ widthMm: 80, heightMm: 40.04 }}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    // 8 % of the longer side is left for the dimension lines.
+    expect(screen.getByRole('img')).toHaveAttribute('viewBox', '0 0 108 58');
+    expect(container.querySelector('.element-map__dimensions')).toHaveTextContent('80 mm40 mm');
+    expect(container.querySelector('.element-map > g')).toHaveAttribute(
+      'transform',
+      'matrix(-1 0 0 1 100 0)',
+    );
+  });
 });
 
 describe('ConfirmDialog', () => {
