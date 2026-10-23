@@ -181,6 +181,25 @@ describe('PaletteEditor', () => {
     return handlers;
   };
 
+  it('shows every color at its share of the image, removed ones hatched', () => {
+    renderEditor({ overrides: { 1: '#00ff00' }, transparent: [2] });
+
+    const strip = screen.getByRole('img', { name: /Share of the image/ });
+    expect(strip).toHaveAccessibleName(
+      'Share of the image: #ffffff 60.0%, #00ff00 30.0%, #0000ff 10.0%',
+    );
+    const [white, green, blue] = strip.querySelectorAll('span');
+    expect(white).toHaveStyle({ flexGrow: '0.6', background: '#ffffff' });
+    expect(green).toHaveAttribute('title', '#00ff00: 30.0%');
+    expect(blue).toHaveClass('removed');
+  });
+
+  it('leaves the strip out when the shares are not known', () => {
+    renderEditor({ palette: [{ index: 0, hex: '#ffffff' }] });
+
+    expect(screen.queryByRole('img', { name: /Share of the image/ })).not.toBeInTheDocument();
+  });
+
   it('recolors, locks and removes palette colors', async () => {
     const user = userEvent.setup();
     const handlers = renderEditor();

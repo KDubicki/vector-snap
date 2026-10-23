@@ -44,6 +44,38 @@ function RemoveIcon({ removed }: { removed: boolean }) {
   );
 }
 
+/**
+ * The palette as one bar, each color as wide as its share of the image: how much of the
+ * design (and of the print) a color makes up. Removed colors are hatched.
+ */
+function PaletteStrip({
+  palette,
+  overrides,
+  transparent,
+}: Pick<PaletteEditorProps, 'palette' | 'overrides' | 'transparent'>) {
+  const shown = palette.filter((color) => (color.coverage ?? 0) > 0);
+  if (shown.length !== palette.length) return null;
+  const label = shown
+    .map((color) => `${overrides[color.index] ?? color.hex} ${(color.coverage! * 100).toFixed(1)}%`)
+    .join(', ');
+  return (
+    <div className="palette-strip" role="img" aria-label={`Share of the image: ${label}`}>
+      {shown.map((color) => {
+        const hex = overrides[color.index] ?? color.hex;
+        const removed = transparent.includes(color.index);
+        return (
+          <span
+            key={color.index}
+            className={removed ? 'removed' : undefined}
+            style={{ flexGrow: color.coverage, background: removed ? undefined : hex }}
+            title={`${hex}: ${(color.coverage! * 100).toFixed(1)}%${removed ? ' (removed)' : ''}`}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
 export function PaletteEditor({
   palette,
   overrides,
@@ -84,6 +116,7 @@ export function PaletteEditor({
           </button>
         </span>
       </div>
+      <PaletteStrip palette={palette} overrides={overrides} transparent={transparent} />
       <ul className="palette">
         {palette.map((color) => {
           const hex = overrides[color.index] ?? color.hex;

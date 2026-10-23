@@ -476,6 +476,8 @@ select {
 
 .coverage {
   position: relative;
+  /* The bar sits behind the percentage, not behind the panel. */
+  isolation: isolate;
   display: flex;
   align-items: center;
   height: 20px;
@@ -490,6 +492,28 @@ select {
   border-radius: 4px;
   background: var(--color-border);
   z-index: -1;
+}
+
+/* Every palette color at its share of the image; at least a sliver for tiny ones. */
+.palette-strip {
+  display: flex;
+  height: 14px;
+  margin-bottom: 10px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 7px;
+}
+
+.palette-strip span {
+  min-width: 3px;
+}
+
+.palette-strip span + span {
+  border-left: 1px solid var(--color-surface);
+}
+
+.palette-strip span.removed {
+  background: repeating-linear-gradient(-45deg, var(--checker) 0 3px, var(--color-surface) 3px 6px);
 }
 
 .hint {

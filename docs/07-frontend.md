@@ -109,6 +109,9 @@ tracing and export options). Narrower windows stack everything and scroll normal
   them exactly in the palette. At most `colors` colors can be locked, and the color count
   cannot go below the number of locked colors. Locked colors persist across images until
   "New image".
+- **Share strip**: above the list, one bar with every color as wide as its share of the
+  image (removed colors hatched), so the colors that make up most of the design and
+  the print stand out.
 - **Palette list**: one row per color — color picker, hex value, coverage bar, per-color
   reset and "Reset all".
   - Edits are previewed **instantly client-side**: the indexed PNG is decoded onto a
