@@ -219,6 +219,9 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
 - **Printed size**: the design view draws dimension lines under and beside the design
   with its printed width and height (*80 mm*, *50 mm*), following the width and height
   fields. Only the design is mirrored for a stamp, so the labels stay readable.
+- **Side view** (`LayerProfile`): under the colors table, the print from the side, to
+  scale in height: the base plate in gray and one column per printed color at its height
+  (steps, raised colors, inlaid colors flush with the top). Cut-out prints have none.
 - **Raised elements**: the design view is a clickable map (`ElementMap`, the shapes of
   the edited document): click selects an element, Shift/Ctrl/Cmd+click adds or removes,
   clicking empty space clears. The panel raises the selection by whole layers (− / +),
@@ -412,6 +415,7 @@ App                         header with step indicator, error banner
     ├── FilamentSlotsCheck  more colors than loaded filaments
     ├── BuildVolumeCheck    model size against the build volume, fit to the bed
     ├── ColorChangesSummary filament changes, their time and purge
+    ├── LayerProfile        side view of the base and color heights
     ├── PrintSummary        height, footprint and filament tiles
     ├── FilamentCost        filament cost at a price per kg
     ├── PrintDownloads      Download 3MF / STL / STL per color, progress, errors

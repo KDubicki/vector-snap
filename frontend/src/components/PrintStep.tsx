@@ -38,6 +38,7 @@ import { FilamentSlots } from './FilamentSlots';
 import { MixTable } from './MixTable';
 import { MyProjects } from './MyProjects';
 import { LayerFields } from './LayerFields';
+import { LayerProfile } from './LayerProfile';
 import type { PreviewRequest } from './ModelPreview';
 import { PrintColorsTable } from './PrintColorsTable';
 import { PrintDownloads, type PrintFormat } from './PrintDownloads';
@@ -274,6 +275,13 @@ export function PrintStep() {
           slots={mixed || print.style === 'cutout' ? undefined : slots}
           error={errors.colors}
           onChange={update}
+        />
+
+        <LayerProfile
+          doc={editor}
+          settings={print}
+          colors={heights.colors}
+          totalLayers={heights.totalLayers}
         />
 
         {mixed && !errors.filaments && (
