@@ -63,6 +63,25 @@ describe('SvgEditor', () => {
     });
   });
 
+  it('switches the canvas background and remembers it', async () => {
+    localStorage.clear();
+    const { unmount } = render(<SvgEditor />);
+    const viewport = () => screen.getByLabelText('SVG editor canvas').parentElement!;
+
+    expect(viewport()).toHaveClass('checkerboard');
+    await userEvent.click(screen.getByRole('button', { name: 'Dark background' }));
+    expect(viewport()).toHaveClass('editor__viewport--dark');
+    expect(screen.getByRole('button', { name: 'Dark background' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+
+    unmount();
+    render(<SvgEditor />);
+    expect(viewport()).toHaveClass('editor__viewport--dark');
+    localStorage.clear();
+  });
+
   it('selects by clicking, adds with Shift and clears on empty canvas', () => {
     const { click } = setup();
 

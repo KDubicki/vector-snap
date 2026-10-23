@@ -899,6 +899,41 @@ select {
   }
 }
 
+/* Plain backgrounds: white shapes show on the dark one, dark shapes on the light one. */
+.editor__viewport--light {
+  background: #ffffff;
+}
+
+.editor__viewport--dark {
+  background: #1b1e24;
+}
+
+.editor__toolbar button.editor__backdrop {
+  display: grid;
+  place-items: center;
+  min-width: 32px;
+  padding: 6px;
+}
+
+.editor__swatch {
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+}
+
+.editor__swatch--checker {
+  background: repeating-conic-gradient(#c8ccd4 0 25%, #ffffff 0 50%) 0 0 / 8px 8px;
+}
+
+.editor__swatch--light {
+  background: #ffffff;
+}
+
+.editor__swatch--dark {
+  background: #1b1e24;
+}
+
 .editor__canvas--knife {
   cursor: crosshair;
 }

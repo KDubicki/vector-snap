@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'react';
 import { EditorScene, type ViewPoint } from '../editor/scene';
+import { BACKDROPS, readBackdrop, saveBackdrop, type Backdrop } from '../lib/backdrop';
+import { browserStorage } from '../lib/theme';
 import { useAppStore } from '../state/store';
 
 const DRAG_THRESHOLD_PX = 3;
@@ -76,6 +78,12 @@ function viewPoint(event: { clientX: number; clientY: number }, canvas: HTMLElem
   return { x: event.clientX - rect.left, y: event.clientY - rect.top };
 }
 
+const BACKDROP_LABELS: Record<Backdrop, string> = {
+  checker: 'Checkerboard',
+  light: 'Light',
+  dark: 'Dark',
+};
+
 /** Interactive SVG editor canvas (selection, knife, zoom, pan). See docs/08-svg-editor.md. */
 export function SvgEditor() {
   const editor = useAppStore((s) => s.editor);
@@ -92,6 +100,11 @@ export function SvgEditor() {
   const gestureRef = useRef<Gesture | null>(null);
   const spaceRef = useRef(false);
   const [zoom, setZoom] = useState(1);
+  const [backdrop, setBackdrop] = useState<Backdrop>(() => readBackdrop(browserStorage()));
+  const chooseBackdrop = (value: Backdrop) => {
+    setBackdrop(value);
+    saveBackdrop(browserStorage(), value);
+  };
   const [tool, setTool] = useState<Tool>('select');
 
   // Create the Paper.js scene once and keep it sized to the viewport element.
@@ -453,6 +466,21 @@ export function SvgEditor() {
             Fit
           </button>
         </div>
+        <div className="editor__group" role="group" aria-label="Background">
+          {BACKDROPS.map((value) => (
+            <button
+              key={value}
+              type="button"
+              className="editor__backdrop"
+              aria-pressed={backdrop === value}
+              aria-label={`${BACKDROP_LABELS[value]} background`}
+              title={`${BACKDROP_LABELS[value]} background`}
+              onClick={() => chooseBackdrop(value)}
+            >
+              <span className={`editor__swatch editor__swatch--${value}`} aria-hidden="true" />
+            </button>
+          ))}
+        </div>
         <span className="hint">{TOOLS.find((item) => item.id === tool)?.hint}</span>
       </div>
       {notice && (
@@ -460,7 +488,10 @@ export function SvgEditor() {
           {notice}
         </p>
       )}
-      <div ref={viewportRef} className="editor__viewport checkerboard">
+      <div
+        ref={viewportRef}
+        className={`editor__viewport ${backdrop === 'checker' ? 'checkerboard' : `editor__viewport--${backdrop}`}`}
+      >
         <canvas
           ref={canvasRef}
           className={`editor__canvas editor__canvas--${tool}`}

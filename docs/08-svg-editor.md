@@ -60,8 +60,10 @@ Status: ✅ implemented · 🔜 planned.
 | Merge | `M` / toolbar | Unite the selected shapes into one (see [Merging and moving](#merging-and-moving-shapes-)). | ✅ |
 | Delete | `Del` / `Backspace` / toolbar | Remove selected shapes; groups left empty disappear. | ✅ |
 | Undo / Redo | `Ctrl/Cmd+Z` / `Ctrl/Cmd+Shift+Z`, `Ctrl+Y` / toolbar | History navigation (see [Undo / redo](#undo--redo-)). | ✅ |
+| Background | toolbar | Checkerboard (shows transparency), light or dark canvas background, so white or dark shapes stand out; remembered in this browser (`src/lib/backdrop.ts`). | ✅ |
 
-The toolbar has three button groups — tools, edit (undo, redo, delete, merge) and zoom —
+The toolbar has four button groups — tools, edit (undo, redo, delete, merge), zoom and
+background —
 that wrap as a whole on narrow screens (dividers only on wide layouts), so related
 buttons stay together. On phones (≤ 600 px) the canvas is `min(60vh, 90vw)` tall
 instead of `min(70vh, 720px)`, leaving less empty space around the drawing.
