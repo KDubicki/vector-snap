@@ -1465,12 +1465,40 @@ select {
   display: block;
 }
 
+/* Height, footprint and filament as three tiles; the value is the large line. */
 .print-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
   margin: 0;
-  padding: 10px 12px;
+}
+
+.print-summary__tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 8px 10px;
   border-radius: 8px;
   background: color-mix(in srgb, var(--color-text) 6%, transparent);
-  font-size: 0.9rem;
+}
+
+.print-summary dt {
+  color: var(--color-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.print-summary dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.print-summary dd.hint {
+  font-weight: 400;
+  font-size: 0.75rem;
 }
 
 .print-cta {

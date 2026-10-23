@@ -19,7 +19,6 @@ import {
   type PrintSettings,
 } from '../lib/printPlan';
 import { availableFilaments } from '../lib/filamentLibrary';
-import { formatGrams, formatMillimetres } from '../lib/meshStats';
 import { printerById } from '../lib/printers';
 import { useExport } from '../lib/useExport';
 import { usePrintStats } from '../lib/usePrintStats';
@@ -42,6 +41,7 @@ import type { PreviewRequest } from './ModelPreview';
 import { PrintColorsTable } from './PrintColorsTable';
 import { PrintDownloads, type PrintFormat } from './PrintDownloads';
 import { PrintSettingsFile } from './PrintSettingsFile';
+import { PrintSummary } from './PrintSummary';
 import { PrintUndo } from './PrintUndo';
 import { PrinterPicker } from './PrinterPicker';
 import { PrinterTuningFields } from './PrinterTuningFields';
@@ -304,19 +304,13 @@ export function PrintStep() {
           <BuildVolumeCheck printer={printer} settings={print} size={size} onChange={update} />
         )}
         {!invalid && <ColorChangesSummary printer={printer} changes={changes} />}
-        <p className="print-summary" role="status">
-          Total height <strong>{mm(heights.totalLayers)} mm</strong> · {heights.totalLayers} layers
-          · base {mm(print.baseLayers)} mm
-          {!invalid && size && (
-            <>
-              {' '}
-              · {formatMillimetres(size.x_mm)} × {formatMillimetres(size.y_mm)} mm footprint
-            </>
-          )}
-          {!invalid && totalGrams !== undefined && (
-            <> · {formatGrams(totalGrams)} g of filament (solid)</>
-          )}
-        </p>
+        <PrintSummary
+          heightMm={mm(heights.totalLayers)}
+          layers={heights.totalLayers}
+          baseMm={mm(print.baseLayers)}
+          size={invalid ? null : size}
+          grams={invalid ? undefined : totalGrams}
+        />
         {!invalid && <FilamentCost modelGrams={totalGrams} purgeGrams={changes?.purge_g ?? 0} />}
         <PrintDownloads
           invalid={invalid}

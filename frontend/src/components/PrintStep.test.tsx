@@ -28,7 +28,11 @@ vi.mock('./ModelPreview', () => ({
 }));
 
 const store = () => useAppStore.getState();
-const summary = () => screen.getByText(/Total height/).textContent;
+/** The summary tiles' values, e.g. "2 mm · 10 layers · base 1.6 mm · 80.0 × 40.0 mm · …". */
+const summary = () =>
+  [...screen.getByRole('status', { name: 'Print summary' }).querySelectorAll('dd')]
+    .map((value) => value.textContent)
+    .join(' · ');
 
 describe('PrintStep', () => {
   beforeEach(() => {
@@ -270,9 +274,10 @@ describe('PrintStep', () => {
   it('shows the filament each color takes and the total, for any printer', async () => {
     render(<PrintStep />);
 
-    expect(await screen.findByText('≈ 12 g')).toBeInTheDocument(); // white, base plate included
+    // White (base plate included) and the summary's total.
+    expect(await screen.findAllByText('≈ 12 g')).toHaveLength(2);
     expect(screen.getByText('≈ 0.3 g')).toBeInTheDocument();
-    expect(summary()).toContain('≈ 12 g of filament (solid)');
+    expect(summary()).toContain('≈ 12 g · solid model');
     expect(screen.queryByText(/filament changes/)).not.toBeInTheDocument(); // no change cost
   });
 
@@ -290,7 +295,7 @@ describe('PrintStep', () => {
     vi.mocked(getModelSize).mockResolvedValue({ x_mm: 102.37, y_mm: 108.37, z_mm: 4.8 });
     render(<PrintStep />);
 
-    await waitFor(() => expect(summary()).toContain('102 × 108 mm footprint'));
+    await waitFor(() => expect(summary()).toContain('102 × 108 mm'));
   });
 
   it('names each printed color after the nearest filament the user has', async () => {

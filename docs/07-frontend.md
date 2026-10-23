@@ -267,7 +267,7 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
   the layer height does not suit it, the nozzle's default layer height with base and
   color heights kept in mm. The printer is remembered with the nozzle.
 - **Footprint**: for every printer the summary shows the model's footprint as exported
-  (*· 102 × 108 mm footprint*, from `POST /export/model-size`: border, round plate and
+  (the *Footprint* tile, *102 × 108 mm*, from `POST /export/model-size`: border, round plate and
   hanging loop included, which the width alone does not tell).
 - **Build volume** (`BuildVolumeCheck`, printers with a known build volume): 500 ms after
   the settings stop changing the panel asks the backend for the model's size
@@ -306,7 +306,7 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
 - **Filament per color**: the color-changes request also runs for *Any printer* (with no
   change cost) and gives the filament each color takes. The colors table shows it next to
   each height, on a second line (*≈ 1.3 g*; the bottom color includes the base plate; *too thin* when every shape is thinner than the nozzle, so the backend leaves the color out) and the
-  summary adds the total (*≈ 12 g of filament (solid)*). It is the solid volume in PLA, an
+  summary's *Filament* tile shows the total (*≈ 12 g*, solid model). It is the solid volume in PLA, an
   upper bound: slicers fill the inside sparsely (Anycubic Slicer Next: 3.64 g for 4.46 g
   solid on a 2 mm plate). Mixed colors show only the total, as their filaments are not
   the design's colors.
@@ -334,7 +334,9 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
   only. **Reset printer settings** (shown when the nozzle or tuning differ from the
   defaults) restores them; the filaments are kept. Layer height and heights stay design
   settings, since heights are counted in layers.
-- Summary of the total height, **Download 3MF** (one part per color → AMS slots in the
+- Summary tiles (`PrintSummary`): *Height* (with layers and base), *Footprint* and
+  *Filament*, a dash while the backend has not answered or the settings are invalid.
+  Then **Download 3MF** (one part per color → AMS slots in the
   slicer) or **STL**, a 3D preview (marked stale when settings change) and cancellable
   progress. The 3MF (here and in the export panel) is sent with `title` = the image's
   name without its extension, so the slicer lists the object as e.g. `logo` instead of
@@ -404,6 +406,7 @@ App                         header with step indicator, error banner
     ├── FilamentSlotsCheck  more colors than loaded filaments
     ├── BuildVolumeCheck    model size against the build volume, fit to the bed
     ├── ColorChangesSummary filament changes, their time and purge
+    ├── PrintSummary        height, footprint and filament tiles
     ├── FilamentCost        filament cost at a price per kg
     ├── PrintDownloads      Download 3MF / STL / STL per color, progress, errors
     ├── FilamentPlanView    filament changes of stepped colors
