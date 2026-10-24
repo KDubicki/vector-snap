@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { EditorDoc } from '../editor/model';
 import {
   designHeightMm,
+  screwBorderMm,
   widthForHeight,
   DEFAULT_PRINT,
   filamentMatches,
@@ -160,6 +161,20 @@ describe('print plan', () => {
     ).toEqual({
       magnetCount: 'Between 1 and 4 magnets.',
     });
+    expect(printOptions(doc, settings({ screwHoles: 2, screwHoleMm: 3.5 }))).toMatchObject({
+      screw_holes: 2,
+      screw_hole_mm: 3.5,
+    });
+    expect(validatePrint(doc, settings({ screwHoles: 3 }))).toEqual({
+      screwHoles: 'None, 2 or 4 holes.',
+    });
+    expect(validatePrint(doc, settings({ screwHoles: 4, baseLayers: 0 }))).toMatchObject({
+      screwHoles: 'Screw holes need a base.',
+    });
+    expect(validatePrint(doc, settings({ screwHoles: 2, screwHoleMm: 0 }))).toEqual({
+      screwHoleMm: 'Between 0.1 and 10 mm.',
+    });
+    expect(screwBorderMm(4)).toBe(7);
     expect(printOptions(doc, settings({ loopHoleMm: 4, loopPosition: 'left' }))).toMatchObject({
       loop_hole_mm: 4,
       loop_position: 'left',

@@ -1,6 +1,13 @@
 import { BASE_SHAPES } from '../lib/baseShapes';
+import { screwBorderMm } from '../lib/printPlan';
 import type { BaseShape, LoopPosition, PrintSettings } from '../lib/printPlan';
 import { NumberField } from './NumberField';
+
+const SCREW_HOLES = [
+  { value: 0, label: 'None' },
+  { value: 2, label: '2, by the sides' },
+  { value: 4, label: '4, in the corners' },
+];
 
 const LOOP_POSITIONS: { value: LoopPosition; label: string }[] = [
   { value: 'top', label: 'Top' },
@@ -119,6 +126,45 @@ export function BasePlateFields({
             hint="Two or more, spread along the longer side, keep long signs from tilting."
             error={errors.magnetCount}
             onChange={(magnetCount) => update({ magnetCount })}
+          />
+        )}
+        <div className="option">
+          <label htmlFor="print-screw-holes">Screw holes</label>
+          <select
+            id="print-screw-holes"
+            value={print.screwHoles}
+            aria-invalid={Boolean(errors.screwHoles)}
+            aria-describedby={errors.screwHoles ? 'print-screw-holes-error' : undefined}
+            onChange={(event) => update({ screwHoles: Number(event.target.value) })}
+          >
+            {SCREW_HOLES.map((holes) => (
+              <option key={holes.value} value={holes.value}>
+                {holes.label}
+              </option>
+            ))}
+          </select>
+          <span className="hint">
+            {print.screwHoles > 0
+              ? `Through the plate beside the design: needs a border of about ${screwBorderMm(print.screwHoleMm)} mm, or a rectangle plate.`
+              : 'To screw a sign to a wall.'}
+          </span>
+          {errors.screwHoles && (
+            <span id="print-screw-holes-error" className="field-error">
+              {errors.screwHoles}
+            </span>
+          )}
+        </div>
+        {print.screwHoles > 0 && (
+          <NumberField
+            id="print-screw-hole"
+            label="Screw hole diameter (mm)"
+            value={print.screwHoleMm}
+            min={0.1}
+            max={10}
+            step={0.1}
+            hint="A little wider than the screw, e.g. 4 for 3.5 mm wood screws."
+            error={errors.screwHoleMm}
+            onChange={(screwHoleMm) => update({ screwHoleMm })}
           />
         )}
         {print.style !== 'cutout' && (

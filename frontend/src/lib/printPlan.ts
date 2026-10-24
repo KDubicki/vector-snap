@@ -66,6 +66,9 @@ export interface PrintSettings {
   magnetDepthMm: number;
   /** Magnet pockets, spread along the plate's longer side. */
   magnetCount: number;
+  /** Screw holes through the plate beside the design: 0, 2 or 4. */
+  screwHoles: number;
+  screwHoleMm: number;
   /** Details thinner than this are dropped (mm): the nozzle width. */
   nozzleMm: number;
   /** Colors sunk into the base plate, flush with its top (a flat surface). */
@@ -121,6 +124,8 @@ const COMMON: ProjectSettings = {
   magnetMm: 0,
   magnetDepthMm: 2,
   magnetCount: 1,
+  screwHoles: 0,
+  screwHoleMm: 4,
   inlay: false,
 };
 
@@ -281,6 +286,14 @@ export function heightPlan(doc: EditorDoc, settings: PrintSettings) {
   return { colors, shapes, top, totalLayers };
 }
 
+/** Plastic between a screw hole and the plate's edge or the design (mm), as the backend. */
+export const SCREW_WALL_MM = 1.5;
+
+/** The border a screw hole needs beside the design: the hole and a wall on each side. */
+export function screwBorderMm(holeMm: number): number {
+  return Number((holeMm + 2 * SCREW_WALL_MM).toFixed(1));
+}
+
 /** Problems that would make the export fail, by settings field. */
 export function validatePrint(doc: EditorDoc, settings: PrintSettings): Record<string, string> {
   const errors: Record<string, string> = {};
@@ -301,6 +314,11 @@ export function validatePrint(doc: EditorDoc, settings: PrintSettings): Record<s
   const magnets = settings.magnetCount;
   if (!Number.isInteger(magnets) || magnets < 1 || magnets > 4) {
     errors.magnetCount = 'Between 1 and 4 magnets.';
+  }
+  if (![0, 2, 4].includes(settings.screwHoles)) errors.screwHoles = 'None, 2 or 4 holes.';
+  else if (settings.screwHoles > 0 && base <= 0) errors.screwHoles = 'Screw holes need a base.';
+  if (settings.screwHoles > 0 && !(settings.screwHoleMm > 0 && settings.screwHoleMm <= 10)) {
+    errors.screwHoleMm = 'Between 0.1 and 10 mm.';
   }
   if (settings.rimMm > 0 && base <= 0) errors.rimMm = 'A rim needs a base.';
   if (settings.elephantFootMm > 0 && base <= 0) {
@@ -377,6 +395,8 @@ export function printOptions(
     magnet_mm: settings.magnetMm,
     magnet_depth_mm: settings.magnetDepthMm,
     magnet_count: settings.magnetCount,
+    screw_holes: settings.screwHoles,
+    screw_hole_mm: settings.screwHoleMm,
     relief: settings.style === 'cutout' ? 'engrave' : settings.inlay ? 'inlay' : 'raised',
     elephant_foot_mm: settings.elephantFootMm,
     simplify_mm: settings.simplifyMm,
@@ -574,6 +594,7 @@ export function testCard(
       rimMm: 0,
       loopHoleMm: 0,
       magnetMm: 0,
+      screwHoles: 0,
       shapeRaise: {},
     },
   };

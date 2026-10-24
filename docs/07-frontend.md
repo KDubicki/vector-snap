@@ -232,7 +232,10 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
 - **Base plate**: shape (outline, rectangle, rounded, circle, oval, hexagon; one list in `src/lib/baseShapes.ts` for the print step, the export panel and settings files), border, raised rim (as
   high as the colors), hanging loop (with the side it sticks out of, `loop_position`),
   magnet pocket (depth checked against the base; **Magnets** 1–4 spreads several along
-  the longer side, `magnet_count`), and
+  the longer side, `magnet_count`), **Screw holes** (none, 2 by the sides or 4 in the
+  corners, with their diameter; `screw_holes`, `screw_hole_mm` — the hint names the
+  border they need, the hole plus two 1.5 mm walls, and the backend's error says the
+  same when the design leaves no room), and
   **Set the colors into the base (flat top)** (`inlay`, sent as `relief=inlay`): colors
   sink their height into the plate, which must then be thicker than the tallest color —
   and a magnet pocket must fit below them; the total height is then the base alone.
@@ -410,7 +413,7 @@ App                         header with step indicator, error banner
     ├── PrintColorsTable    include / extra layers, nearest filament, slot, grams per color
     ├── MixTable            recipes, predictions, test card (mixed)
     ├── RaisedElementsPanel raise the selected elements
-    ├── BasePlateFields     shape, border, rim, loop, magnet, inlay, mirror
+    ├── BasePlateFields     shape, border, rim, loop, magnet, screw holes, inlay, mirror
     ├── PrinterTuningFields nozzle, elephant's foot, smooth outlines, gap between colors
     ├── FilamentSlotsCheck  more colors than loaded filaments
     ├── BuildVolumeCheck    model size against the build volume, fit to the bed

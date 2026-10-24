@@ -245,6 +245,32 @@ describe('RaisedElementsPanel', () => {
 });
 
 describe('BasePlateFields', () => {
+  it('asks for the screw hole size only with screw holes and names the border needed', () => {
+    const onChange = vi.fn();
+    const { rerender } = render(
+      <BasePlateFields settings={settings()} errors={{}} onChange={onChange} />,
+    );
+    expect(screen.queryByLabelText('Screw hole diameter (mm)')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Screw holes'), { target: { value: '4' } });
+    expect(onChange).toHaveBeenLastCalledWith({ screwHoles: 4 });
+    rerender(
+      <BasePlateFields
+        settings={settings({ screwHoles: 4, screwHoleMm: 5 })}
+        errors={{ screwHoles: 'Screw holes need a base.' }}
+        onChange={onChange}
+      />,
+    );
+    expect(screen.getByText(/needs a border of about 8 mm/)).toBeInTheDocument();
+    expect(screen.getByLabelText('Screw holes')).toHaveAccessibleDescription(
+      'Screw holes need a base.',
+    );
+    fireEvent.change(screen.getByLabelText('Screw hole diameter (mm)'), {
+      target: { value: '3.5' },
+    });
+    expect(onChange).toHaveBeenLastCalledWith({ screwHoleMm: 3.5 });
+  });
+
   it('edits the plate and asks for the magnet depth only with a magnet', () => {
     const onChange = vi.fn();
     const { rerender } = render(

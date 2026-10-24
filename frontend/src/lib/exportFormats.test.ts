@@ -27,6 +27,8 @@ describe('export formats', () => {
       magnet_mm: 0,
       magnet_depth_mm: 2,
       magnet_count: 1,
+      screw_holes: '0',
+      screw_hole_mm: 4,
       min_feature_mm: 0,
       print_layer_mm: 0,
       simplify_mm: 0,
