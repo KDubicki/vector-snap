@@ -32,6 +32,8 @@ dev = [
     "pip-audit>=2.7",
     # Pulled in by httpx and pip-audit; older versions have GHSA-6q48-6c7w-9gw2.
     "certifi>=2026.10.19",
+    # Pulled in by pip-audit; 4.0.9 has CVE-2026-112940, CVE-2026-112913 and CVE-2026-112907.
+    "filelock>=4.2.1",
     "pypdfium2>=4.30",
 ]
 
