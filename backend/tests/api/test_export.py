@@ -65,6 +65,9 @@ def test_stl_defaults(client: TestClient) -> None:
         ({"elephant_foot_mm": "0.2", "base_mm": "0"}, "INVALID_PARAMETERS"),
         ({"print_layer_mm": "2"}, "VALIDATION_ERROR"),
         ({"base_shape": "star"}, "VALIDATION_ERROR"),
+        ({"outline_mm": "6"}, "VALIDATION_ERROR"),
+        ({"outline_mm": "1", "outline_color": "black"}, "VALIDATION_ERROR"),
+        ({"outline_mm": "1", "relief": "engrave", "base_mm": "3"}, "INVALID_PARAMETERS"),
         ({"base_margin_mm": "-1"}, "VALIDATION_ERROR"),
         ({"stack_order": "random"}, "VALIDATION_ERROR"),
         ({"relief": "engraved"}, "VALIDATION_ERROR"),
@@ -136,6 +139,16 @@ def test_screw_holes_come_in_two_or_four(client: TestClient) -> None:
 
     assert response.status_code == 422
     assert response.json()["error"]["details"] == {"field": "screw_holes"}
+
+
+def test_3mf_outlines_get_a_filament_of_their_own(client: TestClient) -> None:
+    form = {"width_mm": "40", "base_mm": "1", "outline_mm": "1", "outline_color": "#1A1A1A"}
+
+    archive = zipfile.ZipFile(io.BytesIO(_post(client, "3mf", form).content))
+
+    model = archive.read("3D/3dmodel.model").decode()
+    assert "#1A1A1A" in model.upper()
+    assert 'name="outline"' in model
 
 
 def test_stl_magnet_pocket_keeps_every_part_closed(client: TestClient) -> None:

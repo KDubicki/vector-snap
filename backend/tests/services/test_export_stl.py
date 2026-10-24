@@ -9,6 +9,7 @@ from app.core.errors import InvalidParameters
 from app.services.export_stl import (
     Body,
     ColorStack,
+    Relief,
     StackOrder,
     StlOptions,
     build_bodies,
@@ -405,6 +406,52 @@ def test_rim_uses_the_base_filament_with_mixed_colors() -> None:
     )
 
     assert _bodies(options, [("#000000", [FRAME])])["rim"].color == "#ffffff"
+
+
+LEFT = "M0,0 L20,0 L20,20 L0,20 Z"
+RIGHT = "M20,0 L40,0 L40,20 L20,20 Z"
+
+
+def test_outlines_trace_every_color_in_their_own_filament() -> None:
+    options = StlOptions(width_mm=40, base_mm=1, layer_mm=0.6, layered=False, outline_mm=1)
+
+    bodies = _bodies(options, [("#ffffff", [LEFT]), ("#ff0000", [RIGHT])])
+
+    outline = bodies["outline"]
+    assert is_closed(outline.triangles)
+    assert outline.color == "#000000"
+    assert (outline.triangles[..., 2].min(), outline.triangles[..., 2].max()) == pytest.approx(
+        (1, 1.6)
+    )
+    # A 1 mm band inside the 40 x 20 design's edge and one centered on the shared edge.
+    area = (40 * 20 - 38 * 18) + 18
+    assert signed_volume(outline.triangles) == pytest.approx(area * 0.6, rel=1e-3)
+    colors = signed_volume(bodies["color-0"].triangles) + signed_volume(bodies["color-1"].triangles)
+    assert colors == pytest.approx((800 - area) * 0.6, rel=1e-3)
+
+
+def test_outlines_can_stand_above_the_colors() -> None:
+    options = StlOptions(
+        width_mm=40,
+        base_mm=1,
+        layer_mm=0.6,
+        outline_mm=0.8,
+        outline_color="#123456",
+        outline_height_mm=2,
+    )
+
+    outline = _bodies(options, [("#ffffff", [LEFT])])["outline"]
+
+    assert outline.color == "#123456"
+    assert outline.triangles[..., 2].max() == pytest.approx(3)
+
+
+@pytest.mark.parametrize("relief", ["inlay", "engrave"])
+def test_outlines_need_raised_colors(relief: Relief) -> None:
+    options = StlOptions(width_mm=40, base_mm=2, layer_mm=0.6, outline_mm=1, relief=relief)
+
+    with pytest.raises(InvalidParameters, match="Outlines stand on the base plate"):
+        _bodies(options, [("#ffffff", [LEFT])])
 
 
 def test_rim_needs_a_base_plate() -> None:

@@ -117,10 +117,15 @@ class StlOptions:
     # and how many, spread along the plate's longer side.
     magnet_mm: float = 0.0
     magnet_count: int = 1
+    magnet_depth_mm: float = 2.0
     # Screw holes through the base plate beside the design: 0, 2 or 4 (mm diameter).
     screw_holes: int = 0
     screw_hole_mm: float = 4.0
-    magnet_depth_mm: float = 2.0
+    # Outlines along every color's edges, in a filament of their own: width (mm, 0 = none),
+    # color, and height above the base (0 = as high as the tallest color).
+    outline_mm: float = 0.0
+    outline_color: str = "#000000"
+    outline_height_mm: float = 0.0
     # Elephant's foot compensation (mm): the first printer layer of the base plate is
     # inset by this much, as the squashed first layer bulges out; 0 = off.
     elephant_foot_mm: float = 0.0
@@ -309,6 +314,12 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
         raise InvalidParameters(
             "Screw holes need a base plate (base_mm > 0).", {"field": "screw_holes"}
         )
+    if options.outline_mm > 0 and (options.relief != "raised" or options.filaments):
+        raise InvalidParameters(
+            "Outlines stand on the base plate: they need raised colors, not inlaid, "
+            "engraved or mixed ones.",
+            {"field": "outline_mm"},
+        )
     if options.rim_mm > 0 and base <= 0:
         raise InvalidParameters("A rim needs a base plate (base_mm > 0).", {"field": "rim_mm"})
     if options.elephant_foot_mm > 0 and base <= 0:
@@ -350,6 +361,9 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
     visible = _visible(document, included)
     if not border.is_empty:
         visible = [_repaired(geometry.difference(border)) for geometry in visible]
+    outline = _outline(visible, options)
+    if not outline.is_empty:
+        visible = [_repaired(geometry.difference(outline)) for geometry in visible]
     if options.color_gap_mm > 0:
         visible = [_with_gap(geometry, options.color_gap_mm) for geometry in visible]
     if plate_top < base:
@@ -359,6 +373,8 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
         bodies.extend(make_bodies(included, visible, base, options))
     if not border.is_empty:
         bodies.extend(_rim_body(border, included, base, base_color, options))
+    if not outline.is_empty:
+        bodies.extend(_outline_body(outline, included, base, options))
     if not bodies:
         raise InvalidParameters(
             f"Nothing to export: every shape is thinner than {options.min_feature_mm:g} mm.",
@@ -507,6 +523,30 @@ def _rim_body(
     top = base + snap_to_layers(height, options.print_layer_mm)
     prisms = [prism(polygon, base, top) for polygon in without_pinches(border)]
     return [Body("rim", color, np.concatenate(prisms))] if prisms else []
+
+
+def _outline(visible: list[BaseGeometry], options: StlOptions) -> BaseGeometry:
+    """The band `outline_mm` wide along every color's edges, inside the design: centered on
+    the edge between two colors, inside the design along its outer edge. Parts narrower
+    than the nozzle are dropped. Empty without outlines."""
+    if options.outline_mm <= 0 or not visible:
+        return Polygon()
+    design = unary_union(visible)
+    half = options.outline_mm / 2
+    edges = unary_union([geometry.boundary for geometry in visible]).buffer(half, quad_segs=8)
+    rim_band = design.difference(design.buffer(-options.outline_mm, quad_segs=8))
+    band = edges.intersection(design).union(rim_band)
+    return _repaired(printable(band, options.min_feature_mm))
+
+
+def _outline_body(
+    outline: BaseGeometry, parts: list[_Part], base: float, options: StlOptions
+) -> list[Body]:
+    """The outlines in their own filament, as high as asked or as the tallest color."""
+    height = options.outline_height_mm or max(part.height for part in parts)
+    top = base + snap_to_layers(height, options.print_layer_mm)
+    prisms = [prism(polygon, base, top) for polygon in without_pinches(outline)]
+    return [Body("outline", options.outline_color, np.concatenate(prisms))] if prisms else []
 
 
 def _check_stacks(parts: list[_Part], options: StlOptions) -> None:

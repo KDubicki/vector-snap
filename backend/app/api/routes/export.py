@@ -136,6 +136,15 @@ def stl_options(
         Form(ge=0, le=4, description="Screw holes through the plate beside the design: 0, 2 or 4"),
     ] = 0,
     screw_hole_mm: Annotated[float, Form(gt=0, le=10, description="Screw hole diameter")] = 4.0,
+    outline_mm: Annotated[
+        float, Form(ge=0, le=5, description="Outline along every color's edges; 0 = none")
+    ] = 0.0,
+    outline_color: Annotated[
+        str, Form(pattern=r"^#[0-9a-fA-F]{6}$", description="Outline filament, #rrggbb")
+    ] = "#000000",
+    outline_height_mm: Annotated[
+        float, Form(ge=0, le=100, description="Outline height above the base; 0 = tallest color")
+    ] = 0.0,
     elephant_foot_mm: Annotated[
         float, Form(ge=0, le=0.5, description="Inset the base plate's first layer; 0 = off")
     ] = 0.0,
@@ -178,6 +187,9 @@ def stl_options(
         magnet_count=magnet_count,
         screw_holes=screw_holes,
         screw_hole_mm=screw_hole_mm,
+        outline_mm=outline_mm,
+        outline_color=outline_color.lower(),
+        outline_height_mm=outline_height_mm,
         elephant_foot_mm=elephant_foot_mm,
         filaments=parse_filaments(filaments),
         color_stacks=parse_color_stacks(color_stacks),

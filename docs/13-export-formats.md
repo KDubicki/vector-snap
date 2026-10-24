@@ -69,6 +69,9 @@ curl -F svg=@logo.svg -F width_mm=120 -F base_mm=1.5 -F layer_mm=0.8 \
 | `magnet_count` | `1` | Number of magnet pockets (1–4), spread along the plate's longer side — long signs and badges that should not tilt |
 | `screw_holes` | `0` | Screw holes through the base plate beside the design: `0`, `2` (by the middle of the shorter sides) or `4` (by the corners) — signs to screw to a wall; needs `base_mm` > 0 |
 | `screw_hole_mm` | `4` | Screw hole diameter (0–10) |
+| `outline_mm` | `0` | Outline along every color's edges (0–5 mm), in a filament of its own — comic-style lines between colors on AMS prints; needs raised colors (not `inlay`, `engrave` or mixed colors) |
+| `outline_color` | `#000000` | Outline filament (`#rrggbb`) |
+| `outline_height_mm` | `0` | Outline height above the base (0–100); `0` = as high as the tallest color (a flat top), more stands out like a cookie cutter's edge |
 | `elephant_foot_mm` | `0` | Elephant's foot compensation (0–0.5 mm): the first printer layer of the base plate (`print_layer_mm`, or 0.2 mm) is inset by this much, so the squashed first layer does not bulge past the walls; needs `base_mm > 0`. `0` = off |
 | `mirror` | `false` | Mirror horizontally — for stamps or printing the top face down on the bed |
 | `origin` | `corner` | Where the model sits: `corner` keeps the design's coordinates (x and y from 0), `center` puts the middle of its footprint at x = y = 0 — for CAD, CNC and tools that do not re-center imports. z always starts at 0 |
@@ -169,6 +172,15 @@ Model construction:
   closer than the diameter plus a wall, the export is `422 INVALID_PARAMETERS` (`field`
   `screw_holes`, the message names the border needed); a count other than 0, 2 or 4 is
   the same error. Magnet pockets are placed after the holes, so they avoid them.
+- **Outlines** (`outline_mm`, `outline_color`, `outline_height_mm`): one body named
+  `outline` in its own color, standing on the base plate. It is the band `outline_mm`
+  wide centered on every edge between two colors, and inside the design along its outer
+  edge, so it never sticks out over the plate's border; parts narrower than
+  `min_feature_mm` are dropped. The colors are cut back by it, so nothing overlaps. It
+  rises as high as the tallest color (snapped to `print_layer_mm`) or `outline_height_mm`
+  above the base. Outlines need colors standing on the plate: with `relief` `inlay` or
+  `engrave`, or with mixed colors, the export is `422 INVALID_PARAMETERS` (`field`
+  `outline_mm`). In a 3MF the outline is one more filament, so it takes an AMS/ACE slot.
 - **Elephant's foot** (`elephant_foot_mm`): the first layer is squashed onto the bed and
   bulges out, which spoils fitted parts and sharp bottom edges. The base plate's lowest
   `print_layer_mm` (0.2 mm when not set) is offset inward with mitred joins
