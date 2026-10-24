@@ -1,5 +1,5 @@
 """Base plate of 3D exports: its outline around the design, a raised rim, a hanging loop,
-a magnet pocket, and the removal of details too thin to print (millimetres).
+magnet pockets, screw holes, and the removal of details too thin to print (millimetres).
 
 See docs/13-export-formats.md.
 """
@@ -224,5 +224,51 @@ def _magnet_row(plate: Polygon, diameter_mm: float, count: int) -> BaseGeometry:
             f"No room for {count} magnets of {diameter_mm:g} mm side by side: use fewer or "
             "smaller magnets, or a larger plate.",
             {"field": "magnet_count"},
+        )
+    return unary_union([center.buffer(radius, quad_segs=QUAD_SEGS) for center in centers])
+
+
+# Plastic between a screw hole and the plate's edge, the design and other holes (mm).
+SCREW_WALL_MM = 1.5
+
+
+def screw_holes(
+    outline: BaseGeometry, design: BaseGeometry, count: int, diameter_mm: float
+) -> BaseGeometry | None:
+    """Round holes for `count` screws (2 or 4) through the largest base polygon, outside
+    the `design`: two by the middle of the shorter sides, four by the corners, each as
+    close to its spot as a wall to the edge and to the design allows.
+
+    None when no holes are requested; raises when the plate has no room for them.
+    """
+    if count <= 0:
+        return None
+    parts = polygons(outline)
+    if not parts:
+        return None
+    plate = max(parts, key=lambda part: part.area)
+    radius = diameter_mm / 2
+    keep = radius + SCREW_WALL_MM
+    room = plate.buffer(-keep, quad_segs=QUAD_SEGS).difference(
+        design.buffer(keep, quad_segs=QUAD_SEGS)
+    )
+    minx, miny, maxx, maxy = plate.bounds
+    if count == 4:
+        spots = [(minx, miny), (maxx, miny), (maxx, maxy), (minx, maxy)]
+    elif maxx - minx >= maxy - miny:
+        spots = [(minx, (miny + maxy) / 2), (maxx, (miny + maxy) / 2)]
+    else:
+        spots = [((minx + maxx) / 2, miny), ((minx + maxx) / 2, maxy)]
+    centers = [] if room.is_empty else [nearest_points(room, Point(spot))[0] for spot in spots]
+    apart = all(
+        first.distance(second) >= diameter_mm + SCREW_WALL_MM
+        for index, first in enumerate(centers)
+        for second in centers[index + 1 :]
+    )
+    if not centers or not apart:
+        raise InvalidParameters(
+            f"No room for {count} screw holes of {diameter_mm:g} mm beside the design: add a "
+            f"border of at least {2 * keep:.1f} mm, use a rectangle plate or smaller screws.",
+            {"field": "screw_holes"},
         )
     return unary_union([center.buffer(radius, quad_segs=QUAD_SEGS) for center in centers])

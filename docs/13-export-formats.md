@@ -67,6 +67,8 @@ curl -F svg=@logo.svg -F width_mm=120 -F base_mm=1.5 -F layer_mm=0.8 \
 | `magnet_mm` | `0` | Round pocket in the underside of the base plate for a magnet (0–50 mm diameter; add ≈0.2 mm clearance, e.g. `10.2` for a 10 mm magnet). `0` = none |
 | `magnet_depth_mm` | `2` | Pocket depth (0–20 mm); at least 0.4 mm of base plate must remain above it |
 | `magnet_count` | `1` | Number of magnet pockets (1–4), spread along the plate's longer side — long signs and badges that should not tilt |
+| `screw_holes` | `0` | Screw holes through the base plate beside the design: `0`, `2` (by the middle of the shorter sides) or `4` (by the corners) — signs to screw to a wall; needs `base_mm` > 0 |
+| `screw_hole_mm` | `4` | Screw hole diameter (0–10) |
 | `elephant_foot_mm` | `0` | Elephant's foot compensation (0–0.5 mm): the first printer layer of the base plate (`print_layer_mm`, or 0.2 mm) is inset by this much, so the squashed first layer does not bulge past the walls; needs `base_mm > 0`. `0` = off |
 | `mirror` | `false` | Mirror horizontally — for stamps or printing the top face down on the bed |
 | `origin` | `corner` | Where the model sits: `corner` keeps the design's coordinates (x and y from 0), `center` puts the middle of its footprint at x = y = 0 — for CAD, CNC and tools that do not re-center imports. z always starts at 0 |
@@ -157,6 +159,16 @@ Model construction:
   base top. The base body stays one closed mesh: a floor cap with the pocket as a hole,
   the pocket walls and a downward-facing pocket ceiling share their ring vertices;
   printed upside up, the ceiling bridges over the pocket.
+- **Screw holes** (`screw_holes`, `screw_hole_mm`): round holes through the base plate,
+  rim included, never through the design. Each hole goes as close to its spot as a
+  1.5 mm wall to the plate's edge and to the design allows: two holes by the middle of
+  the shorter sides (left and right of a wide plate, top and bottom of a tall one), four
+  by the corners of the plate's bounding box. The design must leave room: a border of at
+  least the diameter plus two walls (7 mm for 4 mm screws) or a plate shape that reaches
+  beyond the design (`rectangle` corners). Without room, or with neighbouring holes
+  closer than the diameter plus a wall, the export is `422 INVALID_PARAMETERS` (`field`
+  `screw_holes`, the message names the border needed); a count other than 0, 2 or 4 is
+  the same error. Magnet pockets are placed after the holes, so they avoid them.
 - **Elephant's foot** (`elephant_foot_mm`): the first layer is squashed onto the bed and
   bulges out, which spoils fitted parts and sharp bottom edges. The base plate's lowest
   `print_layer_mm` (0.2 mm when not set) is offset inward with mitred joins

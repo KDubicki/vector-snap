@@ -39,6 +39,7 @@ from app.services.base_plate import (
     magnet_pocket,
     printable,
     rim,
+    screw_holes,
     with_loop,
 )
 from app.services.mesh import StlFormat, footed_prism, prism, without_pinches, write_stl
@@ -116,6 +117,9 @@ class StlOptions:
     # and how many, spread along the plate's longer side.
     magnet_mm: float = 0.0
     magnet_count: int = 1
+    # Screw holes through the base plate beside the design: 0, 2 or 4 (mm diameter).
+    screw_holes: int = 0
+    screw_hole_mm: float = 4.0
     magnet_depth_mm: float = 2.0
     # Elephant's foot compensation (mm): the first printer layer of the base plate is
     # inset by this much, as the squashed first layer bulges out; 0 = off.
@@ -299,6 +303,12 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
         raise InvalidParameters(
             "A hanging loop needs a base plate (base_mm > 0).", {"field": "loop_hole_mm"}
         )
+    if options.screw_holes not in (0, 2, 4):
+        raise InvalidParameters("Screw holes come in 2 or 4.", {"field": "screw_holes"})
+    if options.screw_holes and base <= 0:
+        raise InvalidParameters(
+            "Screw holes need a base plate (base_mm > 0).", {"field": "screw_holes"}
+        )
     if options.rim_mm > 0 and base <= 0:
         raise InvalidParameters("A rim needs a base plate (base_mm > 0).", {"field": "rim_mm"})
     if options.elephant_foot_mm > 0 and base <= 0:
@@ -321,10 +331,14 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
     base_color = _plate_color(document, included, options)
     if base > 0:
         outline = _design_outline(document, options) if engrave else [p.geometry for p in included]
-        silhouette = printable(unary_union(outline), options.min_feature_mm)
-        silhouette = base_outline(silhouette, options.base_shape, options.base_margin_mm)
+        design = printable(unary_union(outline), options.min_feature_mm)
+        silhouette = base_outline(design, options.base_shape, options.base_margin_mm)
         border = rim(silhouette, options.rim_mm)
         silhouette = with_loop(silhouette, options.loop_hole_mm, options.loop_position)
+        holes = screw_holes(silhouette, design, options.screw_holes, options.screw_hole_mm)
+        if holes is not None:
+            silhouette = _repaired(silhouette.difference(holes))
+            border = _repaired(border.difference(holes))
         pocket = magnet_pocket(silhouette, options.magnet_mm, options.magnet_count)
         # Cut through (an engraving as deep as the plate): no solid plate below the cuts.
         parts = [

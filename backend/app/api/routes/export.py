@@ -131,6 +131,11 @@ def stl_options(
     magnet_count: Annotated[
         int, Form(ge=1, le=4, description="Magnet pockets, spread along the longer side")
     ] = 1,
+    screw_holes: Annotated[
+        int,
+        Form(ge=0, le=4, description="Screw holes through the plate beside the design: 0, 2 or 4"),
+    ] = 0,
+    screw_hole_mm: Annotated[float, Form(gt=0, le=10, description="Screw hole diameter")] = 4.0,
     elephant_foot_mm: Annotated[
         float, Form(ge=0, le=0.5, description="Inset the base plate's first layer; 0 = off")
     ] = 0.0,
@@ -171,6 +176,8 @@ def stl_options(
         magnet_mm=magnet_mm,
         magnet_depth_mm=magnet_depth_mm,
         magnet_count=magnet_count,
+        screw_holes=screw_holes,
+        screw_hole_mm=screw_hole_mm,
         elephant_foot_mm=elephant_foot_mm,
         filaments=parse_filaments(filaments),
         color_stacks=parse_color_stacks(color_stacks),

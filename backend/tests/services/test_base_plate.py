@@ -5,10 +5,12 @@ from app.core.errors import InvalidParameters
 from app.services.base_plate import (
     LOOP_WALL_MM,
     MAGNET_WALL_MM,
+    SCREW_WALL_MM,
     LoopPosition,
     base_outline,
     magnet_pocket,
     printable,
+    screw_holes,
     with_loop,
 )
 from app.services.svg_geometry import polygons
@@ -156,3 +158,40 @@ def test_rounded_plate_keeps_designs_that_reach_into_the_corners() -> None:
     full = base_outline(roundish, "rounded", 0)
     assert full.covers(roundish)
     assert full.area < 20 * 20 - 3  # corner radius 3 mm (15 % of 20)
+
+
+def test_two_screw_holes_sit_by_the_shorter_sides_outside_the_design() -> None:
+    plate = box(-8, -8, 48, 28)  # the design with an 8 mm border
+
+    holes = screw_holes(plate, DESIGN, 2, 4)
+
+    assert holes is not None
+    parts = polygons(holes)
+    assert len(parts) == 2
+    centers = sorted((part.centroid.x, part.centroid.y) for part in parts)
+    # Midway up, as close to the left and right edges as the wall allows.
+    assert centers[0] == pytest.approx((-8 + 2 + SCREW_WALL_MM, 10), abs=0.05)
+    assert centers[1] == pytest.approx((48 - 2 - SCREW_WALL_MM, 10), abs=0.05)
+    for part in parts:
+        assert part.distance(DESIGN) >= SCREW_WALL_MM - 1e-6
+        assert plate.contains(part)
+    assert screw_holes(plate, DESIGN, 0, 4) is None
+
+
+def test_four_screw_holes_go_to_the_corners() -> None:
+    plate = box(-8, -8, 48, 28)
+
+    holes = screw_holes(plate, DESIGN, 4, 4)
+
+    assert holes is not None
+    # Rounded, so float noise (GEOS versions differ) cannot change the order.
+    centers = sorted((round(p.centroid.x, 1), round(p.centroid.y, 1)) for p in polygons(holes))
+    # Each corner's hole one radius and one wall in from both edges.
+    low, high = -8 + 2 + SCREW_WALL_MM, 48 - 2 - SCREW_WALL_MM
+    top = 28 - 2 - SCREW_WALL_MM
+    assert centers == [(low, low), (low, top), (high, low), (high, top)]
+
+
+def test_screw_holes_need_a_border_around_the_design() -> None:
+    with pytest.raises(InvalidParameters, match=r"border of at least 7\.0 mm"):
+        screw_holes(box(-2, -2, 42, 22), DESIGN, 2, 4)

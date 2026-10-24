@@ -117,6 +117,27 @@ def test_stl_oval_and_hexagon_base_plates_are_closed(client: TestClient, shape: 
     assert triangles[..., 0].max() > 42
 
 
+def test_stl_screw_holes_go_through_the_plate(client: TestClient) -> None:
+    form = {"width_mm": "40", "base_mm": "2", "base_shape": "rectangle", "base_margin_mm": "8"}
+
+    plain = read_binary_stl(_post(client, "stl", form).content)
+    holed = read_binary_stl(_post(client, "stl", {**form, "screw_holes": "4"}).content)
+
+    assert is_balanced(holed)
+    # Four 4 mm holes through the 2 mm plate.
+    removed = signed_volume(plain) - signed_volume(holed)
+    assert removed == pytest.approx(4 * 3.14159 * 2**2 * 2, rel=0.01)
+
+
+def test_screw_holes_come_in_two_or_four(client: TestClient) -> None:
+    form = {"width_mm": "40", "base_mm": "2", "base_margin_mm": "8", "screw_holes": "3"}
+
+    response = _post(client, "stl", form)
+
+    assert response.status_code == 422
+    assert response.json()["error"]["details"] == {"field": "screw_holes"}
+
+
 def test_stl_magnet_pocket_keeps_every_part_closed(client: TestClient) -> None:
     form = {"width_mm": "40", "base_mm": "3", "magnet_mm": "10", "magnet_depth_mm": "2"}
 
