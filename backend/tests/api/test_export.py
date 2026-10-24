@@ -105,6 +105,18 @@ def test_stl_base_shape_and_margin(client: TestClient) -> None:
     assert (triangles[..., 1].min(), triangles[..., 1].max()) == pytest.approx((-5, 25))
 
 
+@pytest.mark.parametrize("shape", ["oval", "hexagon"])
+def test_stl_oval_and_hexagon_base_plates_are_closed(client: TestClient, shape: str) -> None:
+    form = {"width_mm": "40", "base_mm": "1", "base_shape": shape, "base_margin_mm": "2"}
+
+    triangles = read_binary_stl(_post(client, "stl", form).content)
+
+    assert is_balanced(triangles)
+    # Both reach beyond the design's 40 x 20 mm box and its 2 mm margin.
+    assert triangles[..., 0].min() < -2
+    assert triangles[..., 0].max() > 42
+
+
 def test_stl_magnet_pocket_keeps_every_part_closed(client: TestClient) -> None:
     form = {"width_mm": "40", "base_mm": "3", "magnet_mm": "10", "magnet_depth_mm": "2"}
 

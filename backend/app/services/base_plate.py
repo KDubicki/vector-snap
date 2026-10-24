@@ -16,14 +16,14 @@ from shapely import (
     minimum_bounding_radius,
     unary_union,
 )
-from shapely.affinity import rotate
+from shapely.affinity import rotate, scale
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import nearest_points, polylabel
 
 from app.core.errors import InvalidParameters
 from app.services.svg_geometry import polygons
 
-BaseShape = Literal["outline", "rectangle", "rounded", "circle"]
+BaseShape = Literal["outline", "rectangle", "rounded", "circle", "oval", "hexagon"]
 # Side of the base plate the hanging loop sticks out of.
 LoopPosition = Literal["top", "right", "bottom", "left"]
 
@@ -72,7 +72,19 @@ def base_outline(silhouette: BaseGeometry, shape: BaseShape, margin_mm: float) -
             math.pi / (4 * QUAD_SEGS)
         )
         return Point(center.x, center.y).buffer(radius, quad_segs=QUAD_SEGS)
+    if shape == "hexagon":
+        return _hexagon(silhouette, margin_mm)
     minx, miny, maxx, maxy = silhouette.bounds
+    if shape == "oval":
+        # Through the corners of the bounding box grown by the margin: an ellipse with the
+        # box's proportions, √2 times its half sides (circumscribing polygon, as above).
+        stretch = math.sqrt(2) / math.cos(math.pi / (4 * QUAD_SEGS))
+        circle = Point((minx + maxx) / 2, (miny + maxy) / 2).buffer(1, quad_segs=QUAD_SEGS)
+        return scale(
+            circle,
+            ((maxx - minx) / 2 + margin_mm) * stretch,
+            ((maxy - miny) / 2 + margin_mm) * stretch,
+        )
     rectangle = box(minx - margin_mm, miny - margin_mm, maxx + margin_mm, maxy + margin_mm)
     if shape == "rectangle":
         return rectangle
@@ -86,6 +98,29 @@ def base_outline(silhouette: BaseGeometry, shape: BaseShape, margin_mm: float) -
     # (2 + √2)·m; a little less, as the arc is approximated by a polygon inside it.
     radius = min(radius, CORNER_FIT * (2 + math.sqrt(2)) * margin_mm)
     return _rounded(rectangle, radius) if radius > 0 else rectangle
+
+
+def _hexagon(silhouette: BaseGeometry, margin_mm: float) -> Polygon:
+    """Regular hexagon with flat top and bottom around the design grown by the margin,
+    centered on its bounding box: as small as every side's distance allows."""
+    grown = silhouette.buffer(margin_mm, quad_segs=QUAD_SEGS) if margin_mm > 0 else silhouette
+    minx, miny, maxx, maxy = grown.bounds
+    cx, cy = (minx + maxx) / 2, (miny + maxy) / 2
+    hull = grown.convex_hull
+    points = list(hull.exterior.coords) if isinstance(hull, Polygon) else list(hull.coords)
+    # Distance of the farthest point from the center along each pair of sides' normal.
+    apothem = max(
+        abs((x - cx) * math.cos(angle) + (y - cy) * math.sin(angle))
+        for x, y in points
+        for angle in (math.pi / 6, math.pi / 2, 5 * math.pi / 6)
+    )
+    radius = apothem / math.cos(math.pi / 6)
+    return Polygon(
+        [
+            (cx + radius * math.cos(k * math.pi / 3), cy + radius * math.sin(k * math.pi / 3))
+            for k in range(6)
+        ]
+    )
 
 
 def _rounded(rectangle: Polygon, radius: float) -> BaseGeometry:

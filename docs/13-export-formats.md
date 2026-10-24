@@ -50,7 +50,7 @@ curl -F svg=@logo.svg -F width_mm=120 -F base_mm=1.5 -F layer_mm=0.8 \
 | `width_mm` | `100` | Model width; height follows the aspect ratio |
 | `stl_format` | `binary` | `binary` or `ascii` (STL and STL per part only) |
 | `base_mm` | `1.0` | Base plate under all shapes (`0` = no base) |
-| `base_shape` | `outline` | Base plate footprint: `outline` (follows the design), `rectangle`, `rounded` (rectangle with round corners) or `circle` (smallest circle around the design) |
+| `base_shape` | `outline` | Base plate footprint: `outline` (follows the design), `rectangle`, `rounded` (rectangle with round corners), `circle` (smallest circle around the design), `oval` (ellipse through the corners of the bounding box grown by the margin) or `hexagon` (regular, flat top and bottom) |
 | `base_margin_mm` | `0` | How far the base plate extends beyond the design (0–100) — a border around it |
 | `layer_mm` | `1.0` | Extrusion height per color layer |
 | `layered` | `true` | `true`: layer *n* (bottom to top) is *n × layer_mm* high (relief, easy color changes by height); `false`: all layers share one height |
@@ -214,7 +214,11 @@ Model construction:
   `rectangle`, `rounded` and `circle` enclose the whole design — the bounding box, the
   same with corners rounded concentrically (radius 15 % of the shorter side plus the
   margin), or the smallest enclosing circle — plus the margin, filling gaps and
-  transparent areas: signs, coasters, badges. The circle is a 128-gon circumscribing the
+  transparent areas: signs, coasters, badges. `oval` is the ellipse with the bounding
+  box's proportions through the corners of the box grown by the margin (√2 times its
+  half sides), so a wide design gets a wide oval. `hexagon` is a regular hexagon with a
+  flat top and bottom, centered on the bounding box and just large enough for the
+  design grown by the margin (round joins): coasters and badges that tile. The circle is a 128-gon circumscribing the
   true circle, so no part of the design sticks out. Round corners must not cut off a
   design that reaches into a corner of its bounding box (e.g. a rectangular
   background): the corner radius is then limited to just under (2 + √2) × the margin,

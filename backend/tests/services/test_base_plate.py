@@ -45,6 +45,34 @@ def test_rectangle_rounded_and_circle_enclose_the_design() -> None:
     assert base_outline(Polygon(), "circle", 1).is_empty
 
 
+def test_oval_passes_the_corners_of_the_grown_bounding_box() -> None:
+    oval = base_outline(DESIGN, "oval", 1)
+
+    assert oval.contains(box(-1, -1, 41, 21).buffer(-0.01))
+    # Half sides 21 x 11 grown by √2, centered on the design.
+    assert oval.bounds == pytest.approx(
+        (20 - 21 * 2**0.5, 10 - 11 * 2**0.5, 20 + 21 * 2**0.5, 10 + 11 * 2**0.5), abs=0.05
+    )
+    assert oval.area < 4 * 21 * 11 * 2  # an ellipse, not its bounding box
+
+
+def test_hexagon_is_regular_with_a_flat_top_around_the_design() -> None:
+    hexagon = base_outline(DESIGN, "hexagon", 2)
+
+    assert hexagon.contains(DESIGN.buffer(2 - 0.01))
+    points = list(hexagon.exterior.coords)[:-1]
+    sides = [
+        Point(a).distance(Point(b)) for a, b in zip(points, points[1:] + points[:1], strict=True)
+    ]
+    assert sides == pytest.approx([sides[0]] * 6)
+    # Flat top: two corners at the highest y, centered over the design.
+    top = max(y for _, y in points)
+    assert sum(1 for _, y in points if y == pytest.approx(top)) == 2
+    assert hexagon.centroid.x == pytest.approx(20)
+    # Tight: the grown design touches at least one side.
+    assert hexagon.boundary.distance(DESIGN) == pytest.approx(2, abs=0.05)
+
+
 def test_hanging_loop_sits_above_the_middle_with_an_open_hole() -> None:
     plate = with_loop(DESIGN, 4)
 
