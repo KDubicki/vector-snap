@@ -51,6 +51,7 @@ function validValue(key: keyof PrintPreset, value: unknown): boolean {
   const choices = CHOICES[key];
   if (choices) return typeof value === 'string' && choices.includes(value);
   if (key === 'filaments') return validFilaments(value);
+  if (key === 'outlineColor') return typeof value === 'string' && isHexColor(value);
   const expected = typeof DEFAULT_PRINT[key];
   if (expected === 'number') return typeof value === 'number' && Number.isFinite(value);
   return typeof value === expected;

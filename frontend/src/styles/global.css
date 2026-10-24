@@ -1519,6 +1519,18 @@ select {
   display: block;
 }
 
+/* The outline filament: a swatch like the palette's, its hex and what it takes. */
+.print-outline-color input[type='color'] {
+  flex: none;
+  width: 36px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+}
+
 /* The print from the side: base plate and color columns, drawn to scale in height. */
 .layer-profile {
   display: grid;

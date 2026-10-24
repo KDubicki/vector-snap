@@ -90,6 +90,25 @@ describe('ElementMap', () => {
     expect(onSelect).toHaveBeenLastCalledWith(null, false);
   });
 
+  it('draws the outlines over the colors that print, without catching clicks', () => {
+    const { container } = render(
+      <ElementMap
+        doc={sampleDoc()}
+        selected={[]}
+        raised={{}}
+        excluded={[0]}
+        outline={{ color: '#111111', width: 1.5 }}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    const outline = container.querySelector('.element-map__outline')!;
+    expect(outline).toHaveAttribute('stroke', '#111111');
+    expect(outline).toHaveAttribute('stroke-width', '1.5');
+    expect(outline).toHaveAttribute('pointer-events', 'none');
+    expect(outline.querySelectorAll('path')).toHaveLength(2); // group 0 is left out
+  });
+
   it('draws the printed size beside the design and mirrors only the design', () => {
     const { container } = render(
       <ElementMap

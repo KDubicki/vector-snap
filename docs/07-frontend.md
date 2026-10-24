@@ -239,6 +239,13 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
   **Set the colors into the base (flat top)** (`inlay`, sent as `relief=inlay`): colors
   sink their height into the plate, which must then be thicker than the tallest color —
   and a magnet pocket must fit below them; the total height is then the base alone.
+- **Outlines** (`OutlineFields`, flat and stepped colors): *Outline width (mm)* (0 = none),
+  the *Outline filament* color with its 3MF filament number and grams from the color
+  changes, and *One layer above the colors* (sent as `outline_height_mm`, the tallest
+  color plus a layer; unticked, 0 keeps the top flat). The design view draws the outlines
+  over the colors at their printed width. They count as one more filament for the slot
+  check unless a printed color has the same filament; with the flat top (inlay) they are
+  an error, as they stand on the plate.
 - **API command (curl)** (`ApiCommand`, `src/lib/apiCommand.ts`, collapsed at the end of
   the panel): the 3MF export of the current settings as a `curl` command — one `-F` field
   per line, values quoted for a POSIX shell, the endpoint resolved against the page (or
@@ -414,6 +421,7 @@ App                         header with step indicator, error banner
     ├── MixTable            recipes, predictions, test card (mixed)
     ├── RaisedElementsPanel raise the selected elements
     ├── BasePlateFields     shape, border, rim, loop, magnet, screw holes, inlay, mirror
+    ├── OutlineFields       outline width, filament and height
     ├── PrinterTuningFields nozzle, elephant's foot, smooth outlines, gap between colors
     ├── FilamentSlotsCheck  more colors than loaded filaments
     ├── BuildVolumeCheck    model size against the build volume, fit to the bed

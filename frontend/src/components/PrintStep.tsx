@@ -4,6 +4,7 @@ import { serializeSvg } from '../editor/export';
 import { exportFileName, modelTitle } from '../lib/exportFormats';
 import {
   filamentsNeeded,
+  outlined,
   heightPlan,
   nextSelection,
   layersToMm,
@@ -37,6 +38,7 @@ import { FilamentPlanView } from './FilamentPlanView';
 import { FilamentSlots } from './FilamentSlots';
 import { MixTable } from './MixTable';
 import { MyProjects } from './MyProjects';
+import { OutlineFields } from './OutlineFields';
 import { LayerFields } from './LayerFields';
 import { LayerProfile } from './LayerProfile';
 import type { PreviewRequest } from './ModelPreview';
@@ -179,6 +181,14 @@ export function PrintStep() {
               selected={selected}
               raised={print.shapeRaise}
               excluded={print.excluded}
+              outline={
+                outlined(print)
+                  ? {
+                      color: print.outlineColor,
+                      width: (print.outlineMm * editor.width) / print.widthMm,
+                    }
+                  : undefined
+              }
               fills={
                 mixed && showPredicted
                   ? new Map([...mix].map(([index, match]) => [index, match.predicted]))
@@ -303,6 +313,16 @@ export function PrintStep() {
         />
 
         <BasePlateFields settings={print} errors={errors} onChange={update} />
+
+        {(print.style === 'flat' || print.style === 'stepped') && (
+          <OutlineFields
+            settings={print}
+            errors={errors}
+            grams={grams}
+            slots={slots}
+            onChange={update}
+          />
+        )}
 
         <PrinterTuningFields settings={print} errors={errors} onChange={update} />
 

@@ -48,6 +48,7 @@ describe('print settings file', () => {
     expect(() => readPreset(preset({ printer: 'ender-3' }))).toThrow('invalid "printer"');
     expect(() => readPreset(preset({ loopPosition: 'corner' }))).toThrow('invalid "loopPosition"');
     expect(() => readPreset(preset({ baseShape: 'star' }))).toThrow('invalid "baseShape"');
+    expect(() => readPreset(preset({ outlineColor: 'black' }))).toThrow('invalid "outlineColor"');
     expect(readPreset(preset({ baseShape: 'hexagon' })).baseShape).toBe('hexagon');
     expect(() => readPreset(preset({ layerMm: null }))).toThrow('invalid "layerMm"');
     expect(() => readPreset(preset({ filaments: [{ color: 'red', td: 1 }] }))).toThrow(

@@ -9,6 +9,8 @@ interface ElementMapProps {
   excluded: number[];
   /** Colors to show instead of the design's, per palette index (predicted print colors). */
   fills?: Map<number, string>;
+  /** Outlines along the colors' edges: their color and width in document units. */
+  outline?: { color: string; width: number };
   /** Flips the design left to right, as a mirrored print (stamp) comes out. */
   mirror?: boolean;
   /** Printed size of the design (mm), drawn as dimension lines below and to the right. */
@@ -69,6 +71,7 @@ export function ElementMap({
   raised,
   excluded,
   fills,
+  outline,
   mirror = false,
   size,
   onSelect,
@@ -128,6 +131,22 @@ export function ElementMap({
               </path>
             );
           }),
+        )}
+        {outline && (
+          // Where the outlines print, drawn over the colors; clicks go to the shapes below.
+          <g
+            className="element-map__outline"
+            fill="none"
+            stroke={outline.color}
+            strokeWidth={outline.width}
+            strokeLinejoin="round"
+            pointerEvents="none"
+            aria-hidden="true"
+          >
+            {doc.groups
+              .filter((group) => !excluded.includes(group.paletteIndex))
+              .flatMap((group) => group.shapes.map((shape) => <path key={shape.id} d={shape.d} />))}
+          </g>
         )}
       </g>
       {size && <Dimensions width={doc.width} height={doc.height} gap={gap} size={size} />}

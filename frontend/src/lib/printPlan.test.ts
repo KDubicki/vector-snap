@@ -175,6 +175,27 @@ describe('print plan', () => {
       screwHoleMm: 'Between 0.1 and 10 mm.',
     });
     expect(screwBorderMm(4)).toBe(7);
+    // Outlines: flush with the tallest color, or one layer (0.2 mm) above it.
+    expect(printOptions(doc, settings({ outlineMm: 0.8, outlineColor: '#1A1A1A' }))).toMatchObject({
+      outline_mm: 0.8,
+      outline_color: '#1a1a1a',
+      outline_height_mm: 0,
+    });
+    expect(
+      printOptions(doc, settings({ outlineMm: 0.8, outlineRaised: true, colorLayers: 2 })),
+    ).toMatchObject({ outline_height_mm: 0.6 });
+    expect(printOptions(doc, settings({ outlineMm: 0.8, style: 'cutout' }))).toMatchObject({
+      outline_mm: 0,
+    });
+    expect(validatePrint(doc, settings({ outlineMm: 1, inlay: true, baseLayers: 10 }))).toEqual({
+      outlineMm: 'Outlines stand on the plate: untick the flat top.',
+    });
+    expect(filamentsNeeded(doc, settings({ outlineMm: 1 }))).toBe(
+      filamentsNeeded(doc, settings()) + 1,
+    );
+    expect(filamentsNeeded(doc, settings({ outlineMm: 1, outlineColor: '#ffffff' }))).toBe(
+      filamentsNeeded(doc, settings()),
+    );
     expect(printOptions(doc, settings({ loopHoleMm: 4, loopPosition: 'left' }))).toMatchObject({
       loop_hole_mm: 4,
       loop_position: 'left',

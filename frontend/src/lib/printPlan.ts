@@ -69,6 +69,11 @@ export interface PrintSettings {
   /** Screw holes through the plate beside the design: 0, 2 or 4. */
   screwHoles: number;
   screwHoleMm: number;
+  /** Outlines along every color's edges (mm, 0 = none) in their own filament, flush with
+   * the tallest color or one layer above it. Flat and stepped colors only. */
+  outlineMm: number;
+  outlineColor: string;
+  outlineRaised: boolean;
   /** Details thinner than this are dropped (mm): the nozzle width. */
   nozzleMm: number;
   /** Colors sunk into the base plate, flush with its top (a flat surface). */
@@ -126,6 +131,9 @@ const COMMON: ProjectSettings = {
   magnetCount: 1,
   screwHoles: 0,
   screwHoleMm: 4,
+  outlineMm: 0,
+  outlineColor: '#000000',
+  outlineRaised: false,
   inlay: false,
 };
 
@@ -233,7 +241,14 @@ export function printedGroups(doc: EditorDoc, settings: PrintSettings) {
 export function filamentsNeeded(doc: EditorDoc, settings: PrintSettings): number {
   if (settings.style === 'cutout') return 1;
   if (settings.style === 'mixed') return settings.filaments.length;
-  return new Set(printedGroups(doc, settings).map((group) => group.fill.toLowerCase())).size;
+  const colors = new Set(printedGroups(doc, settings).map((group) => group.fill.toLowerCase()));
+  if (outlined(settings)) colors.add(settings.outlineColor.toLowerCase());
+  return colors.size;
+}
+
+/** Whether the model gets outlines: flat and stepped colors only. */
+export function outlined(settings: PrintSettings): boolean {
+  return settings.outlineMm > 0 && (settings.style === 'flat' || settings.style === 'stepped');
 }
 
 /**
@@ -320,6 +335,11 @@ export function validatePrint(doc: EditorDoc, settings: PrintSettings): Record<s
   if (settings.screwHoles > 0 && !(settings.screwHoleMm > 0 && settings.screwHoleMm <= 10)) {
     errors.screwHoleMm = 'Between 0.1 and 10 mm.';
   }
+  if (outlined(settings)) {
+    if (settings.outlineMm > 5) errors.outlineMm = 'At most 5 mm.';
+    else if (settings.inlay) errors.outlineMm = 'Outlines stand on the plate: untick the flat top.';
+    if (!isHexColor(settings.outlineColor)) errors.outlineColor = 'Choose a color.';
+  }
   if (settings.rimMm > 0 && base <= 0) errors.rimMm = 'A rim needs a base.';
   if (settings.elephantFootMm > 0 && base <= 0) {
     errors.elephantFootMm = "Elephant's foot compensation needs a base.";
@@ -357,7 +377,7 @@ export function printOptions(
   doc: EditorDoc,
   settings: PrintSettings,
 ): Record<string, string | number | boolean> {
-  const { colors, shapes } = heightPlan(doc, settings);
+  const { colors, shapes, top } = heightPlan(doc, settings);
   const mm = (layers: number) => layersToMm(layers, settings.layerMm);
   const layerHeights: Record<string, number> = {};
   for (const group of doc.groups) {
@@ -397,6 +417,9 @@ export function printOptions(
     magnet_count: settings.magnetCount,
     screw_holes: settings.screwHoles,
     screw_hole_mm: settings.screwHoleMm,
+    outline_mm: outlined(settings) ? settings.outlineMm : 0,
+    outline_color: settings.outlineColor.toLowerCase(),
+    outline_height_mm: settings.outlineRaised ? mm(top + 1) : 0,
     relief: settings.style === 'cutout' ? 'engrave' : settings.inlay ? 'inlay' : 'raised',
     elephant_foot_mm: settings.elephantFootMm,
     simplify_mm: settings.simplifyMm,
@@ -595,6 +618,7 @@ export function testCard(
       loopHoleMm: 0,
       magnetMm: 0,
       screwHoles: 0,
+      outlineMm: 0,
       shapeRaise: {},
     },
   };
