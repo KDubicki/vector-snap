@@ -1,12 +1,6 @@
+import { BASE_SHAPES } from '../lib/baseShapes';
 import type { BaseShape, LoopPosition, PrintSettings } from '../lib/printPlan';
 import { NumberField } from './NumberField';
-
-const BASE_SHAPES: { value: BaseShape; label: string }[] = [
-  { value: 'outline', label: 'Follow the design' },
-  { value: 'rectangle', label: 'Rectangle' },
-  { value: 'rounded', label: 'Rounded rectangle' },
-  { value: 'circle', label: 'Circle' },
-];
 
 const LOOP_POSITIONS: { value: LoopPosition; label: string }[] = [
   { value: 'top', label: 'Top' },

@@ -4,6 +4,7 @@
  * See docs/13-export-formats.md.
  */
 
+import { BASE_SHAPES } from './baseShapes';
 import { snapToLayers } from './colorHeights';
 
 export interface NumberOption {
@@ -35,7 +36,7 @@ export interface ChoiceOption {
   name: string;
   label: string;
   default: string;
-  choices: { value: string; label: string }[];
+  choices: readonly { value: string; label: string }[];
   /** Short explanation shown under the field. */
   hint?: string;
   section?: string;
@@ -95,13 +96,8 @@ const MODEL_OPTIONS: ExportOption[] = [
     section: BASE_EXTRAS,
     label: 'Base plate shape',
     default: 'outline',
-    choices: [
-      { value: 'outline', label: 'Follow the design' },
-      { value: 'rectangle', label: 'Rectangle' },
-      { value: 'rounded', label: 'Rounded rectangle' },
-      { value: 'circle', label: 'Circle' },
-    ],
-    hint: 'Rectangle, rounded and circle plates fill gaps and transparent areas (signs, coasters, badges).',
+    choices: BASE_SHAPES,
+    hint: 'Every shape but "Follow the design" fills gaps and transparent areas (signs, coasters, badges).',
   },
   {
     type: 'number',

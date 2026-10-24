@@ -255,6 +255,9 @@ describe('BasePlateFields', () => {
 
     fireEvent.change(screen.getByLabelText('Shape'), { target: { value: 'circle' } });
     expect(onChange).toHaveBeenLastCalledWith({ baseShape: 'circle' });
+    fireEvent.change(screen.getByLabelText('Shape'), { target: { value: 'hexagon' } });
+    expect(onChange).toHaveBeenLastCalledWith({ baseShape: 'hexagon' });
+    expect(screen.getByRole('option', { name: 'Oval' })).toBeInTheDocument();
     for (const [label, key] of [
       ['Border around the design (mm)', 'marginMm'],
       ['Raised rim (mm)', 'rimMm'],

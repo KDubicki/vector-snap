@@ -5,6 +5,7 @@
  * and shape ids belong to one SVG. See docs/07-frontend.md.
  */
 
+import { BASE_SHAPES } from './baseShapes';
 import { isHexColor } from './color';
 import { DEFAULT_PRINT, MAX_FILAMENTS, PROJECTS, type PrintSettings } from './printPlan';
 import { PRINTERS } from './printers';
@@ -21,7 +22,7 @@ const CHOICES: Partial<Record<keyof PrintPreset, readonly string[]>> = {
   project: PROJECTS.map((project) => project.id),
   printer: PRINTERS.map((printer) => printer.id),
   style: ['flat', 'stepped', 'mixed', 'cutout'],
-  baseShape: ['outline', 'rectangle', 'rounded', 'circle'],
+  baseShape: BASE_SHAPES.map((shape) => shape.value),
   loopPosition: ['top', 'right', 'bottom', 'left'],
 };
 

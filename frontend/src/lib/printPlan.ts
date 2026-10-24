@@ -12,7 +12,8 @@ import { bestRecipe, colorStacks, type Filament, type MixMatch } from './mixing'
 import { nearestFilaments } from './paletteAdvice';
 import { nozzleOf, printerById, type PrinterId } from './printers';
 
-export type BaseShape = 'outline' | 'rectangle' | 'rounded' | 'circle';
+export type { BaseShape } from './baseShapes';
+import type { BaseShape } from './baseShapes';
 /** Side of the base plate the hanging loop sticks out of. */
 export type LoopPosition = 'top' | 'right' | 'bottom' | 'left';
 

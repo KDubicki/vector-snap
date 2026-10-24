@@ -229,7 +229,7 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
   elements get a dashed outline, the selection an accent outline. Raises are stored per
   shape id and sent as `shape_heights` (color height + extra layers), so the backend
   prints them as their own parts — e.g. letters 3 layers above a flat AMS sign.
-- **Base plate**: shape (outline, rectangle, rounded, circle), border, raised rim (as
+- **Base plate**: shape (outline, rectangle, rounded, circle, oval, hexagon; one list in `src/lib/baseShapes.ts` for the print step, the export panel and settings files), border, raised rim (as
   high as the colors), hanging loop (with the side it sticks out of, `loop_position`),
   magnet pocket (depth checked against the base; **Magnets** 1–4 spreads several along
   the longer side, `magnet_count`), and
