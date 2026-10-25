@@ -108,6 +108,14 @@ export function labDeltaE2000([l1, a1, b1]: Lab, [l2, a2, b2]: Lab): number {
   );
 }
 
+/** Levels of the CIEDE2000 scale offered for merging colors that look the same. */
+export const SIMILAR_LEVELS = [
+  { value: 0, label: 'Off', title: 'Keep every color' },
+  { value: 1, label: 'Invisible', title: 'ΔE00 under 1: no one can tell them apart' },
+  { value: 2, label: 'Close', title: 'ΔE00 under 2: they differ only side by side' },
+  { value: 5, label: 'Similar', title: 'ΔE00 under 5: they differ a little at a glance' },
+];
+
 /** Final palette (one hex per index) after applying the user's overrides. */
 export function finalPalette(palette: PaletteColor[], overrides: Record<number, string>): string[] {
   return palette.map((color) => (overrides[color.index] ?? color.hex).toLowerCase());

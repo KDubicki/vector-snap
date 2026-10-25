@@ -439,7 +439,7 @@ App                         header with step indicator, error banner
 └── ResultStep              (step: result) — stats, download
     ├── SvgEditor           Paper.js canvas + view toolbar (docs/08)
     ├── ShapeInspector      selected shapes, selection color
-    ├── EditorPalettePanel  color groups: recolor, select group
+    ├── EditorPalettePanel  color groups: recolor, select group, merge similar colors
     └── FragmentsPanel      save the selection as a fragment, saved fragments
 └── PrintStep               (step: print) — views, preview, exports (useExport)
     ├── ElementMap          clickable design (selection, raised, predicted colors, mirrored, size)
@@ -507,8 +507,8 @@ interface EditorSlice {
   history: History;                          // undo/redo snapshots of `editor`
   notice: string | null;                     // why an edit did nothing
   // actions: select, selectMany, selectAll, recolorSelection, resetSelectionColor,
-  // recolorGroup, splitWithLine, cutWithLasso, deleteSelection, mergeSelection,
-  // moveSelectionToGroup, moveSelection, transformSelection, placeFragment, undo, redo
+  // recolorGroup, mergeSimilarColors, splitWithLine, cutWithLasso, deleteSelection,
+  // mergeSelection, moveSelectionToGroup, moveSelection, transformSelection, placeFragment, undo, redo
 }
 
 interface FragmentsSlice {

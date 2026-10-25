@@ -767,6 +767,7 @@ describe('app store', () => {
     store().cutWithLasso([], 'x');
     store().mergeSelection();
     store().moveSelectionToGroup(0);
+    store().mergeSimilarColors(2);
     store().selectAll();
 
     expect(store().editor).toBeNull();

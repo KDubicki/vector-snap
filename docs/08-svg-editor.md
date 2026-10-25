@@ -236,6 +236,24 @@ Implemented in `src/editor/operations.ts` (pure functions, unit-tested).
 - ✅ Moving shapes to another palette group (see [Merging and moving](#merging-and-moving-shapes-)).
 - 🔜 Creating new groups for new colors.
 
+## Similar colors ✅
+
+Recoloring, placed fragments and opened SVGs can leave colors nobody can tell apart —
+#ffffff and #fefefe — and every color group becomes its own filament in a 3D print.
+`src/editor/similarColors.ts`, under the "Color groups" panel.
+
+- **Scale** — CIEDE2000 (ΔE00, `deltaE2000()` in `lib/color.ts`), the same as the palette
+  step's *Merge similar colors* (`merge_delta_e`, [06](06-image-processing-pipeline.md)):
+  *Invisible* < 1, *Close* < 2 (default), *Similar* < 5.
+- **Finding** (`findSimilarColors(doc, maxDeltaE)`) — the closest pair of group colors
+  below the limit merges first, the group covering more (summed `pathArea()`) stays,
+  ties keep the lower group; repeated until no pair is that close, so chains end in the
+  group that stays. Shapes whose own color is that close to their group's (new) color are
+  listed too. The panel shows every merge (`#fefefe → #ffffff ΔE 0.2`) before it happens.
+- **Merging** (`mergeSimilarColors()`, store action `mergeSimilarColors(level)`) — the
+  shapes of a merged group move on top of the group they join (as with *Move to color
+  group*) keeping own colors that differ; the listed own colors are dropped. One undo step.
+
 ## Undo / redo ✅
 
 Snapshot-based (`src/editor/history.ts`) instead of a command pattern: every edit is a

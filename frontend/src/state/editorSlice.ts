@@ -10,6 +10,7 @@ import {
   recolorShapes,
   resetShapeColors,
 } from '../editor/operations';
+import { findSimilarColors, mergeSimilarColors } from '../editor/similarColors';
 import { cutWithRegion, splitAlongLine } from '../editor/split';
 import {
   shapesBounds,
@@ -45,6 +46,8 @@ export interface EditorActions {
   recolorSelection: (fill: string) => void;
   resetSelectionColor: () => void;
   recolorGroup: (paletteIndex: number, fill: string) => void;
+  /** Merge colors closer than `maxDeltaE` (CIEDE2000) into one: groups and own colors. */
+  mergeSimilarColors: (maxDeltaE: number) => void;
   /** Split fully crossed shapes (the selection, if any) along a line in document coordinates. */
   splitWithLine: (line: Point[]) => void;
   /**
@@ -185,6 +188,18 @@ export const createEditorSlice: StateCreator<AppState, [], [], EditorSlice> = (s
           )
         : {},
     ),
+
+  mergeSimilarColors: (maxDeltaE) =>
+    set((state) => {
+      if (!state.editor) return {};
+      const similar = findSimilarColors(state.editor, maxDeltaE);
+      const merged = similar.groups.length + similar.shapes.length;
+      if (!merged) return { notice: 'No colors look alike at this level.' };
+      return {
+        ...commit(state, mergeSimilarColors(state.editor, similar)),
+        notice: `Merged ${merged === 1 ? '1 color' : `${merged} colors`} into a similar one.`,
+      };
+    }),
 
   splitWithLine: (line) =>
     set((state) => {

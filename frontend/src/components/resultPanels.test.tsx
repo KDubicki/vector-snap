@@ -35,6 +35,32 @@ describe('EditorPalettePanel', () => {
     expect(store().selection).toEqual(['p-1-0', 'p-1-1']);
   });
 
+  it('merges colors that look the same, undoably', async () => {
+    const user = userEvent.setup();
+    store().recolorGroup(1, '#fefefe');
+    render(<EditorPalettePanel />);
+
+    const list = screen.getByRole('list', { name: 'Colors that look the same' });
+    expect(within(list).getByText(/ΔE 0\.\d/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Merge 1 similar color' }));
+
+    expect(store().editor!.groups.map((group) => group.fill)).toEqual(['#ffffff']);
+    expect(store().notice).toBe('Merged 1 color into a similar one.');
+    expect(screen.getByText('No colors look alike at this level.')).toBeInTheDocument();
+    store().undo();
+    expect(store().editor!.groups).toHaveLength(2);
+  });
+
+  it('merges only as close colors as the chosen level', async () => {
+    const user = userEvent.setup();
+    store().recolorGroup(1, '#f4f4f4'); // ΔE00 ≈ 3 from white
+    render(<EditorPalettePanel />);
+
+    expect(screen.getByText('No colors look alike at this level.')).toBeInTheDocument();
+    await user.click(screen.getByRole('radio', { name: 'Similar' }));
+    expect(screen.getByRole('button', { name: 'Merge 1 similar color' })).toBeInTheDocument();
+  });
+
   it('renders nothing without a document', () => {
     useAppStore.setState({ editor: null });
     const { container } = render(<EditorPalettePanel />);

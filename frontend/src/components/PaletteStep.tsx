@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { finalPalette } from '../lib/color';
+import { finalPalette, SIMILAR_LEVELS } from '../lib/color';
 import { allFilaments, filamentName, ownedColors } from '../lib/filamentLibrary';
 import { useObjectUrl } from '../lib/useObjectUrl';
 import { useAppStore } from '../state/store';
@@ -30,13 +30,6 @@ const SMOOTH_LEVELS = [
 ];
 
 /** CIEDE2000 limits: the perceptual scale of color differences. */
-const SIMILAR_LEVELS = [
-  { value: 0, label: 'Off', title: 'Keep every color' },
-  { value: 1, label: 'Invisible', title: 'ΔE00 under 1: no one can tell them apart' },
-  { value: 2, label: 'Close', title: 'ΔE00 under 2: they differ only side by side' },
-  { value: 5, label: 'Similar', title: 'ΔE00 under 5: they differ a little at a glance' },
-];
-
 const MERGE_LEVELS = [
   { value: 0, label: 'Off' },
   { value: 1, label: '1%' },
