@@ -7,6 +7,7 @@ import type { QuantizeResponse, VectorizeResponse } from '../types/api';
 import { hasUnsavedEdits } from './editorSlice';
 import {
   DEFAULT_COLORS,
+  DEFAULT_MERGE_DELTA_E,
   DEFAULT_MIN_COVERAGE,
   DEFAULT_SMOOTH,
   reachableSteps,
@@ -133,6 +134,22 @@ describe('app store', () => {
     expect(DEFAULT_MIN_COVERAGE).toBe(2);
     const forms = fetchMock.mock.calls.map(([, init]) => (init as RequestInit).body as FormData);
     expect(forms.map((form) => form.get('min_coverage'))).toEqual(['0.02', '0.05', null]);
+  });
+
+  it('merges colors under ΔE00 2 by default and re-quantizes when the limit changes', async () => {
+    store().selectFile(file);
+    const fetchMock = respond(quantized);
+    vi.stubGlobal('fetch', fetchMock);
+    await store().runQuantize();
+
+    store().setMergeDeltaE(5);
+    await store().runQuantize();
+    store().setMergeDeltaE(0);
+    await store().runQuantize();
+
+    expect(DEFAULT_MERGE_DELTA_E).toBe(2);
+    const forms = fetchMock.mock.calls.map(([, init]) => (init as RequestInit).body as FormData);
+    expect(forms.map((form) => form.get('merge_delta_e'))).toEqual(['2', '5', null]);
   });
 
   it('upscales small images by default and re-quantizes when turned off', async () => {

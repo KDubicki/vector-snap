@@ -29,6 +29,14 @@ const SMOOTH_LEVELS = [
   { value: 3, label: 'Strong' },
 ];
 
+/** CIEDE2000 limits: the perceptual scale of color differences. */
+const SIMILAR_LEVELS = [
+  { value: 0, label: 'Off', title: 'Keep every color' },
+  { value: 1, label: 'Invisible', title: 'ΔE00 under 1: no one can tell them apart' },
+  { value: 2, label: 'Close', title: 'ΔE00 under 2: they differ only side by side' },
+  { value: 5, label: 'Similar', title: 'ΔE00 under 5: they differ a little at a glance' },
+];
+
 const MERGE_LEVELS = [
   { value: 0, label: 'Off' },
   { value: 1, label: '1%' },
@@ -42,6 +50,7 @@ export function PaletteStep() {
   const algorithm = useAppStore((s) => s.algorithm);
   const smooth = useAppStore((s) => s.smooth);
   const minCoverage = useAppStore((s) => s.minCoverage);
+  const mergeDeltaE = useAppStore((s) => s.mergeDeltaE);
   const upscale = useAppStore((s) => s.upscale);
   const limits = useAppStore((s) => s.limits);
   const quantized = useAppStore((s) => s.quantized);
@@ -65,7 +74,7 @@ export function PaletteStep() {
     if (!file) return;
     const timer = setTimeout(() => void useAppStore.getState().runQuantize(), QUANTIZE_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [file, colors, algorithm, smooth, upscale, minCoverage, locked, filamentLibrary]);
+  }, [file, colors, algorithm, smooth, upscale, minCoverage, mergeDeltaE, locked, filamentLibrary]);
 
   const originalPalette = useMemo(() => quantized?.palette.map((c) => c.hex) ?? [], [quantized]);
   const targetPalette = useMemo(
@@ -186,6 +195,29 @@ export function PaletteStep() {
           </span>
         </div>
         <div className="field">
+          <span>Merge similar colors</span>
+          <div className="segmented" role="radiogroup" aria-label="Merge similar colors">
+            {SIMILAR_LEVELS.map(({ value, label, title }) => (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                title={title}
+                aria-checked={mergeDeltaE === value}
+                className={mergeDeltaE === value ? 'active' : ''}
+                onClick={() => actions.setMergeDeltaE(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <span className="hint">
+            Colors this close become one, however much of the image they cover: #ffffff and #fefefe
+            look the same and should not be two filaments. Measured as CIEDE2000 (ΔE00), the
+            eye&apos;s scale: under 1 invisible, 1–2 only side by side, 2–10 at a glance.
+          </span>
+        </div>
+        <div className="field">
           <span>Merge small colors</span>
           <div className="segmented" role="radiogroup" aria-label="Merge small colors">
             {MERGE_LEVELS.map(({ value, label }) => (
@@ -222,7 +254,7 @@ export function PaletteStep() {
             out smooth instead of stepped.
           </span>
         </div>
-        {quantized?.merged && <MergedColors merged={quantized.merged} minCoverage={minCoverage} />}
+        {quantized?.merged && <MergedColors merged={quantized.merged} />}
         {quantized && (
           <PaletteEditor
             palette={quantized.palette}

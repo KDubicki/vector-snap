@@ -163,6 +163,7 @@ export function quantize(
   if (params.upscale !== undefined) form.append('upscale', String(params.upscale));
   if (params.filaments?.length) form.append('filaments', JSON.stringify(params.filaments));
   if (params.min_coverage) form.append('min_coverage', String(params.min_coverage));
+  if (params.merge_delta_e) form.append('merge_delta_e', String(params.merge_delta_e));
   return request<QuantizeResponse>('/quantize', { method: 'POST', body: form, signal });
 }
 

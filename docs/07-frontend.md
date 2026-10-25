@@ -98,14 +98,20 @@ tracing and export options). Narrower windows stack everything and scroll normal
   changing it re-quantizes like the other parameters.
 - **Enlarge small images** (on by default, sent as `upscale`): images under 1024 px are
   scaled up before quantizing, so small logos trace into smooth outlines and 3D edges.
+- **Merge similar colors** (Off / Invisible / Close / Similar: CIEDE2000 under 1, 2
+  or 5; default Close, sent as `merge_delta_e`): colors this close become one,
+  however much of the image they cover — `#ffffff` and `#fefefe` (ΔE00 0.3) look the
+  same and should not be two filaments. ΔE00 is the eye's scale of color differences:
+  under 1 invisible, 1–2 only side by side, 2–10 at a glance.
 - **Merge small colors** (Off / 1% / 2% / 5%, default 2%, sent as `min_coverage`):
   a color covering less of the image joins its nearest color in the backend — a gray
   speck goes to the black next to it, anti-aliased edge colors to the color they edge —
   even if the palette ends up with fewer colors than chosen. Only similar colors merge
   (within ΔE 50): small colors unlike every other, such as black pupils on a red face,
   stay; so do locked colors.
-  Changing it re-quantizes. `MergedColors` under the palette lists what went where:
-  *2 colors under 2% of the image joined the nearest color: #5a5a5a (1.2%) → #000000*.
+  Changing either re-quantizes. `MergedColors` under the palette lists what went where
+  and why: *#fefefe → #ffffff, looks the same, ΔE 0.3*; *#5a5a5a → #000000, only 1.2%
+  of the image*.
 - **Remove colors / background**: the eye toggle on a palette row leaves that color out
   of the SVG everywhere (sent as `transparent`); the preview shows it as transparent
   over a checkerboard. "Remove background" appears when `/quantize` reports a

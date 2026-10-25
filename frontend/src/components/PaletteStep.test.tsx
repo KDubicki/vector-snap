@@ -83,7 +83,7 @@ describe('PaletteStep', () => {
     const user = userEvent.setup();
     // Quantized for the current settings, so the debounced re-quantize after mounting
     // (which would clear the removed background on slow runners) does nothing.
-    const { colors, algorithm, smooth, upscale, minCoverage, locked } = store();
+    const { colors, algorithm, smooth, upscale, minCoverage, mergeDeltaE, locked } = store();
     useAppStore.setState({
       file,
       quantized: QUANTIZED,
@@ -94,6 +94,7 @@ describe('PaletteStep', () => {
         smooth,
         upscale,
         minCoverage,
+        mergeDeltaE,
         locked,
         filaments: '',
       },

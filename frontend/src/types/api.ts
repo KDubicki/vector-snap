@@ -38,6 +38,8 @@ export interface QuantizeParams {
   filaments?: string[];
   /** Merge colors covering less than this share of the image (0.02 = 2%); 0 = off. */
   min_coverage?: number;
+  /** Merge colors closer than this CIEDE2000 difference into one; 0 = off. */
+  merge_delta_e?: number;
 }
 
 /** A color merged into its nearest because it covered too little of the image. */
@@ -47,6 +49,10 @@ export interface MergedColor {
   into: string;
   /** Its share of the image before merging (0–1). */
   coverage: number;
+  /** `similar`: looks like `into` (`merge_delta_e`); `small`: too little of the image. */
+  reason: 'similar' | 'small';
+  /** CIEDE2000 difference to `into`. */
+  delta_e: number;
 }
 
 export interface QuantizeResponse {
