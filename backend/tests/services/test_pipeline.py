@@ -3,9 +3,11 @@ import logging
 import numpy as np
 import pytest
 
-from app.services.image_io import TRANSPARENT_LABEL
+from app.core.errors import InvalidParameters
+from app.services.image_io import TRANSPARENT_LABEL, encode_indexed_png
 from app.services.pipeline import (
     background_index,
+    clear_border_regions,
     quantize_image,
     suggest_colors,
     to_indexed_png,
@@ -29,6 +31,72 @@ def test_no_background_when_the_border_is_mixed_or_transparent() -> None:
 
     assert background_index(stripes) is None  # the best color has 8 of 20 border pixels
     assert background_index(transparent) is None
+
+
+T = TRANSPARENT_LABEL
+
+
+def _ring(size: int = 7) -> np.ndarray:
+    """Background 0 around a ring of 1 with a center of 0, e.g. white around an eye."""
+    labels = np.zeros((size, size), dtype=np.uint8)
+    labels[1:-1, 1:-1] = 1
+    labels[size // 2, size // 2] = 0
+    return labels
+
+
+def test_clears_the_background_but_not_the_same_color_inside() -> None:
+    cleared = clear_border_regions(_ring(), [0])
+
+    assert (cleared[0] == T).all() and (cleared[:, -1] == T).all()
+    assert cleared[3, 3] == 0  # enclosed by the ring: kept
+    assert (cleared[1:-1, 1:-1][_ring()[1:-1, 1:-1] == 1] == 1).all()
+
+
+def test_the_background_does_not_seep_in_diagonally() -> None:
+    labels = np.zeros((6, 6), dtype=np.uint8)
+    labels[1:5, 1:5] = 1
+    labels[2:4, 2:4] = 0  # inside the ring
+    labels[1, 1] = 0  # a notch in the ring's corner: outside, touching [2, 2] diagonally
+
+    cleared = clear_border_regions(labels, [0])
+
+    assert cleared[1, 1] == T
+    assert (cleared[2:4, 2:4] == 0).all()
+
+
+def test_the_background_passes_through_transparent_pixels() -> None:
+    labels = _ring(7)
+    labels[0] = T  # already transparent top row
+    labels[1, 0] = 0
+
+    cleared = clear_border_regions(labels, [0])
+
+    assert cleared[1, 0] == T
+    assert cleared[3, 3] == 0
+
+
+def test_vectorizes_without_the_background_but_with_the_same_color_inside() -> None:
+    labels = np.zeros((24, 24), dtype=np.uint8)
+    labels[6:18, 6:18] = 1
+    labels[10:14, 10:14] = 0
+    png = encode_indexed_png(labels, np.array([[255, 255, 255], [0, 0, 0]], np.uint8), None)
+
+    def coverage(
+        transparent: list[int] | None = None, background: list[int] | None = None
+    ) -> float:
+        result = vectorize_image(
+            png,
+            max_dimension=64,
+            options=TracingOptions(),
+            transparent=transparent,
+            background=background,
+        )
+        return float(result.coverage[0])
+
+    assert coverage(background=[0]) == pytest.approx(16 / 144)  # the 4 x 4 center
+    assert coverage(transparent=[0]) == 0
+    with pytest.raises(InvalidParameters, match="below 2"):
+        coverage(background=[2])
 
 
 def _logged(caplog: pytest.LogCaptureFixture, message: str) -> dict[str, object]:

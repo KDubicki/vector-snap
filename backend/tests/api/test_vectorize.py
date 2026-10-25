@@ -105,6 +105,8 @@ def test_returns_raw_svg_when_requested(client: TestClient) -> None:
         {"colors": "4", "transparent": "[true]"},
         {"colors": "4", "transparent": "[9]"},
         {"colors": "4", "transparent": "[0, 1, 2, 3]"},
+        {"colors": "4", "background": "not json"},
+        {"colors": "4", "background": "[9]"},
     ],
 )
 def test_rejects_invalid_parameters(client: TestClient, form: dict[str, str]) -> None:
@@ -112,6 +114,16 @@ def test_rejects_invalid_parameters(client: TestClient, form: dict[str, str]) ->
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] in {"INVALID_PARAMETERS", "VALIDATION_ERROR"}
+
+
+def test_leaves_out_only_the_background_reaching_the_border(client: TestClient) -> None:
+    # Red, green and blue stripes: red is the left edge, so it reaches the border.
+    form = {"palette": '["#ff0000", "#00a000", "#0000ff"]', "background": "[0]"}
+
+    response = _post(client, _quantized_png(client), form)
+
+    assert response.status_code == 200
+    assert response.json()["palette"][0]["coverage"] == 0
 
 
 def test_leaves_transparent_colors_out(client: TestClient) -> None:

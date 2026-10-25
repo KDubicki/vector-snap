@@ -101,7 +101,7 @@ Reduces the image to `colors` representative colors.
   transparent index is excluded from `palette` and marked via the PNG `tRNS` chunk.
 - `coverage` is the fraction (0–1) of opaque pixels assigned to that color.
 - `background_index` is the palette index covering at least half of the image border —
-  a likely background a client can offer to remove (`transparent` in `/vectorize`) —
+  a likely background a client can offer to remove (`background` in `/vectorize`) —
   or `null` (mixed border, or a border that is already transparent).
 - The palette can be **smaller than `colors`** when the image has fewer distinct colors
   (e.g. a 3-color logo quantized to 8 colors returns exactly its 3 colors).
@@ -177,7 +177,8 @@ If `image` is not indexed and `colors` is omitted, the request fails with
 | `length_threshold` | float | | `4.0` | Minimum segment length (spline mode), `3.5…10` |
 | `splice_threshold` | int | | `45` | Minimum angle displacement to splice a spline |
 | `path_precision` | int | | `2` | Decimal places in path coordinates |
-| `transparent` | JSON string | | `[]` | Palette indices to leave out, e.g. `[0]` to remove the background; their pixels are treated as transparent. The response palette keeps them (coverage 0) so indices stay stable. All colors → `422 INVALID_PARAMETERS` |
+| `transparent` | JSON string | | `[]` | Palette indices to leave out everywhere, e.g. `[2]`; their pixels are treated as transparent. The response palette keeps them (coverage 0) so indices stay stable. All colors → `422 INVALID_PARAMETERS` |
+| `background` | JSON string | | `[]` | Palette indices to leave out **only where they reach the image border**, e.g. `[0]` to remove a white background: regions of these colors connected (side by side, not diagonally; through transparent pixels too) to the border become transparent, while the same color enclosed by the motif — white eyes, the inside of letters — stays. The palette keeps them, with the coverage of what is left. Nothing left → `422 INVALID_PARAMETERS` |
 | `stacking` | enum | | `cutout` | `cutout` (no overlaps; required for clean splitting and recoloring) \| `stacked` (each color layer extends under the layers above it — no seams between colors, but shapes overlap) |
 
 ### Content negotiation

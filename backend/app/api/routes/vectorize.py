@@ -42,7 +42,14 @@ async def vectorize(
     path_precision: Annotated[int, Form(ge=0, le=8)] = 2,
     stacking: Annotated[Stacking, Form()] = Stacking.CUTOUT,
     transparent: Annotated[
-        str, Form(description="JSON array of palette indices to leave out, e.g. [0]")
+        str, Form(description="JSON array of palette indices to leave out everywhere, e.g. [0]")
+    ] = "[]",
+    background: Annotated[
+        str,
+        Form(
+            description="JSON array of palette indices to leave out where they reach the "
+            "image border (the background), keeping them inside the motif, e.g. [0]"
+        ),
     ] = "[]",
 ) -> VectorizeResponse | Response:
     data = await read_upload(image, settings)
@@ -55,6 +62,7 @@ async def vectorize(
         check_color_count(colors, settings)
     palette_override = parse_hex_colors(palette, "palette") if palette is not None else None
     transparent_indices = parse_palette_indices(transparent, "transparent")
+    background_indices = parse_palette_indices(background, "background")
 
     result = await run_in_threadpool(
         vectorize_image,
@@ -73,6 +81,7 @@ async def vectorize(
         colors=colors,
         algorithm="median_cut" if algorithm == QuantizeAlgorithm.MEDIAN_CUT else "kmeans",
         transparent=transparent_indices,
+        background=background_indices,
     )
 
     if _wants_svg(request):

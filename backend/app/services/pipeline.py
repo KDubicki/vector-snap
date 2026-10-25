@@ -10,6 +10,7 @@ from typing import Literal
 
 import numpy as np
 from numpy.typing import NDArray
+from scipy import ndimage
 
 from app.core.errors import InvalidParameters, NotIndexedImage
 from app.services.image_io import (
@@ -140,6 +141,21 @@ def background_index(labels: NDArray[np.uint8]) -> int | None:
     return index if counts[index] >= BACKGROUND_BORDER_SHARE * len(border) else None
 
 
+def clear_border_regions(labels: NDArray[np.uint8], indices: list[int]) -> NDArray[np.uint8]:
+    """Labels with the regions of `indices` that reach the image border made transparent.
+
+    The background around a motif touches the border; the same color enclosed by the
+    motif (white eyes, the inside of letters) does not, and stays. Regions connect
+    side by side, not diagonally, so a background seeping through a diagonal gap does
+    not eat the inside; already transparent pixels pass the background on.
+    """
+    colored = np.isin(labels, indices)
+    regions, _ = ndimage.label(colored | (labels == TRANSPARENT_LABEL))
+    edge = np.concatenate([regions[0], regions[-1], regions[:, 0], regions[:, -1]])
+    reaching = np.isin(regions, edge[edge != 0]) & colored
+    return np.where(reaching, np.uint8(TRANSPARENT_LABEL), labels).astype(np.uint8)
+
+
 def to_indexed_png(result: QuantizationResult) -> bytes:
     """Encode a quantization result; transparent pixels get the index after the palette."""
     if not result.has_transparency:
@@ -160,13 +176,15 @@ def vectorize_image(
     colors: int | None = None,
     algorithm: Algorithm = "kmeans",
     transparent: list[int] | None = None,
+    background: list[int] | None = None,
 ) -> VectorizeResult:
     """Trace an image to SVG.
 
     With `colors` the image is quantized first (one-shot mode); otherwise it must be an
     indexed PNG, e.g. the one returned by `/quantize` (indexed mode). Palette indices in
-    `transparent` are left out (e.g. a removed background); the palette keeps them, so
-    indices stay stable.
+    `transparent` are left out everywhere; those in `background` only where they reach the
+    image border (`clear_border_regions`: a removed background, keeping the same color
+    inside the motif). The palette keeps them, so indices stay stable.
     """
     started = time.perf_counter()
     decode_ms = None  # one-shot mode: quantize_image logs decoding and quantizing
@@ -194,17 +212,21 @@ def vectorize_image(
             )
         palette = np.array(palette_override, dtype=np.uint8).reshape(-1, 3)
 
+    for field, indices in (("transparent", transparent), ("background", background)):
+        if indices and max(indices) >= len(palette):
+            raise InvalidParameters(
+                f"`{field}` indices must be below {len(palette)}.",
+                {"field": field, "palette_size": len(palette)},
+            )
     if transparent:
-        if max(transparent) >= len(palette):
-            raise InvalidParameters(
-                f"`transparent` indices must be below {len(palette)}.",
-                {"field": "transparent", "palette_size": len(palette)},
-            )
         labels = np.where(np.isin(labels, transparent), TRANSPARENT_LABEL, labels).astype(np.uint8)
-        if (labels == TRANSPARENT_LABEL).all():
-            raise InvalidParameters(
-                "Nothing to trace: every color is transparent.", {"field": "transparent"}
-            )
+    if background:
+        labels = clear_border_regions(labels, background)
+    if (transparent or background) and (labels == TRANSPARENT_LABEL).all():
+        raise InvalidParameters(
+            "Nothing to trace: every color is transparent.",
+            {"field": "transparent" if transparent else "background"},
+        )
 
     height, width = labels.shape
     trace_started = time.perf_counter()
@@ -218,6 +240,7 @@ def vectorize_image(
             "height": height,
             "colors": len(palette),
             "transparent": len(transparent or []),
+            "background": len(background or []),
             **asdict(options),
             "path_count": document.path_count,
             **({"decode_ms": decode_ms} if decode_ms is not None else {}),
