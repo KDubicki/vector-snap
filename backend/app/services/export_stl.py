@@ -295,6 +295,51 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
         _check_stacks(included, options)
 
     base = base_height(options)
+    _check_options(options, base)
+    # Top of the solid plate: inlaid colors take the plate's upper part.
+    plate_top = base - _deepest_inlay(included, base, options)
+    _check_magnet(options, base, plate_top)
+    engrave = options.relief == "engrave"
+    base_color = _plate_color(document, included, options)
+    plate = _BasePlate(Polygon(), Polygon())
+    bodies: list[Body] = []
+    if base > 0:
+        plate = _base_plate(document, included, options)
+        parts = [
+            _plate(polygon, plate_top, plate.pocket, options)
+            for polygon in (without_pinches(plate.silhouette) if plate_top > 0 else [])
+        ]
+        # Cut through (an engraving as deep as the plate): no solid plate below the cuts.
+        if parts:
+            bodies.append(Body("base", base_color, np.concatenate(parts)))
+    silhouette, border = plate.silhouette, plate.border
+    visible = _visible(document, included)
+    if not border.is_empty:
+        visible = [_repaired(geometry.difference(border)) for geometry in visible]
+    outline = _outline(visible, options)
+    if not outline.is_empty:
+        visible = [_repaired(geometry.difference(outline)) for geometry in visible]
+    if options.color_gap_mm > 0:
+        visible = [_with_gap(geometry, options.color_gap_mm) for geometry in visible]
+    if plate_top < base:
+        bodies.extend(_inlay_bands(silhouette, included, visible, base, base_color, options))
+    if not engrave:  # an engraving leaves the cut colors empty
+        make_bodies = _filament_bodies if options.filaments else _color_bodies
+        bodies.extend(make_bodies(included, visible, base, options))
+    if not border.is_empty:
+        bodies.extend(_rim_body(border, included, base, base_color, options))
+    if not outline.is_empty:
+        bodies.extend(_outline_body(outline, included, base, options))
+    if not bodies:
+        raise InvalidParameters(
+            f"Nothing to export: every shape is thinner than {options.min_feature_mm:g} mm.",
+            {"field": "min_feature_mm"},
+        )
+    return _placed(bodies, options.origin)
+
+
+def _check_options(options: StlOptions, base: float) -> None:
+    """Reject option combinations that cannot be built, naming the field to change."""
     engrave = options.relief == "engrave"
     if engrave and options.filaments:
         raise InvalidParameters(
@@ -327,8 +372,10 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
             "Elephant's foot compensation needs a base plate (base_mm > 0).",
             {"field": "elephant_foot_mm"},
         )
-    # Top of the solid plate: inlaid colors take the plate's upper part.
-    plate_top = base - _deepest_inlay(included, base, options)
+
+
+def _check_magnet(options: StlOptions, base: float, plate_top: float) -> None:
+    """The magnet pockets fit in the solid plate below the inlaid colors, with a roof."""
     if options.magnet_mm > 0 and options.magnet_depth_mm > plate_top - MAGNET_ROOF_MM + 1e-9:
         raise InvalidParameters(
             f"A {options.magnet_depth_mm:g} mm deep magnet pocket needs a base plate of at "
@@ -336,51 +383,31 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
             + (" below the inlaid colors." if plate_top < base else "."),
             {"field": "magnet_depth_mm"},
         )
-    bodies: list[Body] = []
-    border: BaseGeometry = Polygon()
-    silhouette: BaseGeometry = Polygon()
-    base_color = _plate_color(document, included, options)
-    if base > 0:
-        outline = _design_outline(document, options) if engrave else [p.geometry for p in included]
-        design = printable(unary_union(outline), options.min_feature_mm)
-        silhouette = base_outline(design, options.base_shape, options.base_margin_mm)
-        border = rim(silhouette, options.rim_mm)
-        silhouette = with_loop(silhouette, options.loop_hole_mm, options.loop_position)
-        holes = screw_holes(silhouette, design, options.screw_holes, options.screw_hole_mm)
-        if holes is not None:
-            silhouette = _repaired(silhouette.difference(holes))
-            border = _repaired(border.difference(holes))
-        pocket = magnet_pocket(silhouette, options.magnet_mm, options.magnet_count)
-        # Cut through (an engraving as deep as the plate): no solid plate below the cuts.
-        parts = [
-            _plate(polygon, plate_top, pocket, options)
-            for polygon in (without_pinches(silhouette) if plate_top > 0 else [])
-        ]
-        if parts:
-            bodies.append(Body("base", base_color, np.concatenate(parts)))
-    visible = _visible(document, included)
-    if not border.is_empty:
-        visible = [_repaired(geometry.difference(border)) for geometry in visible]
-    outline = _outline(visible, options)
-    if not outline.is_empty:
-        visible = [_repaired(geometry.difference(outline)) for geometry in visible]
-    if options.color_gap_mm > 0:
-        visible = [_with_gap(geometry, options.color_gap_mm) for geometry in visible]
-    if plate_top < base:
-        bodies.extend(_inlay_bands(silhouette, included, visible, base, base_color, options))
-    if not engrave:  # an engraving leaves the cut colors empty
-        make_bodies = _filament_bodies if options.filaments else _color_bodies
-        bodies.extend(make_bodies(included, visible, base, options))
-    if not border.is_empty:
-        bodies.extend(_rim_body(border, included, base, base_color, options))
-    if not outline.is_empty:
-        bodies.extend(_outline_body(outline, included, base, options))
-    if not bodies:
-        raise InvalidParameters(
-            f"Nothing to export: every shape is thinner than {options.min_feature_mm:g} mm.",
-            {"field": "min_feature_mm"},
-        )
-    return _placed(bodies, options.origin)
+
+
+@dataclass(frozen=True)
+class _BasePlate:
+    """The base plate's outline (with loop, without screw holes), its rim and pockets."""
+
+    silhouette: BaseGeometry
+    border: BaseGeometry  # the rim; empty without one
+    pocket: BaseGeometry | None = None  # magnet pockets
+
+
+def _base_plate(document: VectorDocument, parts: list[_Part], options: StlOptions) -> _BasePlate:
+    """Outline of the base plate under the design, with its rim, loop, holes and pockets."""
+    engrave = options.relief == "engrave"
+    outline = _design_outline(document, options) if engrave else [p.geometry for p in parts]
+    design = printable(unary_union(outline), options.min_feature_mm)
+    silhouette = base_outline(design, options.base_shape, options.base_margin_mm)
+    border = rim(silhouette, options.rim_mm)
+    silhouette = with_loop(silhouette, options.loop_hole_mm, options.loop_position)
+    holes = screw_holes(silhouette, design, options.screw_holes, options.screw_hole_mm)
+    if holes is not None:
+        silhouette = _repaired(silhouette.difference(holes))
+        border = _repaired(border.difference(holes))
+    pocket = magnet_pocket(silhouette, options.magnet_mm, options.magnet_count)
+    return _BasePlate(silhouette, border, pocket)
 
 
 def _placed(bodies: list[Body], origin: Origin) -> list[Body]:
