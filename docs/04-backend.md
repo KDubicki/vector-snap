@@ -27,6 +27,7 @@ backend/
 │   │   └── logging.py          # Structured JSON logging, request-id middleware
 │   ├── api/
 │   │   ├── deps.py             # Shared dependencies (size-limited upload reading)
+│   │   ├── export_forms.py     # Form dependencies of the exports (SVG upload, 3D options)
 │   │   ├── router.py           # Aggregates routers under /api/v1
 │   │   └── routes/
 │   │       ├── health.py       # /health, /health/ready, /limits
