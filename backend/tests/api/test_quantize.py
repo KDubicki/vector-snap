@@ -88,7 +88,27 @@ def test_quantize_merges_colors_under_the_minimum_coverage(client: TestClient) -
     assert response.status_code == 200
     body = response.json()
     assert [color["hex"] for color in body["palette"]] == ["#ff0000", "#00a000"]
-    assert body["merged"] == [{"hex": "#c80000", "into": "#ff0000", "coverage": 0.1}]
+    [item] = body["merged"]
+    assert (item["hex"], item["into"], item["reason"]) == ("#c80000", "#ff0000", "small")
+    assert item["coverage"] == pytest.approx(0.1)
+    assert item["delta_e"] > 2
+
+
+def test_quantize_merges_colors_that_look_the_same(client: TestClient) -> None:
+    # White 60 %, red 30 %, an off-white 10 %: one color to the eye, whatever its share.
+    image = stripes(colors=((255, 255, 255), (255, 0, 0), (254, 254, 254)))
+    response = _post(client, encode(image), colors="3", merge_delta_e="2")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [color["hex"] for color in body["palette"]] == ["#ffffff", "#ff0000"]
+    [item] = body["merged"]
+    assert (item["hex"], item["into"], item["reason"]) == ("#fefefe", "#ffffff", "similar")
+    assert item["delta_e"] < 1
+
+
+def test_quantize_rejects_a_similarity_limit_over_10(client: TestClient) -> None:
+    assert _post(client, encode(stripes()), colors="3", merge_delta_e="11").status_code == 422
 
 
 def test_quantize_merges_nothing_by_default(client: TestClient) -> None:

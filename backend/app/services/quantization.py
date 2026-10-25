@@ -3,7 +3,8 @@
 See docs/06-image-processing-pipeline.md, section 3.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from typing import Literal
 
 import numpy as np
 from numpy.typing import NDArray
@@ -17,10 +18,13 @@ __all__ = [
     "ColorSuggestion",
     "MergedColor",
     "QuantizationResult",
+    "delta_e_2000",
+    "merge_similar_colors",
     "merge_small_colors",
     "quantize_filaments",
     "quantize_kmeans",
     "quantize_median_cut",
+    "resolve_merges",
     "smooth_regions",
     "suggest_color_count",
 ]
@@ -394,9 +398,133 @@ def _resorted(labels: NDArray[np.uint8], palette: NDArray[np.uint8]) -> Quantiza
 
 @dataclass(frozen=True)
 class MergedColor:
-    color: tuple[int, int, int]  # the small color, gone from the palette
+    color: tuple[int, int, int]  # the merged color, gone from the palette
     into: tuple[int, int, int]  # the color its pixels now have
     coverage: float  # its share of the opaque pixels before merging
+    # `similar`: hard to tell from `into` (`merge_similar_colors`); `small`: too little
+    # of the image (`merge_small_colors`).
+    reason: Literal["similar", "small"] = "small"
+    delta_e: float = 0.0  # CIEDE2000 difference to `into`
+
+
+def delta_e_2000(lab1: NDArray[np.float64], lab2: NDArray[np.float64]) -> NDArray[np.float64]:
+    """CIEDE2000 color difference between CIE Lab colors, element-wise (broadcasting).
+
+    The perceptual scale of color differences (Sharma, Wu & Dalal 2005): unlike plain
+    Lab distance (CIE76) it weighs lightness, chroma and hue as the eye does, so one
+    limit means "hard to tell apart" for whites, grays and saturated colors alike. Below
+    1 people cannot tell two colors apart, at 1-2 only side by side on a close look, at
+    2-10 at a glance.
+    """
+    l1, a1, b1 = lab1[..., 0], lab1[..., 1], lab1[..., 2]
+    l2, a2, b2 = lab2[..., 0], lab2[..., 1], lab2[..., 2]
+    c_mean = (np.hypot(a1, b1) + np.hypot(a2, b2)) / 2
+    g = 0.5 * (1 - np.sqrt(c_mean**7 / (c_mean**7 + 25.0**7)))
+    a1p, a2p = (1 + g) * a1, (1 + g) * a2
+    c1p, c2p = np.hypot(a1p, b1), np.hypot(a2p, b2)
+    h1p = np.degrees(np.arctan2(b1, a1p)) % 360
+    h2p = np.degrees(np.arctan2(b2, a2p)) % 360
+    dl = l2 - l1
+    dc = c2p - c1p
+    dh = h2p - h1p
+    dh = np.where(dh > 180, dh - 360, np.where(dh < -180, dh + 360, dh))
+    dh = np.where(c1p * c2p == 0, 0.0, dh)
+    dhh = 2 * np.sqrt(c1p * c2p) * np.sin(np.radians(dh / 2))
+    l_mean = (l1 + l2) / 2
+    cp_mean = (c1p + c2p) / 2
+    h_sum = h1p + h2p
+    h_mean = np.where(
+        np.abs(h1p - h2p) <= 180,
+        h_sum / 2,
+        np.where(h_sum < 360, (h_sum + 360) / 2, (h_sum - 360) / 2),
+    )
+    h_mean = np.where(c1p * c2p == 0, h_sum, h_mean)
+    t = (
+        1
+        - 0.17 * np.cos(np.radians(h_mean - 30))
+        + 0.24 * np.cos(np.radians(2 * h_mean))
+        + 0.32 * np.cos(np.radians(3 * h_mean + 6))
+        - 0.20 * np.cos(np.radians(4 * h_mean - 63))
+    )
+    s_l = 1 + 0.015 * (l_mean - 50) ** 2 / np.sqrt(20 + (l_mean - 50) ** 2)
+    s_c = 1 + 0.045 * cp_mean
+    s_h = 1 + 0.015 * cp_mean * t
+    r_t = (
+        -2
+        * np.sqrt(cp_mean**7 / (cp_mean**7 + 25.0**7))
+        * np.sin(np.radians(60 * np.exp(-(((h_mean - 275) / 25) ** 2))))
+    )
+    result: NDArray[np.float64] = np.sqrt(
+        (dl / s_l) ** 2 + (dc / s_c) ** 2 + (dhh / s_h) ** 2 + r_t * (dc / s_c) * (dhh / s_h)
+    )
+    return result
+
+
+def merge_similar_colors(
+    result: QuantizationResult,
+    max_delta_e: float,
+    locked_colors: list[tuple[int, int, int]] | None = None,
+) -> tuple[QuantizationResult, list[MergedColor]]:
+    """Merge colors closer than `max_delta_e` (CIEDE2000) to each other, whatever their
+    share: #ffffff and #fefefe are one color to the eye and should not be two filaments.
+
+    The closest pair goes first, the color covering less joining the one covering more
+    (which keeps its value); then the next closest pair, until no two colors are that
+    close. Locked colors are never merged away, two locked colors stay apart.
+    """
+    if max_delta_e <= 0 or len(result.palette) < 2:
+        return result, []
+    locked = {_rgb(color) for color in np.array(locked_colors or [], dtype=np.uint8)}
+    labels = result.labels.copy()
+    counts = np.bincount(labels[labels != TRANSPARENT_LABEL], minlength=len(result.palette))
+    total = counts.sum()
+    lab = srgb_to_lab(result.palette)
+    differences = delta_e_2000(lab[:, None, :], lab[None, :, :])
+    is_locked = np.array([_rgb(color) in locked for color in result.palette])
+    # Pairs that may merge: different, both present, not both locked.
+    differences[np.eye(len(lab), dtype=bool)] = np.inf
+    differences[np.outer(is_locked, is_locked)] = np.inf
+    differences[counts == 0, :] = np.inf
+    differences[:, counts == 0] = np.inf
+    merged: list[MergedColor] = []
+    while True:
+        first, second = np.unravel_index(int(differences.argmin()), differences.shape)
+        if differences[first, second] >= max_delta_e:
+            break
+        # The locked color, else the one covering more, stays.
+        keep_first = is_locked[first] or (not is_locked[second] and counts[first] >= counts[second])
+        into, index = (int(first), int(second)) if keep_first else (int(second), int(first))
+        labels[labels == index] = into
+        merged.append(
+            MergedColor(
+                color=_rgb(result.palette[index]),
+                into=_rgb(result.palette[into]),
+                coverage=float(counts[index] / total),
+                reason="similar",
+            )
+        )
+        counts[into] += counts[index]
+        counts[index] = 0
+        differences[index, :] = np.inf
+        differences[:, index] = np.inf
+    if not merged:
+        return result, []
+    return _resorted(labels, result.palette), resolve_merges(merged)
+
+
+def resolve_merges(merged: list[MergedColor]) -> list[MergedColor]:
+    """Every merge pointed at the color its pixels end up with, after later merges, and
+    with the CIEDE2000 difference to it."""
+    final = {item.color: item.into for item in merged}
+    resolved = []
+    for item in merged:
+        target = item.into
+        while target in final:
+            target = final[target]
+        pair = srgb_to_lab(np.array([item.color, target], dtype=np.uint8))
+        difference = round(float(delta_e_2000(pair[0], pair[1])), 2)
+        resolved.append(replace(item, into=target, delta_e=difference))
+    return resolved
 
 
 def merge_small_colors(
@@ -447,14 +575,7 @@ def merge_small_colors(
         alive[index] = False
     if not merged:
         return result, []
-    # A color merged into one that was merged later ends up in that one's color.
-    final = {item.color: item.into for item in merged}
-    for position, item in enumerate(merged):
-        target = item.into
-        while target in final:
-            target = final[target]
-        merged[position] = MergedColor(item.color, target, item.coverage)
-    return _resorted(labels, result.palette), merged
+    return _resorted(labels, result.palette), resolve_merges(merged)
 
 
 def _nearest_alive(

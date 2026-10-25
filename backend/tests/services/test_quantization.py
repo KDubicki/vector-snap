@@ -9,6 +9,8 @@ from app.services.quantization import (
     SUGGEST_TARGET_DELTA_E,
     TRANSPARENT_LABEL,
     QuantizationResult,
+    delta_e_2000,
+    merge_similar_colors,
     merge_small_colors,
     quantize_filaments,
     quantize_kmeans,
@@ -409,3 +411,63 @@ def test_merging_off_or_nothing_small_returns_the_result_unchanged() -> None:
 
     assert merge_small_colors(original, 0) == (original, [])
     assert merge_small_colors(original, 0.02) == (original, [])
+
+
+@pytest.mark.parametrize(
+    ("lab1", "lab2", "expected"),
+    [
+        # Test data of Sharma, Wu & Dalal (2005), "The CIEDE2000 color-difference formula".
+        ((50, 2.6772, -79.7751), (50, 0, -82.7485), 2.0425),
+        ((50, -1.3802, -84.2814), (50, 0, -82.7485), 1.0),
+        ((50, 0, 0), (50, -1, 2), 2.3669),
+        ((50, 2.5, 0), (73, 25, -18), 27.1492),
+        ((60.2574, -34.0099, 36.2677), (60.4626, -34.1751, 39.4387), 1.2644),
+        ((2.0776, 0.0795, -1.135), (0.9033, -0.0636, -0.5514), 0.9082),
+    ],
+)
+def test_delta_e_2000_matches_the_reference_data(
+    lab1: tuple[float, float, float], lab2: tuple[float, float, float], expected: float
+) -> None:
+    assert delta_e_2000(np.array(lab1), np.array(lab2)) == pytest.approx(expected, abs=1e-4)
+
+
+OFF_WHITE = (254, 254, 254)
+
+
+def test_merges_colors_that_look_the_same_whatever_their_share() -> None:
+    # White and an off-white covering 40 %: ΔE00 0.3, one color to the eye.
+    result, merged = merge_similar_colors(_shares([590, 400, 10], [WHITE, OFF_WHITE, BLACK]), 2)
+
+    assert result.palette.tolist() == [list(WHITE), list(BLACK)]
+    assert result.coverage == pytest.approx([0.99, 0.01])
+    assert [(m.color, m.into, m.reason) for m in merged] == [(OFF_WHITE, WHITE, "similar")]
+    assert merged[0].delta_e < 1
+    assert merged[0].coverage == pytest.approx(0.4)
+
+
+def test_the_color_covering_more_stays_and_the_closest_pair_goes_first() -> None:
+    near = (250, 250, 250)
+    result, merged = merge_similar_colors(_shares([100, 600, 300], [WHITE, OFF_WHITE, near]), 3)
+
+    assert result.palette.tolist() == [list(OFF_WHITE)]
+    assert [(m.color, m.into) for m in merged] == [(WHITE, OFF_WHITE), (near, OFF_WHITE)]
+
+
+def test_keeps_colors_that_differ_more_than_the_limit() -> None:
+    light = (235, 235, 235)  # ΔE00 about 5.7 from white
+    original = _shares([600, 400], [WHITE, light])
+
+    assert merge_similar_colors(original, 2) == (original, [])
+    assert len(merge_similar_colors(original, 6)[0].palette) == 1
+    assert merge_similar_colors(original, 0) == (original, [])
+
+
+def test_similar_colors_merge_into_a_locked_one_but_two_locked_stay() -> None:
+    shares = _shares([600, 400], [WHITE, OFF_WHITE])
+
+    result, merged = merge_similar_colors(shares, 2, locked_colors=[OFF_WHITE])
+    assert [(m.color, m.into) for m in merged] == [(WHITE, OFF_WHITE)]
+
+    result, merged = merge_similar_colors(shares, 2, locked_colors=[WHITE, OFF_WHITE])
+    assert merged == []
+    assert len(result.palette) == 2

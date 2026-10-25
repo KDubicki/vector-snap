@@ -67,6 +67,15 @@ async def quantize(
             "into their nearest; the palette may end up with fewer colors. 0 = off",
         ),
     ] = 0.0,
+    merge_delta_e: Annotated[
+        float,
+        Form(
+            ge=0,
+            le=10,
+            description="Merge colors closer than this CIEDE2000 difference into one, whatever "
+            "their share: below 1 they look the same, below 2 only differ side by side. 0 = off",
+        ),
+    ] = 0.0,
 ) -> QuantizeResponse:
     data = await read_upload(image, settings)
     check_color_count(colors, settings)
@@ -94,6 +103,7 @@ async def quantize(
         upscale=upscale,
         filaments=filament_colors,
         min_coverage=min_coverage,
+        merge_delta_e=merge_delta_e,
     )
     png = await run_in_threadpool(to_indexed_png, result)
 
@@ -105,7 +115,11 @@ async def quantize(
         background_index=background_index(result.labels),
         merged=[
             MergedColorModel(
-                hex=rgb_to_hex(item.color), into=rgb_to_hex(item.into), coverage=item.coverage
+                hex=rgb_to_hex(item.color),
+                into=rgb_to_hex(item.into),
+                coverage=item.coverage,
+                reason=item.reason,
+                delta_e=item.delta_e,
             )
             for item in merged
         ],

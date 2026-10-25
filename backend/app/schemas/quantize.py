@@ -1,4 +1,5 @@
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -18,9 +19,13 @@ class EncodedImage(BaseModel):
 
 
 class MergedColorModel(BaseModel):
-    hex: str = Field(description="The small color, left out of the palette")
+    hex: str = Field(description="The merged color, left out of the palette")
     into: str = Field(description="The palette color its pixels now have")
     coverage: float = Field(description="Its share of the image before merging")
+    reason: Literal["similar", "small"] = Field(
+        description="similar: within merge_delta_e of `into`; small: under min_coverage"
+    )
+    delta_e: float = Field(description="CIEDE2000 difference to `into`")
 
 
 class QuantizeResponse(BaseModel):
@@ -33,7 +38,8 @@ class QuantizeResponse(BaseModel):
     )
     merged: list[MergedColorModel] = Field(
         default_factory=list,
-        description="Colors under min_coverage merged into their nearest, smallest first",
+        description="Colors merged away: similar ones first (closest pair first), then "
+        "those under min_coverage (smallest first)",
     )
     image: EncodedImage
 

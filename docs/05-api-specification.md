@@ -76,6 +76,7 @@ Reduces the image to `colors` representative colors.
 | `upscale` | bool | | `false` | Enlarge images whose longer side is under 1024 px (whole factor, at most 4×) before quantizing, for smoother outlines; `width`/`height` report the enlarged size |
 | `smooth` | int 0–3 | | `0` | Clean up noisy color regions with a (2n+1)² majority filter; colors that vanish are dropped |
 | `min_coverage` | float 0–0.5 | | `0` | Merge every color covering less than this share of the image (`0.02` = 2 %) into its nearest other color (CIE Lab), smallest first, so the palette may end up with fewer than `colors`; only into a color within ΔE 50 (a small color unlike every other, e.g. black pupils on red, is a detail and stays); locked colors stay, one color always stays. Listed in `merged` |
+| `merge_delta_e` | float 0–10 | | `0` | Merge colors closer than this **CIEDE2000** difference (ΔE00) into one, whatever their share: below 1 people cannot tell them apart (`#ffffff` and `#fefefe`: 0.3), at 1–2 only side by side on a close look, at 2–10 at a glance. Closest pair first; the color covering more stays; locked colors are never merged away. Runs before `min_coverage`; listed in `merged` with `reason: "similar"` |
 
 ### Response — 200 OK
 
@@ -89,7 +90,10 @@ Reduces the image to `colors` representative colors.
   ],
   "has_transparency": false,
   "background_index": 0,
-  "merged": [{"hex": "#5a5a5a", "into": "#1d2b53", "coverage": 0.012}],
+  "merged": [
+    {"hex": "#fefefe", "into": "#ffffff", "coverage": 0.21, "reason": "similar", "delta_e": 0.3},
+    {"hex": "#5a5a5a", "into": "#1d2b53", "coverage": 0.012, "reason": "small", "delta_e": 18.4}
+  ],
   "image": {
     "media_type": "image/png",
     "encoding": "base64",
@@ -99,9 +103,10 @@ Reduces the image to `colors` representative colors.
 ```
 
 - `palette` is sorted by `coverage` descending; `index` equals the PNG palette index.
-- `merged` lists the colors `min_coverage` merged away, smallest first: the color, the
-  palette color its pixels now have (after any later merges) and its share before
-  merging; empty when nothing was merged.
+- `merged` lists the colors merged away — `similar` ones (`merge_delta_e`) first, then
+  `small` ones (`min_coverage`) — with the palette color their pixels now have (after
+  any later merges), their share before merging and the CIEDE2000 difference to it;
+  empty when nothing was merged.
 - `image` is an **indexed (mode `P`) PNG**. If the source had transparency, the
   transparent index is excluded from `palette` and marked via the PNG `tRNS` chunk.
 - `coverage` is the fraction (0–1) of opaque pixels assigned to that color.

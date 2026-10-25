@@ -24,10 +24,12 @@ from app.services.quantization import (
     ColorSuggestion,
     MergedColor,
     QuantizationResult,
+    merge_similar_colors,
     merge_small_colors,
     quantize_filaments,
     quantize_kmeans,
     quantize_median_cut,
+    resolve_merges,
     smooth_regions,
     suggest_color_count,
 )
@@ -67,12 +69,14 @@ def quantize_image(
     upscale: bool = False,
     filaments: list[tuple[int, int, int]] | None = None,
     min_coverage: float = 0.0,
+    merge_delta_e: float = 0.0,
 ) -> tuple[DecodedImage, QuantizationResult, list[MergedColor]]:
     """Decode and quantize an image; `smooth` > 0 then cleans up noisy color regions.
 
     `upscale` enlarges small images first (see `decode_image`). The `filaments` algorithm
-    picks the palette from the given filament colors. Colors covering less than
-    `min_coverage` of the image are then merged into their nearest (`merge_small_colors`).
+    picks the palette from the given filament colors. Colors closer than `merge_delta_e`
+    (CIEDE2000) are then merged into one (`merge_similar_colors`), and colors covering
+    less than `min_coverage` of the image into their nearest (`merge_small_colors`).
     """
     started = time.perf_counter()
     image = decode_image(data, max_dimension, upscale=upscale)
@@ -91,7 +95,9 @@ def quantize_image(
             seed=seed,
         )
     result = smooth_regions(result, smooth)
-    result, merged = merge_small_colors(result, min_coverage, locked_colors)
+    result, similar = merge_similar_colors(result, merge_delta_e, locked_colors)
+    result, small = merge_small_colors(result, min_coverage, locked_colors)
+    merged = resolve_merges(similar + small)
     logger.info(
         "quantized image",
         extra={

@@ -129,8 +129,17 @@ Full `KMeans` is used instead of `MiniBatchKMeans` here: on the small sample it 
   Transparency is never changed: a transparent majority does not erase opaque pixels.
   Colors that disappear are dropped and the palette is re-sorted. Cost: ~1 s per
   4 MP, independent of the strength.
+- Optional **merging of similar colors** (`merge_delta_e`, `merge_similar_colors`, after
+  smoothing): colors closer than that **CIEDE2000** difference (ΔE00, `delta_e_2000`,
+  checked against the reference data of Sharma, Wu & Dalal 2005) become one, whatever
+  their share. ΔE00 is the perceptual scale of color differences: below 1 people cannot
+  tell two colors apart (`#ffffff` / `#fefefe`: 0.3), at 1–2 only side by side on a
+  close look, at 2–10 at a glance; unlike plain Lab distance it holds for whites, grays
+  and saturated colors alike. The closest pair merges first, the color covering more
+  keeping its value, until no two colors are that close. Two colors one cannot tell
+  apart are not worth two filaments, layers or SVG groups.
 - Optional **merging of small colors** (`min_coverage`, `merge_small_colors`, after
-  smoothing): a color covering less than that share of the image — a gray shading a
+  similar colors): a color covering less than that share of the image — a gray shading a
   few pixels next to black, anti-aliased edge colors — joins its nearest other color
   (CIE Lab), smallest first, with the shares counted again after every merge — but
   only when that color is within ΔE 50 (`MERGE_MAX_DELTA_E`): dark grays join black
