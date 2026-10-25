@@ -2075,3 +2075,25 @@ select {
   align-items: flex-start;
   gap: 4px;
 }
+
+.merged-colors ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+  font-size: 0.85rem;
+}
+
+.merged-colors li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.merged-colors__swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid var(--color-border);
+}

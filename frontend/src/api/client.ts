@@ -162,6 +162,7 @@ export function quantize(
   if (params.smooth !== undefined) form.append('smooth', String(params.smooth));
   if (params.upscale !== undefined) form.append('upscale', String(params.upscale));
   if (params.filaments?.length) form.append('filaments', JSON.stringify(params.filaments));
+  if (params.min_coverage) form.append('min_coverage', String(params.min_coverage));
   return request<QuantizeResponse>('/quantize', { method: 'POST', body: form, signal });
 }
 

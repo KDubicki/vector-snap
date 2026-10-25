@@ -6,6 +6,7 @@ import { useAppStore } from '../state/store';
 import { ColorCountSelector } from './ColorCountSelector';
 import { FilamentLibraryPanel } from './FilamentLibraryPanel';
 import { LockedColors } from './LockedColors';
+import { MergedColors } from './MergedColors';
 import { PaletteAdvice } from './PaletteAdvice';
 import { PaletteEditor } from './PaletteEditor';
 import { QuantizedPreview } from './QuantizedPreview';
@@ -28,11 +29,19 @@ const SMOOTH_LEVELS = [
   { value: 3, label: 'Strong' },
 ];
 
+const MERGE_LEVELS = [
+  { value: 0, label: 'Off' },
+  { value: 1, label: '1%' },
+  { value: 2, label: '2%' },
+  { value: 5, label: '5%' },
+];
+
 export function PaletteStep() {
   const file = useAppStore((s) => s.file);
   const colors = useAppStore((s) => s.colors);
   const algorithm = useAppStore((s) => s.algorithm);
   const smooth = useAppStore((s) => s.smooth);
+  const minCoverage = useAppStore((s) => s.minCoverage);
   const upscale = useAppStore((s) => s.upscale);
   const limits = useAppStore((s) => s.limits);
   const quantized = useAppStore((s) => s.quantized);
@@ -56,7 +65,7 @@ export function PaletteStep() {
     if (!file) return;
     const timer = setTimeout(() => void useAppStore.getState().runQuantize(), QUANTIZE_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [file, colors, algorithm, smooth, upscale, locked, filamentLibrary]);
+  }, [file, colors, algorithm, smooth, upscale, minCoverage, locked, filamentLibrary]);
 
   const originalPalette = useMemo(() => quantized?.palette.map((c) => c.hex) ?? [], [quantized]);
   const targetPalette = useMemo(
@@ -177,6 +186,28 @@ export function PaletteStep() {
           </span>
         </div>
         <div className="field">
+          <span>Merge small colors</span>
+          <div className="segmented" role="radiogroup" aria-label="Merge small colors">
+            {MERGE_LEVELS.map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={minCoverage === value}
+                className={minCoverage === value ? 'active' : ''}
+                onClick={() => actions.setMinCoverage(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <span className="hint">
+            A color covering less of the image joins its nearest similar color — a gray speck goes
+            to the black next to it — even if that leaves fewer colors than chosen. Small colors
+            unlike every other (black eyes on red) stay. Each color costs a filament in a 3D print.
+          </span>
+        </div>
+        <div className="field">
           <div className="checkbox">
             <input
               id="upscale"
@@ -191,6 +222,7 @@ export function PaletteStep() {
             out smooth instead of stepped.
           </span>
         </div>
+        {quantized?.merged && <MergedColors merged={quantized.merged} minCoverage={minCoverage} />}
         {quantized && (
           <PaletteEditor
             palette={quantized.palette}

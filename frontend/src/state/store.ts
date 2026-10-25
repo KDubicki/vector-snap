@@ -42,6 +42,8 @@ export type Status = 'idle' | 'quantizing' | 'vectorizing';
 export const DEFAULT_COLORS = 8;
 /** Light smoothing removes specks without rounding off real details. */
 export const DEFAULT_SMOOTH = 1;
+/** Colors under 2% of the image join their nearest: a gray speck is not worth a filament. */
+export const DEFAULT_MIN_COVERAGE = 2;
 
 export const STEPS: Step[] = ['upload', 'palette', 'result', 'print'];
 
@@ -69,6 +71,8 @@ export interface WorkflowSlice {
   smooth: number;
   /** Enlarge small images before quantizing (smoother traced outlines). */
   upscale: boolean;
+  /** Colors covering less than this percentage of the image merge into their nearest. */
+  minCoverage: number;
   quantized: QuantizeResponse | null;
   /** Parameters that produced `quantized`; avoids re-quantizing (and losing edits) needlessly. */
   quantizedFor: {
@@ -77,6 +81,7 @@ export interface WorkflowSlice {
     algorithm: QuantizeAlgorithm;
     smooth: number;
     upscale: boolean;
+    minCoverage: number;
     locked: string[];
     /** Filament colors offered (`filaments` algorithm), joined; '' otherwise. */
     filaments: string;
@@ -115,6 +120,7 @@ export interface WorkflowSlice {
   setColors: (colors: number) => void;
   setAlgorithm: (algorithm: QuantizeAlgorithm) => void;
   setSmooth: (smooth: number) => void;
+  setMinCoverage: (percent: number) => void;
   setUpscale: (upscale: boolean) => void;
   /** Replace the filament library (stored in the browser). */
   setFilamentLibrary: (library: FilamentLibrary) => void;
@@ -156,6 +162,7 @@ const initialState = {
   colors: DEFAULT_COLORS,
   algorithm: 'kmeans' as QuantizeAlgorithm,
   smooth: DEFAULT_SMOOTH,
+  minCoverage: DEFAULT_MIN_COVERAGE,
   upscale: true,
   quantized: null,
   quantizedFor: null,
@@ -248,6 +255,7 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
   setColors: (colors) => set((state) => ({ colors: Math.max(colors, state.locked.length) })),
   setAlgorithm: (algorithm) => set({ algorithm }),
   setSmooth: (smooth) => set({ smooth }),
+  setMinCoverage: (minCoverage) => set({ minCoverage }),
   setUpscale: (upscale) => set({ upscale }),
   setFilamentLibrary: (filamentLibrary) => {
     saveFilamentLibrary(browserStorage(), filamentLibrary);
@@ -323,7 +331,7 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
   resetTracing: () => set({ tracing: DEFAULT_TRACING }),
 
   runQuantize: async () => {
-    const { file, colors, algorithm, smooth, upscale, locked, quantizedFor } = get();
+    const { file, colors, algorithm, smooth, upscale, minCoverage, locked, quantizedFor } = get();
     if (!file) return;
     const offered = algorithm === 'filaments' ? ownedColors(get().filamentLibrary) : [];
     const filaments = offered.join(',');
@@ -332,6 +340,7 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
       quantizedFor.colors === colors &&
       quantizedFor.algorithm === algorithm &&
       quantizedFor.smooth === smooth &&
+      quantizedFor.minCoverage === minCoverage &&
       quantizedFor.upscale === upscale &&
       quantizedFor.locked === locked &&
       quantizedFor.filaments === filaments
@@ -347,13 +356,21 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
     try {
       const quantized = await quantize(
         file,
-        { colors, algorithm, smooth, upscale, locked_colors: locked, filaments: offered },
+        {
+          colors,
+          algorithm,
+          smooth,
+          upscale,
+          locked_colors: locked,
+          filaments: offered,
+          min_coverage: minCoverage / 100,
+        },
         signal,
       );
       // Overrides refer to palette indices of the previous result, so they are dropped.
       set({
         quantized,
-        quantizedFor: { file, colors, algorithm, smooth, upscale, locked, filaments },
+        quantizedFor: { file, colors, algorithm, smooth, upscale, minCoverage, locked, filaments },
         overrides: {},
         transparent: [],
         background: null,

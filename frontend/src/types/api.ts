@@ -36,6 +36,17 @@ export interface QuantizeParams {
   upscale?: boolean;
   /** `filaments` algorithm: the available filament colors to choose the palette from. */
   filaments?: string[];
+  /** Merge colors covering less than this share of the image (0.02 = 2%); 0 = off. */
+  min_coverage?: number;
+}
+
+/** A color merged into its nearest because it covered too little of the image. */
+export interface MergedColor {
+  hex: string;
+  /** The palette color its pixels now have. */
+  into: string;
+  /** Its share of the image before merging (0–1). */
+  coverage: number;
 }
 
 export interface QuantizeResponse {
@@ -45,6 +56,8 @@ export interface QuantizeResponse {
   has_transparency: boolean;
   /** Palette index dominating the image border (a likely background), if any. */
   background_index?: number | null;
+  /** Colors under `min_coverage` merged into their nearest, smallest first. */
+  merged?: MergedColor[];
   image: EncodedImage;
 }
 

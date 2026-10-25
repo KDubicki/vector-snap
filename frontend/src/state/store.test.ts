@@ -5,7 +5,13 @@ import { presetJson } from '../lib/printPreset';
 import { DEFAULT_TRACING } from '../lib/tracing';
 import type { QuantizeResponse, VectorizeResponse } from '../types/api';
 import { hasUnsavedEdits } from './editorSlice';
-import { DEFAULT_COLORS, DEFAULT_SMOOTH, reachableSteps, useAppStore } from './store';
+import {
+  DEFAULT_COLORS,
+  DEFAULT_MIN_COVERAGE,
+  DEFAULT_SMOOTH,
+  reachableSteps,
+  useAppStore,
+} from './store';
 
 const quantized: QuantizeResponse = {
   width: 2,
@@ -111,6 +117,22 @@ describe('app store', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     const forms = fetchMock.mock.calls.map(([, init]) => (init as RequestInit).body as FormData);
     expect(forms.map((form) => form.get('smooth'))).toEqual([String(DEFAULT_SMOOTH), '3']);
+  });
+
+  it('merges colors under 2% by default and re-quantizes when the share changes', async () => {
+    store().selectFile(file);
+    const fetchMock = respond(quantized);
+    vi.stubGlobal('fetch', fetchMock);
+    await store().runQuantize();
+
+    store().setMinCoverage(5);
+    await store().runQuantize();
+    store().setMinCoverage(0);
+    await store().runQuantize();
+
+    expect(DEFAULT_MIN_COVERAGE).toBe(2);
+    const forms = fetchMock.mock.calls.map(([, init]) => (init as RequestInit).body as FormData);
+    expect(forms.map((form) => form.get('min_coverage'))).toEqual(['0.02', '0.05', null]);
   });
 
   it('upscales small images by default and re-quantizes when turned off', async () => {
