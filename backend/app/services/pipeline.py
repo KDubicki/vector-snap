@@ -22,7 +22,9 @@ from app.services.image_io import (
 from app.services.quantization import (
     TRANSPARENT_LABEL,
     ColorSuggestion,
+    MergedColor,
     QuantizationResult,
+    merge_small_colors,
     quantize_filaments,
     quantize_kmeans,
     quantize_median_cut,
@@ -64,11 +66,13 @@ def quantize_image(
     smooth: int = 0,
     upscale: bool = False,
     filaments: list[tuple[int, int, int]] | None = None,
-) -> tuple[DecodedImage, QuantizationResult]:
+    min_coverage: float = 0.0,
+) -> tuple[DecodedImage, QuantizationResult, list[MergedColor]]:
     """Decode and quantize an image; `smooth` > 0 then cleans up noisy color regions.
 
     `upscale` enlarges small images first (see `decode_image`). The `filaments` algorithm
-    picks the palette from the given filament colors.
+    picks the palette from the given filament colors. Colors covering less than
+    `min_coverage` of the image are then merged into their nearest (`merge_small_colors`).
     """
     started = time.perf_counter()
     image = decode_image(data, max_dimension, upscale=upscale)
@@ -87,6 +91,7 @@ def quantize_image(
             seed=seed,
         )
     result = smooth_regions(result, smooth)
+    result, merged = merge_small_colors(result, min_coverage, locked_colors)
     logger.info(
         "quantized image",
         extra={
@@ -97,11 +102,12 @@ def quantize_image(
             "locked_colors": len(locked_colors or []),
             "smooth": smooth,
             "upscale": upscale,
+            "merged_colors": len(merged),
             "decode_ms": decode_ms,
             "quantize_ms": _ms(started),
         },
     )
-    return image, result
+    return image, result, merged
 
 
 def suggest_colors(
@@ -189,7 +195,7 @@ def vectorize_image(
     started = time.perf_counter()
     decode_ms = None  # one-shot mode: quantize_image logs decoding and quantizing
     if colors is not None:
-        _, quantized = quantize_image(
+        _, quantized, _ = quantize_image(
             data, colors=colors, algorithm=algorithm, max_dimension=max_dimension
         )
         labels, palette = quantized.labels, quantized.palette

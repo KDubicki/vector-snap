@@ -120,7 +120,7 @@ def test_quantizing_logs_the_input_parameters_and_step_durations(
 def test_vectorizing_an_indexed_png_logs_decoding_and_tracing(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    _, quantized = quantize_image(
+    _, quantized, _ = quantize_image(
         encode(stripes()), colors=3, algorithm="kmeans", max_dimension=4096
     )
     caplog.set_level(logging.INFO, logger="app.services.pipeline")

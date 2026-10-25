@@ -15,7 +15,9 @@ from app.services.image_io import TRANSPARENT_LABEL, DecodedImage
 __all__ = [
     "TRANSPARENT_LABEL",
     "ColorSuggestion",
+    "MergedColor",
     "QuantizationResult",
+    "merge_small_colors",
     "quantize_filaments",
     "quantize_kmeans",
     "quantize_median_cut",
@@ -368,18 +370,92 @@ def smooth_regions(result: QuantizationResult, strength: int) -> QuantizationRes
     opaque = result.labels != TRANSPARENT_LABEL
     # A majority of transparent neighbours must not erase an opaque pixel.
     keep = opaque & (filtered != TRANSPARENT_LABEL)
-    labels = np.where(keep, filtered, result.labels)
+    return _resorted(np.where(keep, filtered, result.labels), result.palette)
 
-    counts = np.bincount(labels[opaque], minlength=len(result.palette))
+
+def _resorted(labels: NDArray[np.uint8], palette: NDArray[np.uint8]) -> QuantizationResult:
+    """Drop colors no pixel has any more and sort the palette by coverage again."""
+    opaque = labels != TRANSPARENT_LABEL
+    counts = np.bincount(labels[opaque], minlength=len(palette))
     order = [int(i) for i in np.argsort(-counts, kind="stable") if counts[i] > 0]
     remap = np.full(256, TRANSPARENT_LABEL, dtype=np.uint8)
     remap[order] = np.arange(len(order), dtype=np.uint8)
     sorted_counts = counts[order].astype(np.float64)
     return QuantizationResult(
         labels=remap[labels],
-        palette=result.palette[order],
+        palette=palette[order],
         coverage=sorted_counts / sorted_counts.sum(),
     )
+
+
+@dataclass(frozen=True)
+class MergedColor:
+    color: tuple[int, int, int]  # the small color, gone from the palette
+    into: tuple[int, int, int]  # the color its pixels now have
+    coverage: float  # its share of the opaque pixels before merging
+
+
+def merge_small_colors(
+    result: QuantizationResult,
+    min_coverage: float,
+    locked_colors: list[tuple[int, int, int]] | None = None,
+) -> tuple[QuantizationResult, list[MergedColor]]:
+    """Merge every color covering less than `min_coverage` of the image into its nearest
+    other color (CIE Lab), smallest first, so the palette can end up smaller than asked.
+
+    A gray shading a few pixels joins the black next to it instead of costing a filament
+    and a layer of its own. Shares are counted again after every merge; the color merged
+    into keeps its value, locked colors are never merged away and one color always stays.
+    """
+    if min_coverage <= 0 or len(result.palette) < 2:
+        return result, []
+    locked = {tuple(int(c) for c in color) for color in locked_colors or []}
+    labels = result.labels.copy()
+    counts = np.bincount(labels[labels != TRANSPARENT_LABEL], minlength=len(result.palette))
+    total = counts.sum()
+    lab = srgb_to_lab(result.palette)
+    alive = counts > 0
+    merged: list[MergedColor] = []
+    while alive.sum() > 1:
+        small = [
+            int(i)
+            for i in np.argsort(counts, kind="stable")
+            if alive[i]
+            and counts[i] < min_coverage * total
+            and tuple(int(c) for c in result.palette[i]) not in locked
+        ]
+        if not small:
+            break
+        index = small[0]
+        distances = ((lab - lab[index]) ** 2).sum(axis=1)
+        distances[~alive] = np.inf
+        distances[index] = np.inf
+        into = int(distances.argmin())
+        labels[labels == index] = into
+        merged.append(
+            MergedColor(
+                color=_rgb(result.palette[index]),
+                into=_rgb(result.palette[into]),
+                coverage=float(counts[index] / total),
+            )
+        )
+        counts[into] += counts[index]
+        counts[index] = 0
+        alive[index] = False
+    if not merged:
+        return result, []
+    # A color merged into one that was merged later ends up in that one's color.
+    final = {item.color: item.into for item in merged}
+    for position, item in enumerate(merged):
+        target = item.into
+        while target in final:
+            target = final[target]
+        merged[position] = MergedColor(item.color, target, item.coverage)
+    return _resorted(labels, result.palette), merged
+
+
+def _rgb(color: NDArray[np.uint8]) -> tuple[int, int, int]:
+    return int(color[0]), int(color[1]), int(color[2])
 
 
 def suggest_color_count(

@@ -9,6 +9,7 @@ from app.services.quantization import (
     SUGGEST_TARGET_DELTA_E,
     TRANSPARENT_LABEL,
     QuantizationResult,
+    merge_small_colors,
     quantize_filaments,
     quantize_kmeans,
     quantize_median_cut,
@@ -345,3 +346,55 @@ def test_redundant_first_picks_are_dropped() -> None:
     result = quantize_filaments(_decoded(image), [GRAY, BLACK, WHITE, (200, 30, 30)], 4)
 
     assert sorted(tuple(c) for c in result.palette) == sorted([BLACK, WHITE, (200, 30, 30)])
+
+
+BLACK, WHITE, GRAY, PINK = (0, 0, 0), (255, 255, 255), (70, 70, 70), (255, 200, 200)
+
+
+def _shares(counts: list[int], palette: list[tuple[int, int, int]]) -> QuantizationResult:
+    """A one-row image with `counts[i]` pixels of `palette[i]`, sorted by coverage."""
+    labels = np.repeat(np.arange(len(counts), dtype=np.uint8), counts)[None, :]
+    total = sum(counts)
+    return QuantizationResult(
+        labels=labels,
+        palette=np.array(palette, dtype=np.uint8),
+        coverage=np.array(counts) / total,
+    )
+
+
+def test_merges_a_small_color_into_its_nearest() -> None:
+    # Black 60 %, white 38.5 %, a dark gray at 1.5 %: the gray joins the black.
+    result, merged = merge_small_colors(_shares([600, 385, 15], [BLACK, WHITE, GRAY]), 0.02)
+
+    assert result.palette.tolist() == [list(BLACK), list(WHITE)]
+    assert result.coverage == pytest.approx([0.615, 0.385])
+    assert (result.labels[0, 985:] == 0).all()
+    assert [(m.color, m.into) for m in merged] == [(GRAY, BLACK)]
+    assert merged[0].coverage == pytest.approx(0.015)
+
+
+def test_merges_smallest_first_and_follows_later_merges() -> None:
+    # Gray (1 %) joins black (1.5 %), which then still is small and joins white.
+    result, merged = merge_small_colors(_shares([975, 15, 10], [WHITE, BLACK, GRAY]), 0.03)
+
+    assert result.palette.tolist() == [list(WHITE)]
+    assert [(m.color, m.into) for m in merged] == [(GRAY, WHITE), (BLACK, WHITE)]
+
+
+def test_keeps_locked_colors_and_one_color() -> None:
+    result, merged = merge_small_colors(
+        _shares([980, 20], [WHITE, PINK]), 0.05, locked_colors=[PINK]
+    )
+    assert merged == []
+    assert result.palette.tolist() == [list(WHITE), list(PINK)]
+
+    result, merged = merge_small_colors(_shares([10, 10], [WHITE, BLACK]), 0.9)
+    assert len(result.palette) == 1
+    assert len(merged) == 1
+
+
+def test_merging_off_or_nothing_small_returns_the_result_unchanged() -> None:
+    original = _shares([600, 400], [BLACK, WHITE])
+
+    assert merge_small_colors(original, 0) == (original, [])
+    assert merge_small_colors(original, 0.02) == (original, [])

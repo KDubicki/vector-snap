@@ -17,6 +17,12 @@ class EncodedImage(BaseModel):
     data: str
 
 
+class MergedColorModel(BaseModel):
+    hex: str = Field(description="The small color, left out of the palette")
+    into: str = Field(description="The palette color its pixels now have")
+    coverage: float = Field(description="Its share of the image before merging")
+
+
 class QuantizeResponse(BaseModel):
     width: int
     height: int
@@ -24,6 +30,10 @@ class QuantizeResponse(BaseModel):
     has_transparency: bool
     background_index: int | None = Field(
         default=None, description="Palette index dominating the image border (background)"
+    )
+    merged: list[MergedColorModel] = Field(
+        default_factory=list,
+        description="Colors under min_coverage merged into their nearest, smallest first",
     )
     image: EncodedImage
 

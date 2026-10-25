@@ -7,11 +7,12 @@ from fastapi.concurrency import run_in_threadpool
 from app.api.deps import check_color_count, read_upload
 from app.core.config import Settings, get_settings
 from app.core.errors import InvalidParameters
-from app.schemas.palette import palette_colors, parse_hex_colors
+from app.schemas.palette import palette_colors, parse_hex_colors, rgb_to_hex
 from app.schemas.quantize import (
     ColorCountError,
     ColorSuggestionResponse,
     EncodedImage,
+    MergedColorModel,
     QuantizeAlgorithm,
     QuantizeResponse,
 )
@@ -57,6 +58,15 @@ async def quantize(
             "the best `colors` of them become the palette"
         ),
     ] = "[]",
+    min_coverage: Annotated[
+        float,
+        Form(
+            ge=0,
+            le=0.5,
+            description="Merge colors covering less than this share of the image (0.02 = 2%) "
+            "into their nearest; the palette may end up with fewer colors. 0 = off",
+        ),
+    ] = 0.0,
 ) -> QuantizeResponse:
     data = await read_upload(image, settings)
     check_color_count(colors, settings)
@@ -71,7 +81,7 @@ async def quantize(
             f"At most {MAX_FILAMENT_CANDIDATES} filament colors.", {"field": "filaments"}
         )
 
-    decoded, result = await run_in_threadpool(
+    decoded, result, merged = await run_in_threadpool(
         quantize_image,
         data,
         colors=colors,
@@ -83,6 +93,7 @@ async def quantize(
         smooth=smooth,
         upscale=upscale,
         filaments=filament_colors,
+        min_coverage=min_coverage,
     )
     png = await run_in_threadpool(to_indexed_png, result)
 
@@ -92,6 +103,12 @@ async def quantize(
         palette=palette_colors(result.palette, result.coverage),
         has_transparency=result.has_transparency,
         background_index=background_index(result.labels),
+        merged=[
+            MergedColorModel(
+                hex=rgb_to_hex(item.color), into=rgb_to_hex(item.into), coverage=item.coverage
+            )
+            for item in merged
+        ],
         image=EncodedImage(data=base64.b64encode(png).decode("ascii")),
     )
 

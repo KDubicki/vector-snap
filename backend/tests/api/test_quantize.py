@@ -80,6 +80,29 @@ def test_quantize_smooths_noisy_regions(client: TestClient) -> None:
     assert edges(smooth) < edges(rough) / 3
 
 
+def test_quantize_merges_colors_under_the_minimum_coverage(client: TestClient) -> None:
+    # Red 60 %, green 30 %, blue 10 %: blue is under 15 % and joins its nearest color.
+    response = _post(client, encode(stripes()), colors="3", min_coverage="0.15")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body["palette"]) == 2
+    assert [item["hex"] for item in body["merged"]] == ["#0000ff"]
+    assert body["merged"][0]["into"] in {color["hex"] for color in body["palette"]}
+    assert body["merged"][0]["coverage"] == pytest.approx(0.1)
+
+
+def test_quantize_merges_nothing_by_default(client: TestClient) -> None:
+    body = _post(client, encode(stripes()), colors="3").json()
+
+    assert len(body["palette"]) == 3
+    assert body["merged"] == []
+
+
+def test_quantize_rejects_a_minimum_coverage_over_half(client: TestClient) -> None:
+    assert _post(client, encode(stripes()), colors="3", min_coverage="0.6").status_code == 422
+
+
 def test_quantize_upscales_small_images(client: TestClient) -> None:
     response = _post(client, encode(stripes()), colors="3", upscale="true")
 

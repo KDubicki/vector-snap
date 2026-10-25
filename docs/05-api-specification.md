@@ -75,6 +75,7 @@ Reduces the image to `colors` representative colors.
 | `seed` | int | | `0` | Random seed (deterministic output) |
 | `upscale` | bool | | `false` | Enlarge images whose longer side is under 1024 px (whole factor, at most 4×) before quantizing, for smoother outlines; `width`/`height` report the enlarged size |
 | `smooth` | int 0–3 | | `0` | Clean up noisy color regions with a (2n+1)² majority filter; colors that vanish are dropped |
+| `min_coverage` | float 0–0.5 | | `0` | Merge every color covering less than this share of the image (`0.02` = 2 %) into its nearest other color (CIE Lab), smallest first, so the palette may end up with fewer than `colors`; locked colors stay, one color always stays. Listed in `merged` |
 
 ### Response — 200 OK
 
@@ -88,6 +89,7 @@ Reduces the image to `colors` representative colors.
   ],
   "has_transparency": false,
   "background_index": 0,
+  "merged": [{"hex": "#5a5a5a", "into": "#1d2b53", "coverage": 0.012}],
   "image": {
     "media_type": "image/png",
     "encoding": "base64",
@@ -97,6 +99,9 @@ Reduces the image to `colors` representative colors.
 ```
 
 - `palette` is sorted by `coverage` descending; `index` equals the PNG palette index.
+- `merged` lists the colors `min_coverage` merged away, smallest first: the color, the
+  palette color its pixels now have (after any later merges) and its share before
+  merging; empty when nothing was merged.
 - `image` is an **indexed (mode `P`) PNG**. If the source had transparency, the
   transparent index is excluded from `palette` and marked via the PNG `tRNS` chunk.
 - `coverage` is the fraction (0–1) of opaque pixels assigned to that color.

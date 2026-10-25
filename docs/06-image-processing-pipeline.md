@@ -129,6 +129,13 @@ Full `KMeans` is used instead of `MiniBatchKMeans` here: on the small sample it 
   Transparency is never changed: a transparent majority does not erase opaque pixels.
   Colors that disappear are dropped and the palette is re-sorted. Cost: ~1 s per
   4 MP, independent of the strength.
+- Optional **merging of small colors** (`min_coverage`, `merge_small_colors`, after
+  smoothing): a color covering less than that share of the image — a gray shading a
+  few pixels next to black, anti-aliased edge colors — joins its nearest other color
+  (CIE Lab), smallest first, with the shares counted again after every merge. The
+  color merged into keeps its exact value, so the palette can end up with fewer colors
+  than asked; locked colors are never merged away and one color always stays. Every
+  small color in a print costs a filament and a layer of its own.
 - Remove empty clusters (can happen with k-means on low-variety images); palette size may
   therefore be smaller than requested — the response reflects the actual size.
 - Sort palette by coverage (descending) and remap labels accordingly.
