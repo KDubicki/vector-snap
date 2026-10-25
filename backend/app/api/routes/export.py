@@ -28,6 +28,7 @@ from app.services.filament_plan import filament_plan
 from app.services.image_io import decode_image
 from app.services.lithophane import LithophaneOptions, export_lithophane
 from app.services.print_check import check_print
+from app.services.tiles import export_tiles
 
 router = APIRouter(prefix="/export", tags=["export"])
 
@@ -77,6 +78,30 @@ async def export_to_3mf(
     """Like STL, but one colored part per color in one model — for multi-color printers."""
     content = await run_in_threadpool(export_3mf, document, options, package)
     return _attachment(content, "model/3mf", "3mf")
+
+
+@router.post(
+    "/tiles",
+    response_class=Response,
+    responses={200: {"content": {"application/zip": {}}, "description": "ZIP of 3MF tiles"}},
+)
+async def export_to_tiles(
+    document: UploadedSvg,
+    options: ModelOptions,
+    package: PackageOptions,
+    tile_x_mm: Annotated[
+        float, Form(ge=10, le=10_000, description="Largest tile width: the bed's X")
+    ] = 220.0,
+    tile_y_mm: Annotated[
+        float, Form(ge=10, le=10_000, description="Largest tile depth: the bed's Y")
+    ] = 220.0,
+) -> Response:
+    """The 3MF model cut into equal tiles that each fit the bed, one 3MF per tile: for
+    signs larger than the printer, printed in parts and joined edge to edge."""
+    content = await run_in_threadpool(
+        export_tiles, document, options, package, tile_x_mm, tile_y_mm
+    )
+    return _attachment(content, "application/zip", "zip")
 
 
 @router.post("/filament-plan", response_model=FilamentPlanResponse)

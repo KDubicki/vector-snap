@@ -11,6 +11,7 @@ of the microservice can use it too.
 | PNG | — (browser) | Raster image at any width, transparent or white background | ✅ |
 | STL | `POST /api/v1/export/stl` | 3D printing (relief / multi-color prints) | ✅ |
 | 3MF | `POST /api/v1/export/3mf` | Multi-color / multi-material 3D printing (AMS, MMU, tool changers) | ✅ |
+| 3MF tiles (ZIP) | `POST /api/v1/export/tiles` | A model larger than the bed, cut into tiles that each fit | ✅ |
 | Lithophane (STL) | `POST /api/v1/export/lithophane` | Backlit photo plate made from the **original image** | ✅ |
 | DXF | `POST /api/v1/export/dxf` | Laser cutters, vinyl plotters, CNC | ✅ |
 | PDF | `POST /api/v1/export/pdf` | Print, documents | ✅ |
@@ -343,6 +344,37 @@ base plate's first), lowest and highest z (mm) and volume (mm³):
 The first two columns are unchanged, so readers of the older two-column file keep
 working; give every part the filament in the third column.
 The 3D print step offers it as **STL per color (ZIP)**.
+
+## Tiles (ZIP of 3MF)
+
+```bash
+curl -F svg=@sign.svg -F width_mm=400 -F base_mm=1.6 -F tile_x_mm=260 -F tile_y_mm=260 \
+     -F title=Sign http://localhost:8000/api/v1/export/tiles -o sign-tiles.zip
+```
+
+A sign larger than the printer's bed is printed in parts. `POST /export/tiles` takes the
+3MF form fields and the largest tile, `tile_x_mm` × `tile_y_mm` (10–10000 mm, default
+220: the bed), and divides the model's footprint into the fewest equal tiles that fit
+(`app/services/tiles.py`): a 410 mm wide plate on a 260 mm bed becomes two tiles of
+205 mm. Every tile is the model clipped to its cell — base plate, rim, outlines and
+colors are cut at the cell's edges (`build_bodies(clip=...)`), so the tiles fit edge to
+edge into the whole sign — and a 3MF of its own, named by row from the top and column
+from the left: `tile-r1-c1.3mf`, `tile-r1-c2.3mf` … Its title is the model's with the
+row and column. `tiles.txt` lists them, tab-separated: file, row, column, width and
+depth (mm):
+
+```text
+tile-r1-c1.3mf	1	1	205	130
+tile-r1-c2.3mf	1	2	205	130
+```
+
+Outlines and color gaps follow the whole design, not the cut; holes and the hanging loop
+stay where they are on the whole model, and magnet pockets crossed by a tile edge are
+left out. Every tile starts at x = y = 0 (centered on 0 with `origin=center`), so it lies
+on the bed as loaded — slicers' command lines do not arrange it. Cells the model leaves
+empty (a round plate's corners) are skipped; more than 36 tiles is a `422` naming
+`tile_x_mm`. Two tiles of a 410 × 260 mm sign sliced in Anycubic Slicer Next for the
+Kobra X in 1 h 43 min and 1 h 52 min, with 3 and 4 filaments.
 
 ## Lithophane
 

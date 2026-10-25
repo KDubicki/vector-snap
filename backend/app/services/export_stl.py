@@ -46,6 +46,7 @@ from app.services.svg_geometry import (
     VectorDocument,
     VectorLayer,
     VectorShape,
+    polygons,
     shapes_geometry,
     to_millimetres,
 )
@@ -200,12 +201,16 @@ def model_size(document: VectorDocument, options: StlOptions) -> ModelSize:
     return ModelSize(x_mm=x, y_mm=y, z_mm=z)
 
 
-def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
+def build_bodies(
+    document: VectorDocument, options: StlOptions, clip: BaseGeometry | None = None
+) -> list[Body]:
     """Base plate (under the included shapes) and one extruded body per color and height.
 
     Shapes with a height of their own (`shape_heights`) become separate bodies of their
     color, so every body stays a closed prism. Bodies never overlap: areas covered by
-    shapes drawn above are cut out of the shapes below.
+    shapes drawn above are cut out of the shapes below. With `clip` (millimetres, before
+    `origin` moves the model) only that part of the model is built, as if cut out of the
+    whole one: a tile (`tiles`); a clip the model misses gives no bodies.
     """
     included = _parts(document, options)
     if not included:
@@ -224,6 +229,12 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
     bodies: list[Body] = []
     if base > 0:
         plate = _base_plate(document, included, options)
+        if clip is not None:
+            plate = _BasePlate(
+                _repaired(plate.silhouette.intersection(clip)),
+                _repaired(plate.border.intersection(clip)),
+                _clipped_pockets(plate.pocket, clip),
+            )
         parts = [
             _plate(polygon, plate_top, plate.pocket, options)
             for polygon in (without_pinches(plate.silhouette) if plate_top > 0 else [])
@@ -240,6 +251,9 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
         visible = [_repaired(geometry.difference(outline)) for geometry in visible]
     if options.color_gap_mm > 0:
         visible = [_with_gap(geometry, options.color_gap_mm) for geometry in visible]
+    if clip is not None:  # after the outlines and gaps, which follow the whole design
+        visible = [_repaired(geometry.intersection(clip)) for geometry in visible]
+        outline = _repaired(outline.intersection(clip))
     if plate_top < base:
         bodies.extend(_inlay_bands(silhouette, included, visible, base, base_color, options))
     # An engraving leaves the cut colors empty.
@@ -257,6 +271,8 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
         bodies.extend(_rim_body(border, included, base, base_color, options))
     if not outline.is_empty:
         bodies.extend(_outline_body(outline, included, base, options))
+    if not bodies and clip is not None:
+        return []
     if not bodies:
         raise InvalidParameters(
             f"Nothing to export: every shape is thinner than {options.min_feature_mm:g} mm.",
@@ -319,6 +335,14 @@ class _BasePlate:
     silhouette: BaseGeometry
     border: BaseGeometry  # the rim; empty without one
     pocket: BaseGeometry | None = None  # magnet pockets
+
+
+def _clipped_pockets(pocket: BaseGeometry | None, clip: BaseGeometry) -> BaseGeometry | None:
+    """The magnet pockets wholly inside the clip: one crossed by its edge is left out."""
+    if pocket is None:
+        return None
+    inside = [part for part in polygons(pocket) if clip.contains_properly(part)]
+    return unary_union(inside) if inside else None
 
 
 def _base_plate(document: VectorDocument, parts: list[_Part], options: StlOptions) -> _BasePlate:

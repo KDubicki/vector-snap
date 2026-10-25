@@ -450,6 +450,21 @@ def test_model_size(client: TestClient) -> None:
     assert response.json()["z_mm"] > 1
 
 
+def test_exports_tiles(client: TestClient) -> None:
+    form = {"width_mm": "40", "tile_x_mm": "25", "tile_y_mm": "25", "title": "Sign"}
+    response = _post(client, "tiles", form)
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/zip"
+    with zipfile.ZipFile(io.BytesIO(response.content)) as archive:
+        names = archive.namelist()
+    assert names == ["tile-r1-c1.3mf", "tile-r1-c2.3mf", "tiles.txt"]
+
+
+def test_tiles_need_a_tile_of_at_least_10_mm(client: TestClient) -> None:
+    assert _post(client, "tiles", {"tile_x_mm": "5"}).status_code == 422
+
+
 def test_print_check(client: TestClient) -> None:
     response = _post(client, "print-check", {"width_mm": "40", "nozzle_mm": "0.4"})
 
