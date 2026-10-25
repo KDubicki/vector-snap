@@ -7,19 +7,21 @@ import pytest
 
 from app.core.errors import InvalidParameters
 from app.services.export_stl import (
-    Body,
-    ColorStack,
-    Relief,
-    StackOrder,
-    StlOptions,
     build_bodies,
     export_stl,
     export_stl_parts,
     model_size,
     relative_luminance,
-    snap_to_layers,
     stack_layers,
-    stack_slabs,
+)
+from app.services.mixed_colors import stack_slabs
+from app.services.model_options import (
+    Body,
+    ColorStack,
+    Relief,
+    StackOrder,
+    StlOptions,
+    snap_to_layers,
 )
 from app.services.svg_geometry import VectorDocument, parse_svg
 from tests.vectors import contract_svg, is_balanced, is_closed, read_binary_stl, signed_volume

@@ -26,19 +26,12 @@ from app.services.export_3mf import Layout, ThreeMfOptions, export_3mf
 from app.services.export_dxf import DxfOptions, export_dxf
 from app.services.export_eps import EpsOptions, export_eps
 from app.services.export_pdf import PageSize, PdfOptions, export_pdf
-from app.services.export_stl import (
-    Origin,
-    Relief,
-    StackOrder,
-    StlOptions,
-    export_stl,
-    export_stl_parts,
-    model_size,
-)
+from app.services.export_stl import export_stl, export_stl_parts, model_size
 from app.services.filament_plan import filament_plan
 from app.services.image_io import decode_image
 from app.services.lithophane import LithophaneOptions, export_lithophane
 from app.services.mesh import StlFormat
+from app.services.model_options import Origin, Relief, StackOrder, StlOptions
 from app.services.svg_geometry import VectorDocument, parse_svg
 
 router = APIRouter(prefix="/export", tags=["export"])

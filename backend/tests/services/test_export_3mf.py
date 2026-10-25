@@ -17,7 +17,8 @@ from app.services.export_3mf import (
     export_3mf,
     indexed_mesh,
 )
-from app.services.export_stl import StlOptions, export_stl
+from app.services.export_stl import export_stl
+from app.services.model_options import StlOptions
 from app.services.svg_geometry import parse_svg
 from tests.vectors import contract_svg, read_binary_stl, signed_volume
 

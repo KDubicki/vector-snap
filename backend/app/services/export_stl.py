@@ -13,17 +13,16 @@ pocket in its underside, and its first layer inset against elephant's foot. With
 with `relief="engrave"` they are only cut out of it — lettering made of missing
 filament, a single-filament print — down to their height, or through the plate.
 Coordinates are converted to millimetres and the y axis is flipped (SVG y points down,
-STL z-up models are viewed from above with y up). The meshes come from `mesh`, the base
-plate from `base_plate`. `export_stl_parts` puts every body in an STL file of its own.
+STL z-up models are viewed from above with y up). The options and bodies are defined in
+`model_options`, the meshes come from `mesh`, the base plate from `base_plate` and the
+filament stacks of mixed colors from `mixed_colors`. `export_stl_parts` puts every body
+in an STL file of its own.
 See docs/13-export-formats.md.
 """
 
 import io
-import math
 import zipfile
-from collections.abc import Mapping
-from dataclasses import dataclass, field
-from typing import Literal
+from dataclasses import dataclass
 
 import numpy as np
 from numpy.typing import NDArray
@@ -33,8 +32,6 @@ from shapely.geometry.base import BaseGeometry
 from app.core.errors import InvalidParameters
 from app.services.base_plate import (
     MAGNET_ROOF_MM,
-    BaseShape,
-    LoopPosition,
     base_outline,
     magnet_pocket,
     printable,
@@ -43,6 +40,8 @@ from app.services.base_plate import (
     with_loop,
 )
 from app.services.mesh import StlFormat, footed_prism, prism, without_pinches, write_stl
+from app.services.mixed_colors import ColorPiece, check_stacks, filament_bodies
+from app.services.model_options import Body, Origin, StackOrder, StlOptions, snap_to_layers
 from app.services.svg_geometry import (
     VectorDocument,
     VectorLayer,
@@ -50,99 +49,6 @@ from app.services.svg_geometry import (
     shapes_geometry,
     to_millimetres,
 )
-
-# Bottom-to-top order of the color layers: as in the SVG (largest coverage at the bottom)
-# or by brightness.
-StackOrder = Literal["document", "light_to_dark", "dark_to_light"]
-# Colors stand on the base plate (`raised`) or are set into it, flush with its top (`inlay`).
-Relief = Literal["raised", "inlay", "engrave"]
-# Where the model sits: the design's coordinates (`corner`: x and y from 0) or with the
-# middle of its footprint at x = y = 0 (`center`), e.g. for CAD or CNC tools.
-Origin = Literal["corner", "center"]
-
-
-@dataclass(frozen=True)
-class ColorStack:
-    """Filaments of one color from its top surface down (mixed colors).
-
-    `top` lists (filament index, thickness in mm) from the top surface down: thin layers
-    of translucent filament over `base`, which fills the rest of the color's height.
-    Seen from above they blend into colors the filaments do not have on their own.
-    """
-
-    base: int
-    top: tuple[tuple[int, float], ...] = ()
-
-
-@dataclass(frozen=True)
-class StlOptions:
-    width_mm: float = 100.0
-    base_mm: float = 1.0
-    layer_mm: float = 1.0
-    layered: bool = True
-    # Height above the base per palette index (mm); 0 leaves the color out. Colors not
-    # listed follow `layer_mm` / `layered`.
-    layer_heights: Mapping[int, float] = field(default_factory=dict)
-    # Height above the base per shape id (mm), overriding its color: raised or lowered
-    # elements; 0 leaves the shape out. Unknown ids are ignored.
-    shape_heights: Mapping[str, float] = field(default_factory=dict)
-    # Mirror horizontally (stamps, printing the top face down).
-    mirror: bool = False
-    # Remove parts narrower than this (mm), e.g. the nozzle width; 0 keeps everything.
-    min_feature_mm: float = 0.0
-    # Simplify outlines: drop points that deviate less than this from them (mm); fewer
-    # triangles and smaller files for traced photos. 0 keeps the outlines exact.
-    simplify_mm: float = 0.0
-    # Gap between neighbouring colors (mm): every color shrinks by half of it, for parts
-    # printed separately and fitted together (inlays, puzzles) or to stop colors bleeding.
-    color_gap_mm: float = 0.0
-    # Printer layer height (mm): the base and every color end on a layer boundary; 0 = off.
-    print_layer_mm: float = 0.0
-    # Shape of the base plate and how far it extends beyond the design (mm).
-    base_shape: BaseShape = "outline"
-    base_margin_mm: float = 0.0
-    stack_order: StackOrder = "document"
-    # `inlay`: every color is sunk its height into the base plate, flush with the top.
-    relief: Relief = "raised"
-    origin: Origin = "corner"
-    # Raised rim along the edge of the base plate: width and height above the base (mm);
-    # a height of 0 makes it as high as the tallest color. Colors under it are cut away.
-    rim_mm: float = 0.0
-    rim_height_mm: float = 0.0
-    # Hole diameter of a hanging loop on the base plate (keyrings, hooks); 0 = none,
-    # and the side of the plate it sticks out of.
-    loop_hole_mm: float = 0.0
-    loop_position: LoopPosition = "top"
-    # Round pockets in the underside of the base plate for magnets (diameter, depth; mm)
-    # and how many, spread along the plate's longer side.
-    magnet_mm: float = 0.0
-    magnet_count: int = 1
-    magnet_depth_mm: float = 2.0
-    # Screw holes through the base plate beside the design: 0, 2 or 4 (mm diameter).
-    screw_holes: int = 0
-    screw_hole_mm: float = 4.0
-    # Outlines along every color's edges, in a filament of their own: width (mm, 0 = none),
-    # color, and height above the base (0 = as high as the tallest color).
-    outline_mm: float = 0.0
-    outline_color: str = "#000000"
-    outline_height_mm: float = 0.0
-    # Elephant's foot compensation (mm): the first printer layer of the base plate is
-    # inset by this much, as the squashed first layer bulges out; 0 = off.
-    elephant_foot_mm: float = 0.0
-    # Mixed colors: the loaded filaments ("#rrggbb", the first one prints the base plate)
-    # and per palette index the filaments of that color (`ColorStack`). Bodies are then
-    # one per filament and height range instead of one per color.
-    filaments: tuple[str, ...] = ()
-    color_stacks: Mapping[int, ColorStack] = field(default_factory=dict)
-
-
-@dataclass(frozen=True)
-class Body:
-    """One printable part: the base plate or the extrusion of one color layer."""
-
-    name: str
-    color: str  # "#rrggbb"; the base plate uses the bottom layer's color
-    triangles: NDArray[np.float64]  # N x 3 x 3, millimetres
 
 
 def relative_luminance(hex_color: str) -> float:
@@ -159,18 +65,6 @@ def stack_layers[T](layers: list[T], fills: list[str], order: StackOrder) -> lis
     sign = 1 if order == "dark_to_light" else -1
     ranked = sorted(range(len(layers)), key=lambda i: sign * relative_luminance(fills[i]))
     return [layers[i] for i in ranked]
-
-
-def snap_to_layers(height: float, print_layer_mm: float) -> float:
-    """Round a positive height to whole printer layers, keeping at least one layer.
-
-    Heights of 0 stay 0 (no base / color left out); `print_layer_mm` 0 disables snapping.
-    """
-    if print_layer_mm <= 0 or height <= 0:
-        return height
-    # Half up, with a little slack for float error (0.3 / 0.2 = 1.4999...).
-    layers = max(1, math.floor(height / print_layer_mm + 0.5 + 1e-9))
-    return round(layers * print_layer_mm, 6)
 
 
 def base_height(options: StlOptions) -> float:
@@ -292,7 +186,7 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
     if not included:
         raise InvalidParameters("Nothing to export: every color has height 0.")
     if options.filaments:
-        _check_stacks(included, options)
+        check_stacks((part.layer.palette_index for part in included), options)
 
     base = base_height(options)
     _check_options(options, base)
@@ -323,9 +217,17 @@ def build_bodies(document: VectorDocument, options: StlOptions) -> list[Body]:
         visible = [_with_gap(geometry, options.color_gap_mm) for geometry in visible]
     if plate_top < base:
         bodies.extend(_inlay_bands(silhouette, included, visible, base, base_color, options))
-    if not engrave:  # an engraving leaves the cut colors empty
-        make_bodies = _filament_bodies if options.filaments else _color_bodies
-        bodies.extend(make_bodies(included, visible, base, options))
+    # An engraving leaves the cut colors empty.
+    if not engrave and options.filaments:
+        pieces = [
+            ColorPiece(
+                part.layer.palette_index, _bottom(part, base, options) - base, part.height, geometry
+            )
+            for part, geometry in zip(included, visible, strict=True)
+        ]
+        bodies.extend(filament_bodies(pieces, base, options))
+    elif not engrave:
+        bodies.extend(_color_bodies(included, visible, base, options))
     if not border.is_empty:
         bodies.extend(_rim_body(border, included, base, base_color, options))
     if not outline.is_empty:
@@ -574,70 +476,6 @@ def _outline_body(
     top = base + snap_to_layers(height, options.print_layer_mm)
     prisms = [prism(polygon, base, top) for polygon in without_pinches(outline)]
     return [Body("outline", options.outline_color, np.concatenate(prisms))] if prisms else []
-
-
-def _check_stacks(parts: list[_Part], options: StlOptions) -> None:
-    """Every included color needs a stack of loaded filaments."""
-    for part in parts:
-        index = part.layer.palette_index
-        stack = options.color_stacks.get(index)
-        if stack is None:
-            raise InvalidParameters(
-                f"`color_stacks` has no filaments for color {index}.",
-                {"field": "color_stacks", "key": str(index)},
-            )
-        if any(
-            not 0 <= f < len(options.filaments) for f in (stack.base, *(f for f, _ in stack.top))
-        ):
-            raise InvalidParameters(
-                f"`color_stacks` of color {index} uses a filament that is not loaded.",
-                {"field": "color_stacks", "key": str(index)},
-            )
-
-
-def stack_slabs(
-    stack: ColorStack, height: float, print_layer_mm: float
-) -> list[tuple[int, float, float]]:
-    """(filament, bottom, top) ranges above the base of a color `height` mm tall.
-
-    The top layers come first (snapped to printer layers); a color too low for all of them
-    keeps the topmost ones, the base filament fills what is left below.
-    """
-    slabs: list[tuple[int, float, float]] = []
-    top = height
-    for filament, thickness in stack.top:
-        if top <= 0:
-            break
-        bottom = max(0.0, round(top - snap_to_layers(thickness, print_layer_mm), 6))
-        slabs.append((filament, bottom, top))
-        top = bottom
-    if top > 0:
-        slabs.append((stack.base, 0.0, top))
-    return slabs
-
-
-def _filament_bodies(
-    parts: list[_Part], visible: list[BaseGeometry], base: float, options: StlOptions
-) -> list[Body]:
-    """One body per filament and height range, from every color that has it there."""
-    slabs: dict[tuple[int, float, float], list[BaseGeometry]] = {}
-    for part, geometry in zip(parts, visible, strict=True):
-        stack = options.color_stacks[part.layer.palette_index]
-        lift = _bottom(part, base, options) - base  # heights above the plate's top
-        for filament, bottom, top in stack_slabs(stack, part.height, options.print_layer_mm):
-            slab = (filament, round(lift + bottom, 6), round(lift + top, 6))
-            slabs.setdefault(slab, []).append(geometry)
-    bodies: list[Body] = []
-    for filament, bottom, top in sorted(slabs, key=lambda slab: (slab[1], slab[2], slab[0])):
-        geometry = unary_union(slabs[filament, bottom, top])
-        shapes = without_pinches(printable(geometry, options.min_feature_mm))
-        prisms = [prism(polygon, base + bottom, base + top) for polygon in shapes]
-        if prisms:
-            # Inlaid ranges are named by their depth below the plate's top.
-            span = f"{bottom:g}-{top:g}" if bottom >= 0 else f"inlay-{-top:g}-{-bottom:g}"
-            name = f"filament-{filament + 1}-{span}mm"
-            bodies.append(Body(name, options.filaments[filament], np.concatenate(prisms)))
-    return bodies
 
 
 def export_stl(

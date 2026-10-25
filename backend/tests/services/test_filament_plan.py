@@ -1,10 +1,10 @@
-from app.services.export_stl import StlOptions
 from app.services.filament_plan import (
     FilamentConflict,
     FilamentPlan,
     FilamentStep,
     filament_plan,
 )
+from app.services.model_options import StlOptions
 from app.services.svg_geometry import parse_svg
 from tests.vectors import contract_svg
 

@@ -9,7 +9,8 @@ left-out colors, removed details, layer snapping). See docs/13-export-formats.md
 
 from dataclasses import dataclass
 
-from app.services.export_stl import Body, StlOptions, build_bodies
+from app.services.export_stl import build_bodies
+from app.services.model_options import Body, StlOptions
 from app.services.svg_geometry import VectorDocument
 
 # Heights closer than this (mm) count as the same layer boundary.

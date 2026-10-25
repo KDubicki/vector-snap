@@ -20,7 +20,8 @@ from numpy.typing import NDArray
 from PIL import Image, ImageDraw
 
 from app import __version__
-from app.services.export_stl import Body, StlOptions, build_bodies, filament_slots
+from app.services.export_stl import build_bodies, filament_slots
+from app.services.model_options import Body, StlOptions
 from app.services.svg_geometry import VectorDocument
 
 CORE_NS = "http://schemas.microsoft.com/3dmanufacturing/core/2015/02"

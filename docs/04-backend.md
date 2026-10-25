@@ -30,9 +30,11 @@ backend/
 │   │   ├── router.py           # Aggregates routers under /api/v1
 │   │   └── routes/
 │   │       ├── health.py       # /health, /health/ready, /limits
+│   │       ├── export.py       # /export/* (STL, 3MF, DXF, PDF, EPS, lithophane, estimates)
 │   │       ├── quantize.py
 │   │       └── vectorize.py
 │   ├── schemas/
+│   │   ├── export.py           # export form parsers, filament plan / estimate responses
 │   │   ├── palette.py          # PaletteColor, Palette
 │   │   ├── quantize.py         # QuantizeAlgorithm, QuantizeResponse
 │   │   ├── system.py           # HealthResponse, LimitsResponse
@@ -44,12 +46,18 @@ backend/
 │       ├── vectorization.py    # label_map + palette → raw SVG (vtracer)
 │       ├── svg_postprocess.py  # sanitize, group per color, add ids / data attrs
 │       ├── svg_geometry.py     # parse contract SVG, flatten curves, polygons (exports)
+│       ├── model_options.py    # StlOptions, Body, layer snapping (shared by 3D exports)
 │       ├── export_stl.py       # SVG → STL (heights, parts, 3D bodies)
+│       ├── mixed_colors.py     # filament stacks of mixed colors → bodies
 │       ├── mesh.py             # closed prisms, manifold fixes, binary STL
 │       ├── base_plate.py       # plate outline, rim, hanging loop, magnet pocket, detail filter
 │       ├── export_3mf.py       # SVG → 3MF (one colored part per color)
+│       ├── filament_plan.py    # filament changes for single-extruder printers
+│       ├── color_changes.py    # changes, purge and filament use of multi-color printers
+│       ├── lithophane.py       # image → lithophane STL
 │       ├── export_dxf.py       # SVG → DXF (outlines per color layer)
-│       └── export_pdf.py       # SVG → PDF (exact curves)
+│       ├── export_pdf.py       # SVG → PDF (exact curves)
+│       └── export_eps.py       # SVG → EPS (exact curves)
 └── tests/
     ├── conftest.py             # fixtures: TestClient, sample images
     ├── services/               # unit tests per service

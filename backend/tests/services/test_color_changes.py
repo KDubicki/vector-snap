@@ -7,7 +7,7 @@ from app.services.color_changes import (
     count_changes,
     estimate_color_changes,
 )
-from app.services.export_stl import StlOptions
+from app.services.model_options import StlOptions
 from app.services.svg_geometry import parse_svg
 from tests.vectors import contract_svg
 

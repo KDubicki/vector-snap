@@ -6,7 +6,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from app.core.errors import InvalidParameters
-from app.services.export_stl import ColorStack
+from app.services.model_options import ColorStack
 
 MAX_LAYER_HEIGHT_MM = 100.0
 MAX_FILAMENTS = 16

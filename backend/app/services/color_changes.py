@@ -13,7 +13,8 @@ each filament the model takes.
 from dataclasses import dataclass
 
 from app.core.errors import InvalidParameters
-from app.services.export_stl import Body, StlOptions, build_bodies, volume_mm3
+from app.services.export_stl import build_bodies, volume_mm3
+from app.services.model_options import Body, StlOptions
 from app.services.svg_geometry import VectorDocument
 
 # PLA (g/cm³), the density Anycubic Slicer Next uses for its PLA profiles.
