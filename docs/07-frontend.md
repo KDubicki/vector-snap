@@ -99,10 +99,17 @@ tracing and export options). Narrower windows stack everything and scroll normal
 - **Enlarge small images** (on by default, sent as `upscale`): images under 1024 px are
   scaled up before quantizing, so small logos trace into smooth outlines and 3D edges.
 - **Remove colors / background**: the eye toggle on a palette row leaves that color out
-  of the SVG (sent as `transparent`); the preview shows it as transparent over a
-  checkerboard. "Remove background" appears when `/quantize` reports a
-  `background_index`. At least one color always stays, and removed colors are reset
-  whenever the image is quantized again (indices change).
+  of the SVG everywhere (sent as `transparent`); the preview shows it as transparent
+  over a checkerboard. "Remove background" appears when `/quantize` reports a
+  `background_index` and removes that color **only where it reaches the image edge**
+  (store `background`, sent as `background`): a white background goes, white eyes,
+  teeth or the inside of letters stay. The preview finds the same regions with a flood
+  fill from the border on the original colors (`clearBorderRegions` in
+  `src/lib/recolor.ts`: side by side, not diagonally, through transparent pixels), and
+  the palette says *Background removed: #ffffff is left out where it reaches the image
+  edge* with **Restore background**. At least one color always stays, and removed
+  colors and the background are reset whenever the image is quantized again (indices
+  change).
 - **Locked colors** (FR-16): the lock toggle on a palette row, or "Lock color" with a
   color picker for brand colors, adds a color to `locked`. Locked colors are sent as
   `locked_colors` and re-quantize (debounced like the color count); the backend keeps

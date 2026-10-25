@@ -296,14 +296,28 @@ describe('app store', () => {
     expect(store().transparent).toEqual([]);
   });
 
+  it('removes the background only where it reaches the border, through vectorize', async () => {
+    useAppStore.setState({ quantized });
+
+    store().setBackground(0);
+    const fetchMock = respond(vectorized);
+    vi.stubGlobal('fetch', fetchMock);
+    await store().runVectorize();
+
+    const form = (fetchMock.mock.calls[0] as [string, RequestInit])[1].body as FormData;
+    expect(form.get('background')).toBe('[0]');
+    expect(form.get('transparent')).toBeNull();
+  });
+
   it('drops removed colors when the palette is quantized again', async () => {
     store().selectFile(file);
-    useAppStore.setState({ transparent: [0] });
+    useAppStore.setState({ transparent: [0], background: 1 });
     vi.stubGlobal('fetch', respond(quantized));
 
     await store().runQuantize();
 
     expect(store().transparent).toEqual([]);
+    expect(store().background).toBeNull();
   });
 
   it('manages palette overrides', () => {

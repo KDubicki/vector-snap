@@ -41,6 +41,7 @@ export function PaletteStep() {
   const suggesting = useAppStore((s) => s.suggesting);
   const overrides = useAppStore((s) => s.overrides);
   const transparent = useAppStore((s) => s.transparent);
+  const background = useAppStore((s) => s.background);
   const tracing = useAppStore((s) => s.tracing);
   const status = useAppStore((s) => s.status);
   const filamentLibrary = useAppStore((s) => s.filamentLibrary);
@@ -103,6 +104,11 @@ export function PaletteStep() {
               image={quantized.image}
               originalPalette={originalPalette}
               targetPalette={targetPalette}
+              background={
+                background !== null && !transparent.includes(background)
+                  ? originalPalette[background]
+                  : null
+              }
             />
           ) : (
             <div className="preview__placeholder">Reducing colors…</div>
@@ -195,7 +201,9 @@ export function PaletteStep() {
             onUnlock={actions.unlockColor}
             transparent={transparent}
             backgroundIndex={quantized.background_index ?? null}
+            background={background}
             onToggleTransparent={actions.toggleTransparent}
+            onSetBackground={actions.setBackground}
             onChange={actions.setOverride}
             onReset={actions.resetOverride}
             onResetAll={actions.resetOverrides}

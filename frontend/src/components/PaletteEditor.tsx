@@ -14,7 +14,10 @@ interface PaletteEditorProps {
   transparent: number[];
   /** Palette index the backend detected as background, if any. */
   backgroundIndex: number | null;
+  /** The removed background (left out where it reaches the image border), or null. */
+  background: number | null;
   onToggleTransparent: (index: number) => void;
+  onSetBackground: (index: number | null) => void;
   onChange: (index: number, hex: string) => void;
   onReset: (index: number) => void;
   onResetAll: () => void;
@@ -85,7 +88,9 @@ export function PaletteEditor({
   onUnlock,
   transparent,
   backgroundIndex,
+  background,
   onToggleTransparent,
+  onSetBackground,
   onChange,
   onReset,
   onResetAll,
@@ -94,7 +99,15 @@ export function PaletteEditor({
   const changed = Object.keys(overrides).length > 0;
   const lastVisible = transparent.length + 1 >= palette.length;
   const canRemoveBackground =
-    backgroundIndex !== null && !transparent.includes(backgroundIndex) && !lastVisible;
+    backgroundIndex !== null &&
+    background === null &&
+    !transparent.includes(backgroundIndex) &&
+    !lastVisible;
+  const backgroundRemoved = background !== null && !transparent.includes(background);
+  const backgroundHex =
+    background === null
+      ? null
+      : (overrides[background] ?? palette.find((color) => color.index === background)?.hex);
 
   return (
     <div className="field">
@@ -105,10 +118,15 @@ export function PaletteEditor({
             <button
               type="button"
               className="link"
-              onClick={() => onToggleTransparent(backgroundIndex)}
-              title="Leave out the color that fills the image border"
+              onClick={() => onSetBackground(backgroundIndex)}
+              title="Leave out the color around the motif; the same color inside it stays"
             >
               Remove background
+            </button>
+          )}
+          {backgroundRemoved && (
+            <button type="button" className="link" onClick={() => onSetBackground(null)}>
+              Restore background
             </button>
           )}
           <button type="button" className="link" onClick={onResetAll} disabled={!changed}>
@@ -116,6 +134,12 @@ export function PaletteEditor({
           </button>
         </span>
       </div>
+      {backgroundRemoved && (
+        <p className="hint" role="status">
+          Background removed: <code>{backgroundHex}</code> is left out where it reaches the image
+          edge; the same color inside the design stays.
+        </p>
+      )}
       <PaletteStrip palette={palette} overrides={overrides} transparent={transparent} />
       <ul className="palette">
         {palette.map((color) => {
@@ -151,7 +175,7 @@ export function PaletteEditor({
                     ? 'Removed: left out of the SVG (transparent)'
                     : lastVisible
                       ? 'At least one color has to stay'
-                      : 'Leave this color out of the SVG (e.g. the background)'
+                      : 'Leave this color out of the SVG everywhere'
                 }
                 disabled={!isRemoved && lastVisible}
                 onClick={() => onToggleTransparent(color.index)}

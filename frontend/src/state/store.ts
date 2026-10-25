@@ -91,8 +91,13 @@ export interface WorkflowSlice {
   /** Colors that must appear exactly in the palette (FR-16); at most `colors` of them. */
   locked: string[];
   overrides: Record<number, string>;
-  /** Palette indices left out of the SVG (e.g. a removed background). */
+  /** Palette indices left out of the SVG everywhere. */
   transparent: number[];
+  /**
+   * Removed background: palette index left out only where it reaches the image border,
+   * so the same color inside the motif stays; null = kept.
+   */
+  background: number | null;
   tracing: TracingOptions;
   vectorized: VectorizeResponse | null;
   /** 3D print step settings (docs/07-frontend.md); colors and raises reset per SVG. */
@@ -125,6 +130,7 @@ export interface WorkflowSlice {
   resetOverrides: () => void;
   /** Toggle whether a palette color is left out; at least one color always stays. */
   toggleTransparent: (index: number) => void;
+  setBackground: (index: number | null) => void;
   setTracing: (options: Partial<TracingOptions>) => void;
   resetTracing: () => void;
   runQuantize: () => Promise<void>;
@@ -158,6 +164,7 @@ const initialState = {
   locked: [] as string[],
   overrides: {},
   transparent: [] as number[],
+  background: null,
   tracing: DEFAULT_TRACING,
   vectorized: null,
   print: DEFAULT_PRINT,
@@ -232,6 +239,7 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
       suggestedColors: null,
       overrides: {},
       transparent: [],
+      background: null,
       vectorized: null,
       error: null,
     });
@@ -309,6 +317,8 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
       return { transparent: [...state.transparent, index].sort((a, b) => a - b) };
     }),
 
+  setBackground: (background) => set({ background }),
+
   setTracing: (options) => set((state) => ({ tracing: { ...state.tracing, ...options } })),
   resetTracing: () => set({ tracing: DEFAULT_TRACING }),
 
@@ -346,6 +356,7 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
         quantizedFor: { file, colors, algorithm, smooth, upscale, locked, filaments },
         overrides: {},
         transparent: [],
+        background: null,
         vectorized: null,
         status: 'idle',
       });
@@ -356,14 +367,19 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
   },
 
   runVectorize: async () => {
-    const { quantized, overrides, transparent, tracing } = get();
+    const { quantized, overrides, transparent, background, tracing } = get();
     if (!quantized) return;
     const signal = nextSignal();
     set({ status: 'vectorizing', error: null });
     try {
       const image = base64ToBlob(quantized.image.data, quantized.image.media_type);
       const palette = finalPalette(quantized.palette, overrides);
-      const vectorized = await vectorize(image, palette, { ...tracing, transparent }, signal);
+      const vectorized = await vectorize(
+        image,
+        palette,
+        { ...tracing, transparent, background: background === null ? [] : [background] },
+        signal,
+      );
       set((state) => ({
         vectorized,
         ...openDocument(vectorized.svg),

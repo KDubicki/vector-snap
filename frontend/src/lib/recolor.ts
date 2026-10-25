@@ -36,3 +36,54 @@ export function recolorPixels(
   }
   return output;
 }
+
+/**
+ * Make the pixels of `hex` that reach the image border transparent, in place: the
+ * removed background, while the same color enclosed by the motif stays (as the backend's
+ * `background` in /vectorize). Regions connect side by side, not diagonally, and pass
+ * through pixels that are already transparent. `pixels` holds the original colors.
+ */
+export function clearBorderRegions(
+  pixels: Uint8ClampedArray,
+  width: number,
+  height: number,
+  hex: string,
+): Uint8ClampedArray {
+  const [r, g, b] = hexToRgb(hex);
+  const count = width * height;
+  const colored = new Uint8Array(count);
+  const passable = new Uint8Array(count);
+  for (let i = 0; i < count; i++) {
+    const o = i * 4;
+    const isColor =
+      pixels[o + 3] !== 0 && pixels[o] === r && pixels[o + 1] === g && pixels[o + 2] === b;
+    colored[i] = isColor ? 1 : 0;
+    passable[i] = isColor || pixels[o + 3] === 0 ? 1 : 0;
+  }
+  const seen = new Uint8Array(count);
+  const stack: number[] = [];
+  const visit = (i: number) => {
+    if (passable[i] && !seen[i]) {
+      seen[i] = 1;
+      stack.push(i);
+    }
+  };
+  for (let x = 0; x < width; x++) {
+    visit(x);
+    visit((height - 1) * width + x);
+  }
+  for (let y = 0; y < height; y++) {
+    visit(y * width);
+    visit(y * width + width - 1);
+  }
+  while (stack.length) {
+    const i = stack.pop()!;
+    if (colored[i]) pixels[i * 4 + 3] = 0;
+    const x = i % width;
+    if (x > 0) visit(i - 1);
+    if (x < width - 1) visit(i + 1);
+    if (i >= width) visit(i - width);
+    if (i < count - width) visit(i + width);
+  }
+  return pixels;
+}

@@ -162,6 +162,7 @@ describe('PaletteEditor', () => {
       onLock: vi.fn(),
       onUnlock: vi.fn(),
       onToggleTransparent: vi.fn(),
+      onSetBackground: vi.fn(),
       onChange: vi.fn(),
       onReset: vi.fn(),
       onResetAll: vi.fn(),
@@ -174,6 +175,7 @@ describe('PaletteEditor', () => {
         canLock
         transparent={[]}
         backgroundIndex={0}
+        background={null}
         {...handlers}
         {...props}
       />,
@@ -214,7 +216,7 @@ describe('PaletteEditor', () => {
     await user.click(screen.getByRole('button', { name: 'Remove #ff0000' }));
     expect(handlers.onToggleTransparent).toHaveBeenCalledWith(1);
     await user.click(screen.getByRole('button', { name: 'Remove background' }));
-    expect(handlers.onToggleTransparent).toHaveBeenLastCalledWith(0);
+    expect(handlers.onSetBackground).toHaveBeenCalledWith(0);
     expect(screen.getByRole('button', { name: 'Reset all' })).toBeDisabled();
   });
 
@@ -229,6 +231,17 @@ describe('PaletteEditor', () => {
     expect(handlers.onResetAll).toHaveBeenCalled();
     await user.click(screen.getByRole('button', { name: 'Unlock #ff0000' }));
     expect(handlers.onUnlock).toHaveBeenCalledWith('#ff0000');
+  });
+
+  it('says a removed background keeps its color inside the design, and restores it', async () => {
+    const handlers = renderEditor({ background: 0 });
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Background removed: #ffffff is left out where it reaches the image edge; the same color inside the design stays.',
+    );
+    expect(screen.queryByRole('button', { name: 'Remove background' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Restore background' }));
+    expect(handlers.onSetBackground).toHaveBeenCalledWith(null);
   });
 
   it('keeps the last visible color and restores removed ones', async () => {

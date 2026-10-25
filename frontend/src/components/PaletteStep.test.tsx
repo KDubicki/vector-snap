@@ -93,7 +93,8 @@ describe('PaletteStep', () => {
     render(<PaletteStep />);
 
     await user.click(screen.getByRole('button', { name: 'Remove background' }));
-    expect(store().transparent).toEqual([0]);
+    expect(store().background).toBe(0);
+    expect(store().transparent).toEqual([]);
     await user.click(screen.getByRole('button', { name: 'Convert to SVG' }));
 
     await waitFor(() => expect(store().step).toBe('result'));
