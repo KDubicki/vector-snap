@@ -258,6 +258,21 @@ describe('PrintStep', () => {
     expect(store().print.widthMm).toBe(260);
   });
 
+  it('downloads a model larger than the bed in tiles of the bed', async () => {
+    const user = userEvent.setup();
+    vi.mocked(getModelSize).mockResolvedValue({ x_mm: 410, y_mm: 205, z_mm: 2 });
+    vi.mocked(exportFile).mockResolvedValueOnce(new Blob(['zip']));
+    store().setPrint({ printer: 'kobra-x', widthMm: 410 });
+    render(<PrintStep />);
+
+    await user.click(await screen.findByRole('button', { name: 'Download in 2 tiles (3MF, ZIP)' }));
+
+    await waitFor(() => expect(download).toHaveBeenCalledWith(expect.any(Blob), 'logo.tiles.zip'));
+    const [format, , options] = vi.mocked(exportFile).mock.lastCall!;
+    expect(format).toBe('tiles');
+    expect(options).toMatchObject({ tile_x_mm: 260, tile_y_mm: 260, title: 'logo' });
+  });
+
   it('warns about more colors than loaded filaments and goes back to use fewer', async () => {
     const user = userEvent.setup();
     useAppStore.setState({ limits: { ...store().limits, min_colors: 1 } });

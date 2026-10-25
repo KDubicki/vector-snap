@@ -155,3 +155,31 @@ export function fitWidthMm(
   const width = Math.floor(settings.widthMm * ratio);
   return width >= 1 && width < settings.widthMm ? width : null;
 }
+
+/** At most this many tiles (`POST /export/tiles`). */
+export const MAX_TILES = 36;
+
+export interface TileGrid {
+  columns: number;
+  rows: number;
+  /** Size of one tile (mm). */
+  xMm: number;
+  yMm: number;
+}
+
+/**
+ * The fewest equal tiles of at most the bed's size the model's footprint splits into,
+ * as the backend cuts it; null when the footprint fits, the bed is unknown or more than
+ * `MAX_TILES` would be needed. Height is not split.
+ */
+export function tileGrid(size: ModelSize, printer: Printer): TileGrid | null {
+  if (!printer.buildMm) return null;
+  const [maxX, maxY] = printer.buildMm;
+  if (size.x_mm <= maxX && size.y_mm <= maxY) return null;
+  // A little slack, so exact fits stay one tile (`grid_size` in the backend).
+  const count = (value: number, max: number) => Math.max(1, Math.ceil(value / max - 1e-6));
+  const columns = count(size.x_mm, maxX);
+  const rows = count(size.y_mm, maxY);
+  if (columns * rows > MAX_TILES) return null;
+  return { columns, rows, xMm: size.x_mm / columns, yMm: size.y_mm / rows };
+}

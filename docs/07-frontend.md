@@ -297,7 +297,12 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
   too large (*300 mm wide (max 260)*). **Fit to the bed** sets the largest whole-mm width
   whose footprint fits (`fitWidthMm`: border and loop keep their size when the design
   shrinks); the check runs again on the new size. Too tall is reported without a fix.
-  Downloads stay possible, e.g. to scale or split the model in the slicer.
+  Downloads stay possible, e.g. to scale or split the model in the slicer. A footprint
+  larger than the bed also gets **Download in 2 tiles (3MF, ZIP)**, which keeps the
+  size: `tileGrid` (`src/lib/printers.ts`) counts the fewest equal tiles of the bed, as
+  the backend cuts them (*2 × 1 tiles of 205 × 260 mm, printed one by one and joined
+  edge to edge*), and `POST /export/tiles` with the bed as `tile_x_mm` / `tile_y_mm`
+  downloads `<image>.tiles.zip`, one 3MF per tile. More than 36 tiles offer none.
 - **Thin shapes** (`ThinShapesCheck`, any printer): like the size, the panel asks
   `POST /export/print-check` with the nozzle as `nozzle_mm` (`usePrintCheck` in
   `src/lib/useBackendResult.ts`) and names the shapes narrower than it where they print:

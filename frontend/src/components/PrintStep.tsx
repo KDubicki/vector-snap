@@ -131,6 +131,15 @@ export function PrintStep() {
       exportFileName(file?.name, format === 'stl-parts' ? 'parts.zip' : format),
     );
 
+  /** The model cut into tiles of the printer's bed, for models larger than it. */
+  const runTiles = () => {
+    const [x, y] = printer.buildMm ?? [0, 0];
+    void job.run(
+      (signal) => exportFile('tiles', svg, { ...model, tile_x_mm: x, tile_y_mm: y }, signal),
+      exportFileName(file?.name, 'tiles.zip'),
+    );
+  };
+
   /** A small print of every mixed color, to check the predictions with real filaments. */
   const runTestCard = () => {
     const card = testCard(editor, print);
@@ -340,7 +349,13 @@ export function PrintStep() {
           }}
         />
         {!invalid && (
-          <BuildVolumeCheck printer={printer} settings={print} size={size} onChange={update} />
+          <BuildVolumeCheck
+            printer={printer}
+            settings={print}
+            size={size}
+            onChange={update}
+            onTiles={job.exporting ? undefined : runTiles}
+          />
         )}
         {!invalid && (
           <ThinShapesCheck

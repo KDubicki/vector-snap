@@ -7,6 +7,7 @@ import {
   fitWidthMm,
   layerChoices,
   printerById,
+  tileGrid,
   withLayerHeight,
 } from './printers';
 
@@ -65,5 +66,21 @@ describe('printers', () => {
     expect((width * 290) / 300 + 10).toBeLessThanOrEqual(260);
     expect(fitWidthMm(settings, { x_mm: 200, y_mm: 100, z_mm: 300 }, kobraX)).toBeNull();
     expect(fitWidthMm(settings, size, printerById('any'))).toBeNull();
+  });
+
+  it('splits a footprint larger than the bed into the fewest equal tiles', () => {
+    expect(tileGrid({ x_mm: 410, y_mm: 260, z_mm: 3 }, kobraX)).toEqual({
+      columns: 2,
+      rows: 1,
+      xMm: 205,
+      yMm: 260,
+    });
+    expect(tileGrid({ x_mm: 800, y_mm: 300, z_mm: 3 }, kobraX)).toMatchObject({
+      columns: 4,
+      rows: 2,
+    });
+    expect(tileGrid({ x_mm: 260, y_mm: 260, z_mm: 300 }, kobraX)).toBeNull();
+    expect(tileGrid({ x_mm: 2000, y_mm: 2000, z_mm: 3 }, kobraX)).toBeNull(); // 64 tiles
+    expect(tileGrid({ x_mm: 410, y_mm: 100, z_mm: 3 }, printerById('any'))).toBeNull();
   });
 });

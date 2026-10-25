@@ -49,6 +49,42 @@ describe('BuildVolumeCheck', () => {
     expect(onChange).toHaveBeenCalledWith({ widthMm: 260 });
   });
 
+  it('offers tiles of the bed for a footprint too large, keeping the size', async () => {
+    const onTiles = vi.fn();
+    const size = { x_mm: 410, y_mm: 300, z_mm: 3 };
+    const { rerender } = render(
+      <BuildVolumeCheck
+        printer={kobraX}
+        settings={settings}
+        size={size}
+        onChange={vi.fn()}
+        onTiles={onTiles}
+      />,
+    );
+
+    expect(screen.getByText(/2 × 2 tiles of 205 × 150 mm/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Download in 4 tiles (3MF, ZIP)' }));
+    expect(onTiles).toHaveBeenCalled();
+
+    rerender(
+      <BuildVolumeCheck printer={kobraX} settings={settings} size={size} onChange={vi.fn()} />,
+    );
+    expect(screen.getByRole('button', { name: /Download in 4 tiles/ })).toBeDisabled();
+  });
+
+  it('offers no tiles for a model only too tall', () => {
+    render(
+      <BuildVolumeCheck
+        printer={kobraX}
+        settings={settings}
+        size={{ x_mm: 100, y_mm: 100, z_mm: 300 }}
+        onChange={vi.fn()}
+        onTiles={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: /tiles/ })).not.toBeInTheDocument();
+  });
+
   it('shows nothing for a printer without a known build volume', () => {
     const { container } = render(
       <BuildVolumeCheck
