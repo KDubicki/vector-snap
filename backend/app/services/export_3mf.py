@@ -230,15 +230,13 @@ def project_settings_json(bodies: list[Body]) -> str:
     return json.dumps({"filament_colour": [color.upper() for color in filament_slots(bodies)]})
 
 
-def export_3mf(
-    document: VectorDocument, options: StlOptions, package_options: ThreeMfOptions | None = None
-) -> bytes:
-    """Return a 3MF package with one colored part per body, assembled as one model."""
+def package_3mf(bodies: list[Body], package_options: ThreeMfOptions | None = None) -> bytes:
+    """A 3MF package with one colored part per body, assembled as one model."""
+    package_options = package_options or ThreeMfOptions()
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as package:
         package.writestr("[Content_Types].xml", CONTENT_TYPES)
-        bodies = build_bodies(document, options)
-        thumbnail = (package_options or ThreeMfOptions()).thumbnail
+        thumbnail = package_options.thumbnail
         package.writestr(
             "_rels/.rels",
             RELATIONSHIPS.format(thumbnail=THUMBNAIL_RELATIONSHIP if thumbnail else ""),
@@ -246,7 +244,14 @@ def export_3mf(
         if thumbnail:
             package.writestr(THUMBNAIL_PATH, thumbnail_png(bodies))
         package.writestr(MODEL_PATH, model_xml(bodies, package_options))
-        if (package_options or ThreeMfOptions()).slicer_config:
+        if package_options.slicer_config:
             package.writestr(MODEL_SETTINGS_PATH, model_settings_xml(bodies, package_options))
             package.writestr(PROJECT_SETTINGS_PATH, project_settings_json(bodies))
     return buffer.getvalue()
+
+
+def export_3mf(
+    document: VectorDocument, options: StlOptions, package_options: ThreeMfOptions | None = None
+) -> bytes:
+    """Return a 3MF package of the document's bodies (`build_bodies`), one colored part each."""
+    return package_3mf(build_bodies(document, options), package_options)

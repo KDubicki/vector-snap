@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, File, Form, Response, UploadFile
 from fastapi.concurrency import run_in_threadpool
 
 from app.api.deps import read_upload
-from app.api.export_forms import ModelOptions, StlFormatField, UploadedSvg
+from app.api.export_forms import ModelOptions, PackageOptions, StlFormatField, UploadedSvg
 from app.core.config import Settings, get_settings
 from app.schemas.export import (
     ColorChangesResponse,
@@ -17,10 +17,9 @@ from app.schemas.export import (
     ModelSizeResponse,
     PrintCheckResponse,
     ThinShapeModel,
-    parse_flag,
 )
 from app.services.color_changes import PLA_DENSITY, ChangeCosts, estimate_color_changes
-from app.services.export_3mf import Layout, ThreeMfOptions, export_3mf
+from app.services.export_3mf import export_3mf
 from app.services.export_dxf import DxfOptions, export_dxf
 from app.services.export_eps import EpsOptions, export_eps
 from app.services.export_pdf import PageSize, PdfOptions, export_pdf
@@ -73,38 +72,9 @@ async def export_to_stl_parts(
     responses={200: {"content": {"model/3mf": {}}, "description": "3MF package"}},
 )
 async def export_to_3mf(
-    document: UploadedSvg,
-    options: ModelOptions,
-    title: Annotated[str, Form(max_length=200, description="Model name and title")] = "",
-    designer: Annotated[str, Form(max_length=200, description="Designer metadata")] = "",
-    description: Annotated[str, Form(max_length=2000, description="Description metadata")] = "",
-    layout: Annotated[
-        Layout, Form(description="assembly: parts of one model; objects: separate models")
-    ] = "assembly",
-    slicer_config: Annotated[
-        str | None,
-        Form(
-            description="Assign a filament in its color to every part for Orca-based slicers "
-            "(Anycubic Slicer Next, OrcaSlicer, Bambu Studio); true or false, default true"
-        ),
-    ] = None,
-    thumbnail: Annotated[
-        str | None,
-        Form(
-            description="Top view of the colored model as the package thumbnail (PNG); "
-            "true or false, default true"
-        ),
-    ] = None,
+    document: UploadedSvg, options: ModelOptions, package: PackageOptions
 ) -> Response:
     """Like STL, but one colored part per color in one model — for multi-color printers."""
-    package = ThreeMfOptions(
-        title=title.strip(),
-        designer=designer.strip(),
-        description=description.strip(),
-        layout=layout,
-        slicer_config=parse_flag(slicer_config, "slicer_config", default=True),
-        thumbnail=parse_flag(thumbnail, "thumbnail", default=True),
-    )
     content = await run_in_threadpool(export_3mf, document, options, package)
     return _attachment(content, "model/3mf", "3mf")
 

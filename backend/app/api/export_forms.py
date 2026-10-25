@@ -1,4 +1,4 @@
-"""Form fields the exports share: the uploaded SVG and the 3D model options.
+"""Form fields the exports share: the uploaded SVG, the 3D model and 3MF package options.
 
 Every 3D endpoint (STL, STL parts, 3MF, filament plan, model size, color changes) reads
 the same options, so they are declared once here as FastAPI dependencies. See
@@ -19,6 +19,7 @@ from app.schemas.export import (
     parse_shape_heights,
 )
 from app.services.base_plate import BaseShape, LoopPosition
+from app.services.export_3mf import Layout, ThreeMfOptions
 from app.services.mesh import StlFormat
 from app.services.model_options import Origin, Relief, StackOrder, StlOptions
 from app.services.svg_geometry import VectorDocument, parse_svg
@@ -173,3 +174,39 @@ ModelOptions = Annotated[StlOptions, Depends(stl_options)]
 StlFormatField = Annotated[
     StlFormat, Form(description="binary (compact) or ascii (text, for tools that need it)")
 ]
+
+
+def package_options(
+    title: Annotated[str, Form(max_length=200, description="Model name and title")] = "",
+    designer: Annotated[str, Form(max_length=200, description="Designer metadata")] = "",
+    description: Annotated[str, Form(max_length=2000, description="Description metadata")] = "",
+    layout: Annotated[
+        Layout, Form(description="assembly: parts of one model; objects: separate models")
+    ] = "assembly",
+    slicer_config: Annotated[
+        str | None,
+        Form(
+            description="Assign a filament in its color to every part for Orca-based slicers "
+            "(Anycubic Slicer Next, OrcaSlicer, Bambu Studio); true or false, default true"
+        ),
+    ] = None,
+    thumbnail: Annotated[
+        str | None,
+        Form(
+            description="Top view of the colored model as the package thumbnail (PNG); "
+            "true or false, default true"
+        ),
+    ] = None,
+) -> ThreeMfOptions:
+    """3MF package details: name, metadata, layout, slicer config and thumbnail."""
+    return ThreeMfOptions(
+        title=title.strip(),
+        designer=designer.strip(),
+        description=description.strip(),
+        layout=layout,
+        slicer_config=parse_flag(slicer_config, "slicer_config", default=True),
+        thumbnail=parse_flag(thumbnail, "thumbnail", default=True),
+    )
+
+
+PackageOptions = Annotated[ThreeMfOptions, Depends(package_options)]
