@@ -374,11 +374,22 @@ def test_merges_a_small_color_into_its_nearest() -> None:
 
 
 def test_merges_smallest_first_and_follows_later_merges() -> None:
-    # Gray (1 %) joins black (1.5 %), which then still is small and joins white.
-    result, merged = merge_small_colors(_shares([975, 15, 10], [WHITE, BLACK, GRAY]), 0.03)
+    # The lightest gray (1 %) joins the light gray (1.5 %), which then still is small
+    # and joins white: both end up white.
+    light, lighter = (220, 220, 220), (235, 235, 235)
+    result, merged = merge_small_colors(_shares([975, 15, 10], [WHITE, light, lighter]), 0.03)
 
     assert result.palette.tolist() == [list(WHITE)]
-    assert [(m.color, m.into) for m in merged] == [(GRAY, WHITE), (BLACK, WHITE)]
+    assert [(m.color, m.into) for m in merged] == [(lighter, WHITE), (light, WHITE)]
+
+
+def test_keeps_a_small_color_far_from_every_other() -> None:
+    # Black pupils (1 %) on a red face: ΔE 93 to red, a detail rather than noise.
+    red = (220, 40, 40)
+    result, merged = merge_small_colors(_shares([600, 390, 10], [WHITE, red, BLACK]), 0.02)
+
+    assert merged == []
+    assert len(result.palette) == 3
 
 
 def test_keeps_locked_colors_and_one_color() -> None:
@@ -388,7 +399,7 @@ def test_keeps_locked_colors_and_one_color() -> None:
     assert merged == []
     assert result.palette.tolist() == [list(WHITE), list(PINK)]
 
-    result, merged = merge_small_colors(_shares([10, 10], [WHITE, BLACK]), 0.9)
+    result, merged = merge_small_colors(_shares([10, 10], [WHITE, (230, 230, 230)]), 0.9)
     assert len(result.palette) == 1
     assert len(merged) == 1
 

@@ -132,7 +132,9 @@ Full `KMeans` is used instead of `MiniBatchKMeans` here: on the small sample it 
 - Optional **merging of small colors** (`min_coverage`, `merge_small_colors`, after
   smoothing): a color covering less than that share of the image — a gray shading a
   few pixels next to black, anti-aliased edge colors — joins its nearest other color
-  (CIE Lab), smallest first, with the shares counted again after every merge. The
+  (CIE Lab), smallest first, with the shares counted again after every merge — but
+  only when that color is within ΔE 50 (`MERGE_MAX_DELTA_E`): dark grays join black
+  (ΔE 30–45), while black pupils on a red face (ΔE 93) are a detail and stay. The
   color merged into keeps its exact value, so the palette can end up with fewer colors
   than asked; locked colors are never merged away and one color always stays. Every
   small color in a print costs a filament and a layer of its own.

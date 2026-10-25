@@ -75,7 +75,7 @@ Reduces the image to `colors` representative colors.
 | `seed` | int | | `0` | Random seed (deterministic output) |
 | `upscale` | bool | | `false` | Enlarge images whose longer side is under 1024 px (whole factor, at most 4×) before quantizing, for smoother outlines; `width`/`height` report the enlarged size |
 | `smooth` | int 0–3 | | `0` | Clean up noisy color regions with a (2n+1)² majority filter; colors that vanish are dropped |
-| `min_coverage` | float 0–0.5 | | `0` | Merge every color covering less than this share of the image (`0.02` = 2 %) into its nearest other color (CIE Lab), smallest first, so the palette may end up with fewer than `colors`; locked colors stay, one color always stays. Listed in `merged` |
+| `min_coverage` | float 0–0.5 | | `0` | Merge every color covering less than this share of the image (`0.02` = 2 %) into its nearest other color (CIE Lab), smallest first, so the palette may end up with fewer than `colors`; only into a color within ΔE 50 (a small color unlike every other, e.g. black pupils on red, is a detail and stays); locked colors stay, one color always stays. Listed in `merged` |
 
 ### Response — 200 OK
 

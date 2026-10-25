@@ -42,6 +42,10 @@ _FILAMENT_SWAP_ROUNDS = 3
 # below it, it mostly reproduces anti-aliased edge pixels, not a color of the design.
 FILAMENT_MIN_GAIN = 0.5
 
+# `merge_small_colors` only merges into a color at most this far (CIE76 ΔE): a dark gray
+# joins black (ΔE 30-45), but black pupils on a red face (ΔE 93) are a detail, not noise.
+MERGE_MAX_DELTA_E = 50.0
+
 # D65 reference white and sRGB -> XYZ matrix.
 _WHITE_D65 = np.array([0.95047, 1.0, 1.08883])
 _SRGB_TO_XYZ = np.array(
@@ -404,8 +408,10 @@ def merge_small_colors(
     other color (CIE Lab), smallest first, so the palette can end up smaller than asked.
 
     A gray shading a few pixels joins the black next to it instead of costing a filament
-    and a layer of its own. Shares are counted again after every merge; the color merged
-    into keeps its value, locked colors are never merged away and one color always stays.
+    and a layer of its own. A small color with no other color within `MERGE_MAX_DELTA_E`
+    is a detail of its own (black pupils, a red dot) and stays. Shares are counted again
+    after every merge; the color merged into keeps its value, locked colors are never
+    merged away and one color always stays.
     """
     if min_coverage <= 0 or len(result.palette) < 2:
         return result, []
@@ -424,13 +430,10 @@ def merge_small_colors(
             and counts[i] < min_coverage * total
             and tuple(int(c) for c in result.palette[i]) not in locked
         ]
-        if not small:
+        pair = next((pair for pair in (_nearest_alive(lab, alive, i) for i in small) if pair), None)
+        if pair is None:
             break
-        index = small[0]
-        distances = ((lab - lab[index]) ** 2).sum(axis=1)
-        distances[~alive] = np.inf
-        distances[index] = np.inf
-        into = int(distances.argmin())
+        index, into = pair
         labels[labels == index] = into
         merged.append(
             MergedColor(
@@ -452,6 +455,17 @@ def merge_small_colors(
             target = final[target]
         merged[position] = MergedColor(item.color, target, item.coverage)
     return _resorted(labels, result.palette), merged
+
+
+def _nearest_alive(
+    lab: NDArray[np.float64], alive: NDArray[np.bool_], index: int
+) -> tuple[int, int] | None:
+    """(index, its nearest other alive color) when that is within `MERGE_MAX_DELTA_E`."""
+    distances = np.sqrt(((lab - lab[index]) ** 2).sum(axis=1))
+    distances[~alive] = np.inf
+    distances[index] = np.inf
+    into = int(distances.argmin())
+    return (index, into) if distances[into] <= MERGE_MAX_DELTA_E else None
 
 
 def _rgb(color: NDArray[np.uint8]) -> tuple[int, int, int]:
