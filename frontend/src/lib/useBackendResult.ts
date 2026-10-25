@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { getColorChanges, getModelSize } from '../api/client';
-import type { ColorChanges, ModelSize } from '../types/api';
+import { getColorChanges, getModelSize, getPrintCheck } from '../api/client';
+import type { ColorChanges, ModelSize, PrintCheck } from '../types/api';
 
 /** Wait this long after the last settings change before asking the backend. */
 export const BACKEND_RESULT_DEBOUNCE_MS = 500;
@@ -53,4 +53,18 @@ export function useColorChanges(
   enabled: boolean,
 ): ColorChanges | null {
   return useBackendResult(getColorChanges, svg, options, enabled);
+}
+
+/**
+ * Shapes too thin for the nozzle (`POST /export/print-check`): the nozzle is the width
+ * below which the export drops details (`min_feature_mm`).
+ */
+export function usePrintCheck(svg: string, options: Options, enabled: boolean): PrintCheck | null {
+  const nozzle = Number(options.min_feature_mm);
+  return useBackendResult(
+    getPrintCheck,
+    svg,
+    { ...options, nozzle_mm: nozzle },
+    enabled && nozzle > 0,
+  );
 }

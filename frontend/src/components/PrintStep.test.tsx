@@ -2,7 +2,13 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { exportFile, getColorChanges, getFilamentPlan, getModelSize } from '../api/client';
+import {
+  exportFile,
+  getColorChanges,
+  getFilamentPlan,
+  getModelSize,
+  getPrintCheck,
+} from '../api/client';
 import { download } from '../lib/download';
 import { useAppStore } from '../state/store';
 import { sampleDoc } from '../test/fixtures';
@@ -14,6 +20,7 @@ vi.mock('../api/client', async (importOriginal) => ({
   getFilamentPlan: vi.fn(),
   getModelSize: vi.fn(),
   getColorChanges: vi.fn(),
+  getPrintCheck: vi.fn(),
 }));
 vi.mock('../lib/download', () => ({ download: vi.fn() }));
 // three.js needs WebGL; the preview only has to receive the request.
@@ -40,6 +47,9 @@ describe('PrintStep', () => {
     vi.mocked(getFilamentPlan).mockReset();
     // The panel asks for the color changes (and the Kobra X for the size) on its own.
     vi.mocked(getModelSize).mockReset().mockResolvedValue({ x_mm: 80, y_mm: 40, z_mm: 2 });
+    vi.mocked(getPrintCheck)
+      .mockReset()
+      .mockResolvedValue({ nozzle_mm: 0.4, shapes: [], thin_mm2: 0 });
     vi.mocked(getColorChanges)
       .mockReset()
       .mockResolvedValue({
@@ -289,6 +299,34 @@ describe('PrintStep', () => {
     render(<PrintStep />);
 
     expect(await screen.findByText('too thin')).toBeInTheDocument();
+  });
+
+  it('finds the shapes too thin for the nozzle in the design', async () => {
+    vi.mocked(getPrintCheck).mockResolvedValue({
+      nozzle_mm: 0.4,
+      shapes: [
+        {
+          id: 'p-1-1',
+          palette_index: 1,
+          color: '#ff0000',
+          area_mm2: 2,
+          thin_mm2: 2,
+          vanishes: true,
+        },
+      ],
+      thin_mm2: 2,
+    });
+    const user = userEvent.setup();
+    const { container } = render(<PrintStep />);
+
+    expect(
+      await screen.findByText(/1 shape is narrower than the 0.4 mm nozzle/),
+    ).toBeInTheDocument();
+    expect(vi.mocked(getPrintCheck).mock.calls.at(-1)?.[1]).toMatchObject({ nozzle_mm: 0.4 });
+    await user.click(screen.getByRole('button', { name: 'Show them in the design' }));
+    expect(container.querySelector('path[d="M50,10 H60 V20 H50 Z"]')).toHaveClass(
+      'element-map__shape--selected',
+    );
   });
 
   it('shows the footprint of the model as exported, for any printer', async () => {

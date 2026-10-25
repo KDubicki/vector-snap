@@ -298,6 +298,14 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
   whose footprint fits (`fitWidthMm`: border and loop keep their size when the design
   shrinks); the check runs again on the new size. Too tall is reported without a fix.
   Downloads stay possible, e.g. to scale or split the model in the slicer.
+- **Thin shapes** (`ThinShapesCheck`, any printer): like the size, the panel asks
+  `POST /export/print-check` with the nozzle as `nozzle_mm` (`usePrintCheck` in
+  `src/lib/useBackendResult.ts`) and names the shapes narrower than it where they print:
+  *2 shapes are narrower than the 0.4 mm nozzle and will print only in part (1 not at
+  all)*. The export drops such details (`min_feature_mm` is the nozzle), so they would
+  go missing without a word. **Show them in the design** selects them in the design
+  view, where they can be found, raised or their color left out; a wider model or a
+  finer nozzle prints them.
 - **Loaded filaments** (printers with filament slots, `filamentSlots`, remembered with the
   printer): the Kobra X starts with the 4 of its ACE Gen 2 and goes up to 19 with ACE 2
   Pro units. When the design needs more filaments than are loaded — one per printed
@@ -425,6 +433,7 @@ App                         header with step indicator, error banner
     ├── PrinterTuningFields nozzle, elephant's foot, smooth outlines, gap between colors
     ├── FilamentSlotsCheck  more colors than loaded filaments
     ├── BuildVolumeCheck    model size against the build volume, fit to the bed
+    ├── ThinShapesCheck     shapes narrower than the nozzle, select them
     ├── ColorChangesSummary filament changes, their time and purge
     ├── LayerProfile        side view of the base and color heights
     ├── PrintSummary        height, footprint and filament tiles

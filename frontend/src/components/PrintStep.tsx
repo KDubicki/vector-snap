@@ -23,6 +23,7 @@ import {
 import { availableFilaments } from '../lib/filamentLibrary';
 import { printerById } from '../lib/printers';
 import { useExport } from '../lib/useExport';
+import { usePrintCheck } from '../lib/useBackendResult';
 import { usePrintStats } from '../lib/usePrintStats';
 import { useAppStore } from '../state/store';
 import type { FilamentPlan } from '../types/api';
@@ -30,6 +31,7 @@ import { ApiCommand } from './ApiCommand';
 import { BasePlateFields } from './BasePlateFields';
 import { BuildVolumeCheck } from './BuildVolumeCheck';
 import { ColorChangesSummary } from './ColorChangesSummary';
+import { ThinShapesCheck } from './ThinShapesCheck';
 import { FilamentSlotsCheck } from './FilamentSlotsCheck';
 import { ColorStylePicker } from './ColorStylePicker';
 import { ElementMap } from './ElementMap';
@@ -103,6 +105,7 @@ export function PrintStep() {
     printer,
     Boolean(svg && !invalid),
   );
+  const thin = usePrintCheck(svg ?? '', options, Boolean(svg && !invalid));
 
   if (!editor || !svg) return null;
 
@@ -338,6 +341,15 @@ export function PrintStep() {
         />
         {!invalid && (
           <BuildVolumeCheck printer={printer} settings={print} size={size} onChange={update} />
+        )}
+        {!invalid && (
+          <ThinShapesCheck
+            check={thin}
+            onSelect={(ids) => {
+              setSelected(ids);
+              setView('design');
+            }}
+          />
         )}
         {!invalid && <ColorChangesSummary printer={printer} changes={changes} />}
         <PrintSummary

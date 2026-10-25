@@ -94,6 +94,22 @@ export interface ModelSize {
   z_mm: number;
 }
 
+/** Shapes narrower than the nozzle where they print (`POST /export/print-check`). */
+export interface PrintCheck {
+  nozzle_mm: number;
+  /** Shapes at least half too thin, most thin area first. */
+  shapes: {
+    id: string;
+    palette_index: number;
+    color: string;
+    area_mm2: number;
+    thin_mm2: number;
+    /** Nothing of the shape is wide enough to print. */
+    vanishes: boolean;
+  }[];
+  thin_mm2: number;
+}
+
 /** Filament changes of a multi-color printer (`POST /export/color-changes`). */
 export interface ColorChanges {
   /** Per distinct color, in 3MF filament order: solid volume and weight (PLA). */

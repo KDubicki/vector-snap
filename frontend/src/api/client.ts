@@ -5,6 +5,7 @@ import type {
   FilamentPlan,
   Limits,
   ModelSize,
+  PrintCheck,
   QuantizeParams,
   QuantizeResponse,
   TracingOptions,
@@ -110,6 +111,19 @@ export function getModelSize(
   signal?: AbortSignal,
 ): Promise<ModelSize> {
   return request<ModelSize>('/export/model-size', {
+    method: 'POST',
+    body: exportForm(svg, options),
+    signal,
+  });
+}
+
+/** Shapes narrower than `nozzle_mm` where they print, for the STL/3MF options. */
+export function getPrintCheck(
+  svg: string,
+  options: Record<string, string | number | boolean>,
+  signal?: AbortSignal,
+): Promise<PrintCheck> {
+  return request<PrintCheck>('/export/print-check', {
     method: 'POST',
     body: exportForm(svg, options),
     signal,
