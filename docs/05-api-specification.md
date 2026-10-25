@@ -25,6 +25,7 @@ Responses are JSON unless stated otherwise. Errors use the format described in
 | `POST` | `/api/v1/export/eps` | SVG → Encapsulated PostScript ([details](13-export-formats.md#eps)) |
 | `POST` | `/api/v1/export/filament-plan` | Filament changes for single-extruder prints ([details](13-export-formats.md#filament-change-plan)) |
 | `POST` | `/api/v1/export/model-size` | Size of the STL/3MF model, for the build volume ([details](13-export-formats.md#model-size)) |
+| `POST` | `/api/v1/export/print-check` | Shapes of the STL/3MF model narrower than the nozzle ([details](13-export-formats.md#print-check)) |
 | `POST` | `/api/v1/export/color-changes` | Filament changes, time and purge of multi-color printers ([details](13-export-formats.md#color-changes-of-multi-color-printers)) |
 
 ---

@@ -15,6 +15,8 @@ from app.schemas.export import (
     FilamentStepModel,
     FilamentUseModel,
     ModelSizeResponse,
+    PrintCheckResponse,
+    ThinShapeModel,
     parse_flag,
 )
 from app.services.color_changes import PLA_DENSITY, ChangeCosts, estimate_color_changes
@@ -26,6 +28,7 @@ from app.services.export_stl import export_stl, export_stl_parts, model_size
 from app.services.filament_plan import filament_plan
 from app.services.image_io import decode_image
 from app.services.lithophane import LithophaneOptions, export_lithophane
+from app.services.print_check import check_print
 
 router = APIRouter(prefix="/export", tags=["export"])
 
@@ -124,6 +127,32 @@ async def export_model_size(document: UploadedSvg, options: ModelOptions) -> Mod
     """Size of the STL/3MF model, to check it against a printer's build volume."""
     size = await run_in_threadpool(model_size, document, options)
     return ModelSizeResponse(x_mm=size.x_mm, y_mm=size.y_mm, z_mm=size.z_mm)
+
+
+@router.post("/print-check", response_model=PrintCheckResponse)
+async def export_print_check(
+    document: UploadedSvg,
+    options: ModelOptions,
+    nozzle_mm: Annotated[float, Form(gt=0, le=2, description="Nozzle width")] = 0.4,
+) -> PrintCheckResponse:
+    """Shapes of the STL/3MF model narrower than the nozzle where they print: the slicer
+    skips them, and min_feature_mm drops them from the export."""
+    check = await run_in_threadpool(check_print, document, options, nozzle_mm)
+    return PrintCheckResponse(
+        nozzle_mm=check.nozzle_mm,
+        shapes=[
+            ThinShapeModel(
+                id=shape.shape_id,
+                palette_index=shape.palette_index,
+                color=shape.color,
+                area_mm2=shape.area_mm2,
+                thin_mm2=shape.thin_mm2,
+                vanishes=shape.vanishes,
+            )
+            for shape in check.shapes
+        ],
+        thin_mm2=check.thin_mm2,
+    )
 
 
 @router.post("/color-changes", response_model=ColorChangesResponse)

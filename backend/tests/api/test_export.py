@@ -450,6 +450,19 @@ def test_model_size(client: TestClient) -> None:
     assert response.json()["z_mm"] > 1
 
 
+def test_print_check(client: TestClient) -> None:
+    response = _post(client, "print-check", {"width_mm": "40", "nozzle_mm": "0.4"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["nozzle_mm"] == 0.4
+    assert set(body) == {"nozzle_mm", "shapes", "thin_mm2"}
+
+
+def test_print_check_rejects_a_nozzle_of_zero(client: TestClient) -> None:
+    assert _post(client, "print-check", {"nozzle_mm": "0"}).status_code == 422
+
+
 def test_color_changes(client: TestClient) -> None:
     form = {"base_mm": "0.6", "print_layer_mm": "0.2", "change_s": "49", "purge_mm3": "226"}
     response = _post(client, "color-changes", form)

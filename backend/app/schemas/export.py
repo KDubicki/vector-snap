@@ -182,3 +182,20 @@ class ModelSizeResponse(BaseModel):
     x_mm: float = Field(description="Width of the model, base plate and loop included")
     y_mm: float = Field(description="Depth of the model")
     z_mm: float = Field(description="Height of the model")
+
+
+class ThinShapeModel(BaseModel):
+    id: str = Field(description="Shape id in the SVG")
+    palette_index: int
+    color: str
+    area_mm2: float = Field(description="Printed area of the shape")
+    thin_mm2: float = Field(description="Part of area_mm2 narrower than the nozzle")
+    vanishes: bool = Field(description="Nothing of the shape is wide enough to print")
+
+
+class PrintCheckResponse(BaseModel):
+    nozzle_mm: float
+    shapes: list[ThinShapeModel] = Field(
+        description="Shapes at least half narrower than the nozzle, most thin area first"
+    )
+    thin_mm2: float = Field(description="Area of the whole design narrower than the nozzle")

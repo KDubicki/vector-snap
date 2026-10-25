@@ -54,6 +54,7 @@ backend/
 │       ├── base_plate.py       # plate outline, rim, hanging loop, magnet pocket, detail filter
 │       ├── export_3mf.py       # SVG → 3MF (one colored part per color)
 │       ├── filament_plan.py    # filament changes for single-extruder printers
+│       ├── print_check.py      # shapes narrower than the nozzle
 │       ├── color_changes.py    # changes, purge and filament use of multi-color printers
 │       ├── lithophane.py       # image → lithophane STL
 │       ├── export_dxf.py       # SVG → DXF (outlines per color layer)

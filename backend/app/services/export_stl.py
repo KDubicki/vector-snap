@@ -104,6 +104,7 @@ class _Part:
     """Shapes of one color extruded to one height above the base."""
 
     layer: VectorLayer
+    shapes: tuple[VectorShape, ...]
     geometry: BaseGeometry  # millimetres
     height: float
     own_height: bool  # shapes with a height of their own (`shape_heights`)
@@ -127,7 +128,7 @@ def _parts(document: VectorDocument, options: StlOptions) -> list[_Part]:
             height = color_height if key is None else key
             if height > 0:
                 geometry = _in_millimetres(shapes_geometry(shapes), document, options)
-                parts.append(_Part(layer, geometry, height, key is not None))
+                parts.append(_Part(layer, tuple(shapes), geometry, height, key is not None))
     return parts
 
 
@@ -156,6 +157,30 @@ def _visible(document: VectorDocument, parts: list[_Part]) -> list[BaseGeometry]
             visible[index] = _repaired(geometry.difference(covered))
         covered = geometry if covered is None else covered.union(geometry)
     return visible
+
+
+@dataclass(frozen=True)
+class ShapeFootprint:
+    """The area of one shape that prints: its color's, without what is drawn above it."""
+
+    shape_id: str
+    palette_index: int
+    color: str
+    geometry: BaseGeometry  # millimetres, before thin details are dropped
+
+
+def shape_footprints(document: VectorDocument, options: StlOptions) -> list[ShapeFootprint]:
+    """Every included shape's printed area, bottom color first."""
+    parts = _parts(document, options)
+    footprints: list[ShapeFootprint] = []
+    for part, visible in zip(parts, _visible(document, parts), strict=True):
+        for shape in part.shapes:
+            geometry = _in_millimetres(shapes_geometry([shape]), document, options)
+            if visible is not part.geometry:  # partly covered by shapes drawn above
+                geometry = _repaired(geometry.intersection(visible))
+            layer = part.layer
+            footprints.append(ShapeFootprint(shape.id, layer.palette_index, layer.fill, geometry))
+    return footprints
 
 
 @dataclass(frozen=True)

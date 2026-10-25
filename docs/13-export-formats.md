@@ -17,6 +17,7 @@ of the microservice can use it too.
 | EPS | `POST /api/v1/export/eps` | Design tools, print shops, older layout software | ✅ |
 | Filament plan | `POST /api/v1/export/filament-plan` | Filament changes for multi-color prints on one extruder (JSON) | ✅ |
 | Model size | `POST /api/v1/export/model-size` | Bounding box of the STL/3MF model, for the build volume (JSON) | ✅ |
+| Print check | `POST /api/v1/export/print-check` | Shapes narrower than the nozzle where they print (JSON) | ✅ |
 | Color changes | `POST /api/v1/export/color-changes` | Filament changes, time and purge of multi-color printers, filament per color (JSON) | ✅ |
 
 All endpoints except the lithophane take `multipart/form-data` with an `svg` file in the
@@ -433,6 +434,31 @@ against a printer's build volume before downloading: `{"x_mm": 102.371, "y_mm": 
 `width_mm`, so the size is computed from the exported bodies
 (`model_size` in `app/services/export_stl.py`). Anycubic Slicer Next's `--info` reports
 the same size for the 3MF (checked on a round plate with a loop: 102.37 × 108.37 × 4.8).
+
+## Print check
+
+```bash
+curl -F svg=@logo.svg -F width_mm=40 -F nozzle_mm=0.4 \
+     http://localhost:8000/api/v1/export/print-check
+```
+
+A nozzle cannot lay down lines narrower than itself: slicers skip them, and the 3D
+exports drop them with `min_feature_mm`. `POST /export/print-check` takes the STL/3MF
+form fields and `nozzle_mm` (default 0.4) and returns the shapes at least half of whose
+printed area is narrower than the nozzle, most thin area first:
+
+```json
+{"nozzle_mm": 0.4, "thin_mm2": 19.9,
+ "shapes": [{"id": "p-4-0", "palette_index": 4, "color": "#3b2f2a",
+             "area_mm2": 3.603, "thin_mm2": 3.603, "vanishes": true}]}
+```
+
+The printed area is what the 3D model shows of a shape: at the model's size and mirror,
+without left-out colors and without what shapes drawn above cover (a shape mostly hidden
+under the next color can leave a strip too thin to print). `vanishes` marks shapes of
+which nothing prints; `thin_mm2` at the top level is the thin area of the whole design.
+Thin shapes print once the model is wider or a finer nozzle is used
+(`app/services/print_check.py`).
 
 ## Color changes of multi-color printers
 
