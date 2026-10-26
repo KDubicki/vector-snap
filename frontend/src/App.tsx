@@ -46,6 +46,12 @@ export function App() {
     void loadLimits();
   }, [loadLimits]);
 
+  // A step starts at its top (the steps, its first options), not where the last one was
+  // scrolled to: the 3D print step would open on its downloads.
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [step]);
+
   // Closing or reloading the tab would lose edits that were not downloaded.
   useEffect(() => {
     if (!unsaved) return;

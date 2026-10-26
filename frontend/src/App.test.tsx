@@ -54,8 +54,10 @@ describe('App', () => {
     expect(screen.getByLabelText('SVG editor canvas')).toBeInTheDocument();
 
     const steps = within(screen.getByRole('navigation', { name: 'Steps' }));
+    const scrollTo = vi.spyOn(window, 'scrollTo');
     await user.click(steps.getByRole('button', { name: /3D print/ }));
     expect(store().step).toBe('print');
+    expect(scrollTo).toHaveBeenCalledWith(0, 0);
     await user.click(steps.getByRole('button', { name: /SVG/ }));
     expect(store().step).toBe('result');
 

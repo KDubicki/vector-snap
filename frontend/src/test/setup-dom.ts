@@ -43,6 +43,9 @@ if (typeof Blob !== 'undefined' && !Blob.prototype.arrayBuffer) {
 // jsdom has no layout, so nothing is ever resized: observers never fire.
 const scope = globalThis as unknown as Record<string, unknown>;
 
+// ...nor scrolled: jsdom's scrollTo only reports that it is not implemented.
+if (typeof window !== 'undefined') window.scrollTo = () => undefined;
+
 if (typeof window !== 'undefined' && !scope.ResizeObserver) {
   scope.ResizeObserver = class {
     observe() {}
