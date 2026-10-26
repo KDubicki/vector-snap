@@ -1,6 +1,6 @@
 import pytest
 
-from app.services.svg_edit import color_delta_e, merge_similar_colors, serialize_svg
+from app.services.svg_edit import color_delta_e, merge_similar_colors, recolor, serialize_svg
 from app.services.svg_geometry import parse_svg
 from tests.vectors import SVG_NS, contract_svg
 
@@ -80,3 +80,41 @@ def test_nothing_to_merge() -> None:
 
     assert merge_similar_colors(document, 2).document == document
     assert merge_similar_colors(document, 0).changes == []
+
+
+def test_recolor_replaces_colors_and_joins_equal_layers() -> None:
+    document = parse_svg(
+        contract_svg(80, 40, [("#ffffff", [SQUARE]), ("#808080", [PATCH]), ("#ff0000", [PATCH])])
+    )
+    edited = recolor(document, {"#808080": "#FFFFFF"})
+
+    assert [layer.fill for layer in edited.document.layers] == ["#ffffff", "#ff0000"]
+    assert [shape.id for shape in edited.document.layers[0].shapes] == ["p-0-0", "p-1-0"]
+    assert [(c.color, c.into) for c in edited.changes] == [("#808080", "#ffffff")]
+
+
+def test_recolor_keeps_the_larger_of_joined_layers() -> None:
+    document = parse_svg(contract_svg(80, 40, [("#000000", [PATCH]), ("#ffffff", [SQUARE])]))
+    edited = recolor(document, {"#000000": "#ffffff"})
+
+    assert [shape.id for shape in edited.document.layers[0].shapes] == ["p-1-0", "p-0-0"]
+
+
+def test_recolor_snaps_to_the_closest_filaments() -> None:
+    data = (
+        f'<svg xmlns="{SVG_NS}" viewBox="0 0 80 40"><g data-palette-index="0" fill="#f0f0f0">'
+        f'<path id="a" d="{SQUARE}"/><path id="b" d="{PATCH}" fill="#202020"/></g>'
+        f'<g data-palette-index="1" fill="#d01010"><path id="c" d="{PATCH}"/></g>'
+        f'<g data-palette-index="2" fill="#123456"><path id="d" d="{PATCH}"/></g></svg>'
+    ).encode()
+    edited = recolor(parse_svg(data), {"#123456": "#ffffff"}, ["#FFFFFF", "#000000", "#ff0000"])
+
+    layers = edited.document.layers
+    assert [layer.fill for layer in layers] == ["#ffffff", "#ff0000"]
+    assert [shape.fill for shape in layers[0].shapes] == ["#ffffff", "#000000", "#ffffff"]
+    assert {c.color: c.into for c in edited.changes} == {
+        "#f0f0f0": "#ffffff",
+        "#202020": "#000000",
+        "#d01010": "#ff0000",
+        "#123456": "#ffffff",
+    }

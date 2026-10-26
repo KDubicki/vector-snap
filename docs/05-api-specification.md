@@ -28,6 +28,7 @@ Responses are JSON unless stated otherwise. Errors use the format described in
 | `POST` | `/api/v1/export/print-check` | Shapes of the STL/3MF model narrower than the nozzle ([details](13-export-formats.md#print-check)) |
 | `POST` | `/api/v1/export/color-changes` | Filament changes, time and purge of multi-color printers ([details](13-export-formats.md#color-changes-of-multi-color-printers)) |
 | `POST` | `/api/v1/svg/merge-similar` | Join color layers that look the same ([details](#svg)) |
+| `POST` | `/api/v1/svg/recolor` | Replace colors, snap them to the loaded filaments ([details](#svg)) |
 
 ---
 
@@ -303,6 +304,20 @@ first, until no pair is that close, as `merge_delta_e` of `/quantize` and the ed
 close to their layer's take the layer's color.
 
 Errors: `413 FILE_TOO_LARGE`, `422 INVALID_SVG`, `422 VALIDATION_ERROR`.
+
+### `POST /api/v1/svg/recolor`
+
+- `colors` — JSON object of colors to replace, `{"#fefefe": "#ffffff"}`; layer and shape
+  colors alike.
+- `filaments` — JSON array of the loaded filament colors (up to 128): every color then
+  becomes the closest of them (CIEDE2000), so the design prints with the filaments at
+  hand — four grays and a black become the one gray and black loaded.
+
+At least one is required; with both, `colors` is applied first. `changes` lists every
+original color that changed with its final color.
+
+Errors: `413 FILE_TOO_LARGE`, `422 INVALID_SVG`, `422 INVALID_PARAMETERS` (bad JSON or
+colors, nothing to do, too many filaments).
 
 ---
 

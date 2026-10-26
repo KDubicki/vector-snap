@@ -6,10 +6,20 @@ from fastapi import APIRouter, Form
 from fastapi.concurrency import run_in_threadpool
 
 from app.api.export_forms import UploadedSvg
-from app.schemas.svg import ColorChangeModel, SvgEditResponse
-from app.services.svg_edit import EditedSvg, merge_similar_colors, serialize_svg
+from app.core.errors import InvalidParameters
+from app.schemas.palette import parse_hex_colors, rgb_to_hex
+from app.schemas.svg import ColorChangeModel, SvgEditResponse, parse_color_map
+from app.services.svg_edit import (
+    EditedSvg,
+    merge_similar_colors,
+    recolor,
+    serialize_svg,
+)
 
 router = APIRouter(prefix="/svg", tags=["svg"])
+
+# A large filament collection, as `filaments` of /quantize.
+MAX_FILAMENTS = 128
 
 
 def _response(edited: EditedSvg) -> SvgEditResponse:
@@ -39,3 +49,33 @@ async def merge_similar(
     """Join color layers that look the same (#ffffff and #fefefe) into one: the layer
     covering less moves into the one covering more. Fewer layers, fewer filaments."""
     return _response(await run_in_threadpool(merge_similar_colors, document, max_delta_e))
+
+
+@router.post("/recolor", response_model=SvgEditResponse)
+async def recolor_svg(
+    document: UploadedSvg,
+    colors: Annotated[
+        str,
+        Form(description='Colors to replace, e.g. {"#fefefe": "#ffffff", "#808080": "#000000"}'),
+    ] = "{}",
+    filaments: Annotated[
+        str,
+        Form(
+            description='Loaded filaments, e.g. ["#ffffff", "#000000", "#ff0000"]: every color '
+            "becomes the closest of them (CIEDE2000)"
+        ),
+    ] = "[]",
+) -> SvgEditResponse:
+    """Replace colors of the layers and shapes: by an explicit mapping, or each by the
+    closest of the loaded filaments (both: the mapping first). Layers that end up with
+    the same color are joined."""
+    mapping = parse_color_map(colors, "colors")
+    loaded = [rgb_to_hex(color) for color in parse_hex_colors(filaments, "filaments")]
+    if not mapping and not loaded:
+        raise InvalidParameters(
+            "Send `colors` to replace or the loaded `filaments`.", {"field": "colors"}
+        )
+    if len(loaded) > MAX_FILAMENTS:
+        raise InvalidParameters(f"At most {MAX_FILAMENTS} filaments.", {"field": "filaments"})
+
+    return _response(await run_in_threadpool(recolor, document, mapping, loaded))

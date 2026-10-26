@@ -49,7 +49,7 @@ backend/
 │       ├── vectorization.py    # label_map + palette → raw SVG (vtracer)
 │       ├── svg_postprocess.py  # sanitize, group per color, add ids / data attrs
 │       ├── svg_geometry.py     # parse contract SVG, flatten curves, polygons (exports)
-│       ├── svg_edit.py         # serialize contract SVG, merge similar colors (/svg/*)
+│       ├── svg_edit.py         # serialize contract SVG, merge similar, recolor (/svg/*)
 │       ├── model_options.py    # StlOptions, Body, layer snapping (shared by 3D exports)
 │       ├── export_stl.py       # SVG → STL (heights, parts, 3D bodies)
 │       ├── mixed_colors.py     # filament stacks of mixed colors → bodies

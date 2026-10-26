@@ -2,10 +2,12 @@
 
 The color operations of the SVG editor for other services and scripts: merging colors
 that look the same (CIEDE2000, as `merge_delta_e` of `/quantize` and the editor's
-*Similar colors*). Layers that end up with the same color are joined into one, because
-every layer is its own filament in a 3D print. See docs/05-api-specification.md#svg.
+*Similar colors*), replacing colors and snapping them to the loaded filaments. Layers
+that end up with the same color are joined into one, because every layer is its own
+filament in a 3D print. See docs/05-api-specification.md#svg.
 """
 
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 
 import numpy as np
@@ -146,3 +148,61 @@ def merge_similar_colors(document: VectorDocument, max_delta_e: float) -> Edited
             shapes.append(shape)
         layers.append(replace(layer, shapes=shapes))
     return EditedSvg(replace(joined, layers=layers), changes)
+
+
+def _recolored(document: VectorDocument, color_of: Callable[[str], str]) -> EditedSvg:
+    """Every layer and shape color replaced by `color_of(color)`; layers that end up with
+    the same color are joined into the one covering most."""
+    changes: dict[str, ColorChange] = {}
+
+    def new_color(color: str) -> str:
+        into = color_of(color)
+        if into != color and color not in changes:
+            changes[color] = _change(color, into)
+        return into
+
+    recolored = replace(
+        document,
+        layers=[
+            replace(
+                layer,
+                fill=new_color(layer.fill),
+                shapes=[replace(shape, fill=new_color(shape.fill)) for shape in layer.shapes],
+            )
+            for layer in document.layers
+        ],
+    )
+    by_fill: dict[str, list[int]] = {}
+    for position, layer in enumerate(recolored.layers):
+        by_fill.setdefault(layer.fill, []).append(position)
+    into: dict[int, int] = {}
+    areas: list[float] | None = None
+    for positions in by_fill.values():
+        if len(positions) < 2:
+            continue
+        if areas is None:
+            areas = _layer_areas(recolored)
+        kept = max(positions, key=lambda position: (areas[position], -position))
+        into.update({position: kept for position in positions if position != kept})
+    return EditedSvg(_join_layers(recolored, into), list(changes.values()))
+
+
+def recolor(
+    document: VectorDocument, colors: Mapping[str, str], filaments: Sequence[str] = ()
+) -> EditedSvg:
+    """Replace colors of layers and shapes by `colors` (`{"#fefefe": "#ffffff"}`), then
+    every color by the closest of `filaments` (CIEDE2000), if any are given, so the
+    design prints with the filaments at hand."""
+    mapping = {color.lower(): into.lower() for color, into in colors.items()}
+    loaded = [filament.lower() for filament in filaments]
+    rgb = np.array([hex_to_rgb(color) for color in loaded], dtype=np.uint8).reshape(-1, 3)
+    lab = srgb_to_lab(rgb)
+
+    def color_of(color: str) -> str:
+        color = mapping.get(color, color)
+        if not loaded:
+            return color
+        target = srgb_to_lab(np.array([hex_to_rgb(color)], dtype=np.uint8))
+        return loaded[int(delta_e_2000(lab, target).argmin())]
+
+    return _recolored(document, color_of)
