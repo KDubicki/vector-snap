@@ -17,8 +17,11 @@ from app.schemas.export import (
     ModelSizeResponse,
     PrintCheckResponse,
     ThinShapeModel,
+    parse_flag,
 )
+from app.schemas.palette import parse_palette_indices
 from app.services.color_changes import PLA_DENSITY, ChangeCosts, estimate_color_changes
+from app.services.cookie_cutter import CookieCutterOptions, export_cookie_cutter
 from app.services.export_3mf import export_3mf
 from app.services.export_dxf import DxfOptions, export_dxf
 from app.services.export_eps import EpsOptions, export_eps
@@ -316,3 +319,47 @@ async def export_to_layers(
     options = LayersOptions(layer_format=layer_format, width_mm=width_mm, margin_mm=margin_mm)
     content = await run_in_threadpool(export_layers, document, options)
     return _attachment(content, "application/zip", "zip")
+
+
+@router.post(
+    "/cookie-cutter",
+    response_class=Response,
+    responses={200: {"content": {"model/stl": {}}, "description": "Binary STL"}},
+)
+async def export_to_cookie_cutter(
+    document: UploadedSvg,
+    width_mm: Annotated[float, Form(gt=0, le=500, description="Cookie width")] = 80.0,
+    height_mm: Annotated[float, Form(ge=3, le=60, description="Cutter height")] = 15.0,
+    wall_mm: Annotated[float, Form(ge=0.4, le=5, description="Blade thickness")] = 1.2,
+    flange_mm: Annotated[
+        float, Form(ge=0, le=20, description="Flange width beyond the blade; 0 = none")
+    ] = 4.0,
+    flange_height_mm: Annotated[float, Form(gt=0, le=20, description="Flange height")] = 2.0,
+    smooth_mm: Annotated[
+        float, Form(ge=0, le=10, description="Close notches narrower than twice this")
+    ] = 1.0,
+    mirror: Annotated[
+        str | None,
+        Form(
+            description="Mirror the footprint so the cookie comes out as the design (the "
+            "cutter is printed flange down, used flange up); true or false, default true"
+        ),
+    ] = None,
+    exclude_colors: Annotated[
+        str, Form(description="JSON array of palette indices to leave out, e.g. the background")
+    ] = "[]",
+) -> Response:
+    """Cookie cutter following the design's silhouette: a thin blade on the outline and a
+    flange at its foot, printed flange down."""
+    options = CookieCutterOptions(
+        width_mm=width_mm,
+        height_mm=height_mm,
+        wall_mm=wall_mm,
+        flange_mm=flange_mm,
+        flange_height_mm=flange_height_mm,
+        smooth_mm=smooth_mm,
+        mirror=parse_flag(mirror, "mirror", default=True),
+        exclude=frozenset(parse_palette_indices(exclude_colors, "exclude_colors")),
+    )
+    content = await run_in_threadpool(export_cookie_cutter, document, options)
+    return _attachment(content, "model/stl", "stl")

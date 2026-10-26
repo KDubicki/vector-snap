@@ -20,6 +20,7 @@ Responses are JSON unless stated otherwise. Errors use the format described in
 | `POST` | `/api/v1/vectorize` | Convert an image to SVG |
 | `POST` | `/api/v1/export/stl` | SVG → STL 3D model ([details](13-export-formats.md#stl)) |
 | `POST` | `/api/v1/export/3mf` | SVG → multi-color 3MF ([details](13-export-formats.md#3mf)) |
+| `POST` | `/api/v1/export/cookie-cutter` | SVG silhouette → cookie cutter STL ([details](13-export-formats.md#cookie-cutter)) |
 | `POST` | `/api/v1/export/dxf` | SVG → DXF outlines per color ([details](13-export-formats.md#dxf)) |
 | `POST` | `/api/v1/export/pdf` | SVG → vector PDF ([details](13-export-formats.md#pdf)) |
 | `POST` | `/api/v1/export/eps` | SVG → Encapsulated PostScript ([details](13-export-formats.md#eps)) |
@@ -255,8 +256,8 @@ Request: `multipart/form-data` with an `svg` file and format options; response: 
 as an attachment (`Content-Disposition: attachment; filename="vectorsnap.<ext>"`).
 Formats, options and geometry are described in [13-export-formats.md](13-export-formats.md).
 
-**True/false form fields** that default to `true` (`layered`, and `slicer_config` and
-`thumbnail` of the 3MF) are read as text — `true`/`false`, `1`/`0`, `yes`/`no`, `on`/`off`;
+**True/false form fields** that default to `true` (`layered`, `slicer_config` and
+`thumbnail` of the 3MF, `mirror` of the cookie cutter) are read as text — `true`/`false`, `1`/`0`, `yes`/`no`, `on`/`off`;
 anything else is `422 INVALID_PARAMETERS` — so leaving them out keeps the default.
 FastAPI 0.149 and later read a missing `bool` form field as an unchecked checkbox (false).
 
@@ -266,6 +267,7 @@ FastAPI 0.149 and later read a missing `bool` form field as an unchecked checkbo
 | `3mf` | `model/3mf` | same as `stl`, without `stl_format`; plus `title` (≤ 200 characters, names the model), `designer` (≤ 200), `description` (≤ 2000) — 3MF metadata, empty = left out; `layout` (`assembly` \| `objects`: every body a separate model); `slicer_config` (default `true`: filament per part and filament colors for Orca-based slicers such as Anycubic Slicer Next); `thumbnail` (default `true`: colored top view as the package thumbnail) |
 | `stl-parts` | `application/zip` | same as `stl` (including `stl_format`); one STL per body plus `colors.txt` (file, color, filament number, z range, volume) |
 | `tiles` | `application/zip` | same as `3mf`; plus `tile_x_mm`, `tile_y_mm` (10–10000, 220): the largest tile. One 3MF per tile, `tile-r<row>-c<column>.3mf`, plus `tiles.txt` (file, row, column, width, depth); at most 36 tiles |
+| `cookie-cutter` | `model/stl` | `width_mm` (0–500, default 80), `height_mm` (3–60, 15), `wall_mm` (0.4–5, 1.2), `flange_mm` (0–20, 4), `flange_height_mm` (0–20, 2; < `height_mm`), `smooth_mm` (0–10, 1), `mirror` (bool, true), `exclude_colors` (JSON `[index, ...]`) |
 | `lithophane` | `model/stl` | Takes `image` (the JPEG/PNG upload) instead of `svg`. `width_mm` (0–1000, default 100), `min_thickness_mm` (0.2–10, 0.8), `max_thickness_mm` (0.2–20, 3; > `min_thickness_mm`), `resolution_mm` (0.05–5, 0.2; at most 1,000,000 grid points), `frame_mm` (0–50, 0), `invert` (bool, false) |
 | `dxf` | `image/vnd.dxf` | `width_mm` (0–10000, default 100), `fill` (bool, false) |
 | `pdf` | `application/pdf` | `page` (`fit` \| `a4` \| `letter`, default `fit`), `width_mm` (0–10000, 100), `margin_mm` (0–100, 10) |

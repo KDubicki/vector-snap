@@ -12,6 +12,7 @@ of the microservice can use it too.
 | STL | `POST /api/v1/export/stl` | 3D printing (relief / multi-color prints) | ✅ |
 | 3MF | `POST /api/v1/export/3mf` | Multi-color / multi-material 3D printing (AMS, MMU, tool changers) | ✅ |
 | 3MF tiles (ZIP) | `POST /api/v1/export/tiles` | A model larger than the bed, cut into tiles that each fit | ✅ |
+| Cookie cutter (STL) | `POST /api/v1/export/cookie-cutter` | Cutter following the design's silhouette: blade and flange | ✅ |
 | Lithophane (STL) | `POST /api/v1/export/lithophane` | Backlit photo plate made from the **original image** | ✅ |
 | Layers (ZIP) | `POST /api/v1/export/layers` | One SVG, DXF or PDF per color: vinyl cutters, screen printing, laser cutting | ✅ |
 | DXF | `POST /api/v1/export/dxf` | Laser cutters, vinyl plotters, CNC | ✅ |
@@ -376,6 +377,38 @@ on the bed as loaded — slicers' command lines do not arrange it. Cells the mod
 empty (a round plate's corners) are skipped; more than 36 tiles is a `422` naming
 `tile_x_mm`. Two tiles of a 410 × 260 mm sign sliced in Anycubic Slicer Next for the
 Kobra X in 1 h 43 min and 1 h 52 min, with 3 and 4 filaments.
+
+## Cookie cutter
+
+```bash
+curl -F svg=@star.svg -F width_mm=70 -F exclude_colors='[0]' \
+     http://localhost:8000/api/v1/export/cookie-cutter -o star-cutter.stl
+```
+
+| Option | Default | Meaning |
+|--------|---------|---------|
+| `width_mm` | `80` | Cookie width (0–500); the cutter adds the blade and flange around it |
+| `height_mm` | `15` | Cutter height (3–60) |
+| `wall_mm` | `1.2` | Blade thickness (0.4–5): at least 2–3 nozzle widths |
+| `flange_mm` | `4` | Flange width beyond the blade (0–20; 0 = blade only) |
+| `flange_height_mm` | `2` | Flange height (< `height_mm`) |
+| `smooth_mm` | `1` | Notches narrower than twice this are closed — dough cannot follow them (0–10) |
+| `mirror` | `true` | Mirror the footprint: printed flange down, used flange up, the cookie reads right |
+| `exclude_colors` | `[]` | Palette indices left out, such as a background around the design |
+
+- `app/services/cookie_cutter.py`. The **silhouette**: every included layer united, in
+  mm; holes filled (a cutter only cuts the outside); a morphological closing by
+  `smooth_mm` removes narrow notches; pieces under 4 mm² (specks) are dropped. Separate
+  pieces get separate cutters in the same file.
+- The **blade** is the ring between the silhouette and its outward offset by `wall_mm`
+  (round joins), so its inside is exactly the cookie; the **flange** is the ring out to
+  `wall_mm + flange_mm` at the foot, `flange_height_mm` high, and the blade stands on it.
+  Both are closed prisms that touch, like the base plate and colors of the STL export.
+- The cutter starts at x = y = 0 and z = 0, flange down: print it that way, no supports.
+- A design whose background covers the whole canvas gives a rectangular cutter: leave the
+  background out with `exclude_colors` (or remove it in the palette step before tracing).
+- Checked in Anycubic Slicer Next (Kobra X, 0.2 mm): the sample face, background left
+  out, slices into an oval cutter of 67 × 55 mm, 4.9 g, 13 min.
 
 ## Lithophane
 

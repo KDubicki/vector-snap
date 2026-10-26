@@ -586,3 +586,32 @@ def test_exports_layers(client: TestClient) -> None:
 
 def test_layer_format_is_validated(client: TestClient) -> None:
     assert _post(client, "layers", {"layer_format": "eps"}).status_code == 422
+
+
+def test_exports_cookie_cutter(client: TestClient) -> None:
+    response = _post(client, "cookie-cutter", {"width_mm": "60", "mirror": "false"})
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "model/stl"
+    triangles = read_binary_stl(response.content)
+    assert is_balanced(triangles)
+    assert triangles[..., 2].max() == pytest.approx(15)
+
+
+@pytest.mark.parametrize(
+    ("form", "code"),
+    [
+        ({"wall_mm": "0.1"}, "VALIDATION_ERROR"),
+        ({"mirror": "maybe"}, "INVALID_PARAMETERS"),
+        ({"height_mm": "5", "flange_height_mm": "6"}, "INVALID_PARAMETERS"),
+        ({"exclude_colors": "[0, 1]"}, "INVALID_PARAMETERS"),
+        ({"exclude_colors": "zero"}, "INVALID_PARAMETERS"),
+    ],
+)
+def test_cookie_cutter_options_are_checked(
+    client: TestClient, form: dict[str, str], code: str
+) -> None:
+    response = _post(client, "cookie-cutter", form)
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == code
