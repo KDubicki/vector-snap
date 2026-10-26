@@ -1620,18 +1620,12 @@ select {
   font-size: 0.75rem;
 }
 
-.print-cta {
+/* Ways back, under the step's main actions. */
+.panel__links {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  text-align: left;
-}
-
-.print-cta span {
-  color: var(--color-muted);
-  font-size: 0.8rem;
-  font-weight: 400;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 16px;
 }
 
 .element-map {

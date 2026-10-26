@@ -190,7 +190,8 @@ tracing and export options). Narrower windows stack everything and scroll normal
 ### Step 4 — 3D print ✅
 
 A dedicated step for printable objects (`PrintStep`, logic in `src/lib/printPlan.ts`,
-unit-tested), opened from the "3D print" button in the SVG step or the header:
+unit-tested), opened from the "3D print →" button next to Download SVG at the foot of the SVG step
+(Back to colors and Start with a new image are links under them) or the header:
 
 - **Project presets** set size, base and extras; colors and raised elements are kept,
   and editing any preset value switches to *Custom*:

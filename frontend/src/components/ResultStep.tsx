@@ -73,9 +73,15 @@ export function ResultStep() {
         <SmallShapesSelector />
         <EditorPalettePanel />
         <FragmentsPanel />
+        <ExportPanel />
         <div className="actions actions--dock">
-          <button type="button" className="secondary" onClick={() => goTo('palette')}>
-            Back to colors
+          <button
+            type="button"
+            className="secondary"
+            title="Magnets, keychains, ornaments — heights per color and element"
+            onClick={() => goTo('print')}
+          >
+            3D print →
           </button>
           {url && (
             <a
@@ -88,18 +94,18 @@ export function ResultStep() {
             </a>
           )}
         </div>
-        <button type="button" className="secondary print-cta" onClick={() => goTo('print')}>
-          <strong>3D print</strong>
-          <span>Magnets, keychains, ornaments — heights per color and element</span>
-        </button>
-        <ExportPanel />
-        <button
-          type="button"
-          className="link"
-          onClick={() => void guard(reset, 'Starting with a new image replaces the SVG.')}
-        >
-          Start with a new image
-        </button>
+        <div className="panel__links">
+          <button type="button" className="link" onClick={() => goTo('palette')}>
+            Back to colors
+          </button>
+          <button
+            type="button"
+            className="link"
+            onClick={() => void guard(reset, 'Starting with a new image replaces the SVG.')}
+          >
+            Start with a new image
+          </button>
+        </div>
         {dialog}
       </aside>
     </section>
