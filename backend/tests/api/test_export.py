@@ -5,6 +5,7 @@ import httpx
 import pytest
 from ezdxf.filemanagement import read as read_dxf
 from fastapi.testclient import TestClient
+from PIL import Image
 
 from tests.images import encode, stripes
 from tests.vectors import (
@@ -556,3 +557,19 @@ def test_eps_rejects_a_negative_margin(client: TestClient) -> None:
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_exports_png(client: TestClient) -> None:
+    response = _post(client, "png", {"width_px": "80", "background": "#FFFFFF"})
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+    assert 'filename="vectorsnap.png"' in response.headers["content-disposition"]
+    image = Image.open(io.BytesIO(response.content))
+    assert image.size == (80, 40)
+    assert image.getpixel((70, 30)) == (255, 255, 255, 255)
+
+
+@pytest.mark.parametrize("form", [{"width_px": "8"}, {"background": "white"}, {"dpi": "10"}])
+def test_png_options_are_validated(client: TestClient, form: dict[str, str]) -> None:
+    assert _post(client, "png", form).status_code == 422

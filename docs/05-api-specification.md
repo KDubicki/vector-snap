@@ -23,6 +23,7 @@ Responses are JSON unless stated otherwise. Errors use the format described in
 | `POST` | `/api/v1/export/dxf` | SVG → DXF outlines per color ([details](13-export-formats.md#dxf)) |
 | `POST` | `/api/v1/export/pdf` | SVG → vector PDF ([details](13-export-formats.md#pdf)) |
 | `POST` | `/api/v1/export/eps` | SVG → Encapsulated PostScript ([details](13-export-formats.md#eps)) |
+| `POST` | `/api/v1/export/png` | SVG → PNG image ([details](13-export-formats.md#on-the-server)) |
 | `POST` | `/api/v1/export/filament-plan` | Filament changes for single-extruder prints ([details](13-export-formats.md#filament-change-plan)) |
 | `POST` | `/api/v1/export/model-size` | Size of the STL/3MF model, for the build volume ([details](13-export-formats.md#model-size)) |
 | `POST` | `/api/v1/export/print-check` | Shapes of the STL/3MF model narrower than the nozzle ([details](13-export-formats.md#print-check)) |
@@ -268,6 +269,7 @@ FastAPI 0.149 and later read a missing `bool` form field as an unchecked checkbo
 | `dxf` | `image/vnd.dxf` | `width_mm` (0–10000, default 100), `fill` (bool, false) |
 | `pdf` | `application/pdf` | `page` (`fit` \| `a4` \| `letter`, default `fit`), `width_mm` (0–10000, 100), `margin_mm` (0–100, 10) |
 | `eps` | `application/postscript` | `width_mm` (0–10000, default 100), `margin_mm` (0–100, 0) |
+| `png` | `image/png` | `width_px` (16–4096, default 1024), `background` (`transparent` \| `#rrggbb`), `dpi` (72–1200, 300) |
 
 Errors: `413 FILE_TOO_LARGE`, `422 INVALID_SVG` (not well-formed, not SVG, no
 viewBox/size, no shapes), `422 VALIDATION_ERROR` (options out of range).

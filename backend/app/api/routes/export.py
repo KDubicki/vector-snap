@@ -23,6 +23,7 @@ from app.services.export_3mf import export_3mf
 from app.services.export_dxf import DxfOptions, export_dxf
 from app.services.export_eps import EpsOptions, export_eps
 from app.services.export_pdf import PageSize, PdfOptions, export_pdf
+from app.services.export_png import PngOptions, export_png
 from app.services.export_stl import export_stl, export_stl_parts, model_size
 from app.services.filament_plan import filament_plan
 from app.services.image_io import decode_image
@@ -267,3 +268,30 @@ async def export_to_eps(
     options = EpsOptions(width_mm=width_mm, margin_mm=margin_mm)
     content = await run_in_threadpool(export_eps, document, options)
     return _attachment(content, "application/postscript", "eps")
+
+
+@router.post(
+    "/png",
+    response_class=Response,
+    responses={200: {"content": {"image/png": {}}, "description": "PNG image"}},
+)
+async def export_to_png(
+    document: UploadedSvg,
+    width_px: Annotated[int, Form(ge=16, le=4096, description="Image width")] = 1024,
+    background: Annotated[
+        str,
+        Form(
+            pattern=r"^(transparent|#[0-9a-fA-F]{6})$",
+            description="transparent or a color, #rrggbb",
+        ),
+    ] = "transparent",
+    dpi: Annotated[int, Form(ge=72, le=1200, description="Resolution stored in the file")] = 300,
+) -> Response:
+    """Raster image with smooth edges, for previews, the web, stickers and print shops."""
+    options = PngOptions(
+        width_px=width_px,
+        background=None if background == "transparent" else background.lower(),
+        dpi=dpi,
+    )
+    content = await run_in_threadpool(export_png, document, options)
+    return _attachment(content, "image/png", "png")

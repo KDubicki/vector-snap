@@ -8,7 +8,7 @@ of the microservice can use it too.
 | Format | Endpoint | Typical use | Status |
 |--------|----------|-------------|--------|
 | SVG | — (browser) | Web, design tools | ✅ |
-| PNG | — (browser) | Raster image at any width, transparent or white background | ✅ |
+| PNG | — (browser), `POST /api/v1/export/png` | Raster image at any width, transparent or one-color background | ✅ |
 | STL | `POST /api/v1/export/stl` | 3D printing (relief / multi-color prints) | ✅ |
 | 3MF | `POST /api/v1/export/3mf` | Multi-color / multi-material 3D printing (AMS, MMU, tool changers) | ✅ |
 | 3MF tiles (ZIP) | `POST /api/v1/export/tiles` | A model larger than the bed, cut into tiles that each fit | ✅ |
@@ -417,6 +417,29 @@ the backend:
 - Sizes are capped at **16.7 megapixels** (the largest canvas Safari renders): larger
   requests are scaled down proportionally, and the panel shows the actual output size
   before exporting.
+
+### On the server
+
+Clients without a browser get the same image from `POST /api/v1/export/png`
+(`app/services/export_png.py`):
+
+```bash
+curl -F svg=@logo.svg -F width_px=1200 -F background=#ffffff \
+     http://localhost:8000/api/v1/export/png -o logo.png
+```
+
+| Option | Default | Meaning |
+|--------|---------|---------|
+| `width_px` | `1024` | Image width (16–4096); the height follows the aspect ratio |
+| `background` | `transparent` | `transparent` or a color, `#rrggbb` |
+| `dpi` | `300` | Resolution stored in the file (72–1200), so print tools open it at a size |
+
+- Every shape is filled in its own color, bottom layer first; holes follow the even-odd
+  rule like the 3D exports (`to_polygon`). Curves are flattened to a quarter of a pixel.
+- Edges are anti-aliased by drawing 4× larger and scaling down (Lanczos); the larger
+  canvas stays at most 6144 px a side, so 4096 px wide images are drawn 1×.
+- Each shape is drawn through a mask of its own bounding box, so the cost grows with
+  the shapes' area, not their number times the image.
 
 ## Filament change plan
 

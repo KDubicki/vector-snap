@@ -31,7 +31,7 @@ backend/
 │   │   ├── router.py           # Aggregates routers under /api/v1
 │   │   └── routes/
 │   │       ├── health.py       # /health, /health/ready, /limits
-│   │       ├── export.py       # /export/* (STL, 3MF, DXF, PDF, EPS, lithophane, estimates)
+│   │       ├── export.py       # /export/* (STL, 3MF, DXF, PDF, EPS, PNG, lithophane, estimates)
 │   │       ├── quantize.py
 │   │       ├── svg.py          # /svg/* (server-side SVG edits)
 │   │       └── vectorize.py
@@ -63,7 +63,8 @@ backend/
 │       ├── lithophane.py       # image → lithophane STL
 │       ├── export_dxf.py       # SVG → DXF (outlines per color layer)
 │       ├── export_pdf.py       # SVG → PDF (exact curves)
-│       └── export_eps.py       # SVG → EPS (exact curves)
+│       ├── export_eps.py       # SVG → EPS (exact curves)
+│       └── export_png.py       # SVG → PNG (anti-aliased raster)
 └── tests/
     ├── conftest.py             # fixtures: TestClient, sample images
     ├── services/               # unit tests per service
