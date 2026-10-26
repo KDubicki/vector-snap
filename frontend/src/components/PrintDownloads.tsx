@@ -33,7 +33,7 @@ export function PrintDownloads({
           {error}
         </p>
       )}
-      <div className="actions">
+      <div className="actions actions--dock">
         <button
           type="button"
           className="primary"

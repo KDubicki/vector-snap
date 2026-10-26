@@ -73,7 +73,7 @@ export function ResultStep() {
         <SmallShapesSelector />
         <EditorPalettePanel />
         <FragmentsPanel />
-        <div className="actions">
+        <div className="actions actions--dock">
           <button type="button" className="secondary" onClick={() => goTo('palette')}>
             Back to colors
           </button>

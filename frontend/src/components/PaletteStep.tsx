@@ -289,7 +289,7 @@ export function PaletteStep() {
           onChange={actions.setTracing}
           onReset={actions.resetTracing}
         />
-        <div className="actions">
+        <div className="actions actions--dock">
           <button
             type="button"
             className="secondary"
