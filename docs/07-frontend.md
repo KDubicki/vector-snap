@@ -162,7 +162,7 @@ tracing and export options). Narrower windows stack everything and scroll normal
   rename and delete saved fragments, export and import the library as a JSON file, and
   place a fragment on top of another image (own colors or the image's nearest colors)
   ([08-svg-editor.md](08-svg-editor.md#fragments-)).
-- ✅ Export panel (STL, 3MF, lithophane, DXF, PDF, EPS, PNG) with per-color heights and a 3D
+- ✅ Export panel (STL, 3MF, lithophane, cookie cutter, colors ZIP, DXF, PDF, EPS, PNG) with per-color heights and a 3D
   preview with print statistics ([13-export-formats.md](13-export-formats.md)).
 - ✅ Delete shapes, undo/redo every edit (toolbar and keyboard).
 - ✅ **Compare with original**: a view switch above the editor shows the original upload

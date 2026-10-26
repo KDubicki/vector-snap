@@ -193,4 +193,40 @@ describe('ExportPanel', () => {
     expect(vi.mocked(exportFile).mock.calls[0][0]).toBe('eps');
     expect(vi.mocked(exportFile).mock.calls[0][2]).toEqual({ width_mm: 100, margin_mm: 0 });
   });
+
+  it('exports a cookie cutter and checks the flange against the height', async () => {
+    const u = user();
+    vi.mocked(exportFile).mockResolvedValue(new Blob(['stl']));
+    await renderPanel();
+
+    await u.click(screen.getByRole('radio', { name: 'Cookie cutter' }));
+    const height = screen.getByLabelText(/^Height/);
+    await u.clear(height);
+    await u.type(height, '2');
+    expect(screen.getByText('Must be lower than the cutter.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Export Cookie cutter' })).toBeDisabled();
+    await u.clear(height);
+    await u.type(height, '20');
+    await u.click(screen.getByRole('button', { name: 'Export Cookie cutter' }));
+
+    await waitFor(() =>
+      expect(download).toHaveBeenCalledWith(expect.any(Blob), 'logo.cookie-cutter.stl'),
+    );
+    expect(vi.mocked(exportFile).mock.calls[0][0]).toBe('cookie-cutter');
+    expect(vi.mocked(exportFile).mock.calls[0][2]).toMatchObject({ height_mm: 20, mirror: true });
+  });
+
+  it('exports one file per color as a ZIP', async () => {
+    const u = user();
+    vi.mocked(exportFile).mockResolvedValue(new Blob(['zip']));
+    await renderPanel();
+
+    await u.click(screen.getByRole('radio', { name: 'Colors (ZIP)' }));
+    await u.selectOptions(screen.getByLabelText('File format'), 'dxf');
+    await u.click(screen.getByRole('button', { name: 'Export Colors (ZIP)' }));
+
+    await waitFor(() => expect(download).toHaveBeenCalledWith(expect.any(Blob), 'logo.colors.zip'));
+    expect(vi.mocked(exportFile).mock.calls[0][0]).toBe('layers');
+    expect(vi.mocked(exportFile).mock.calls[0][2]).toEqual({ layer_format: 'dxf', width_mm: 100 });
+  });
 });
