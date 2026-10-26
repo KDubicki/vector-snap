@@ -27,6 +27,7 @@ Responses are JSON unless stated otherwise. Errors use the format described in
 | `POST` | `/api/v1/export/model-size` | Size of the STL/3MF model, for the build volume ([details](13-export-formats.md#model-size)) |
 | `POST` | `/api/v1/export/print-check` | Shapes of the STL/3MF model narrower than the nozzle ([details](13-export-formats.md#print-check)) |
 | `POST` | `/api/v1/export/color-changes` | Filament changes, time and purge of multi-color printers ([details](13-export-formats.md#color-changes-of-multi-color-printers)) |
+| `POST` | `/api/v1/svg/merge-similar` | Join color layers that look the same ([details](#svg)) |
 
 ---
 
@@ -269,6 +270,39 @@ FastAPI 0.149 and later read a missing `bool` form field as an unchecked checkbo
 
 Errors: `413 FILE_TOO_LARGE`, `422 INVALID_SVG` (not well-formed, not SVG, no
 viewBox/size, no shapes), `422 VALIDATION_ERROR` (options out of range).
+
+---
+
+## SVG
+
+Server-side edits of an SVG in the [output contract](#svg-output-contract), for services
+and scripts without the browser editor. Request: `multipart/form-data` with an `svg` file;
+response (`application/json`):
+
+```json
+{
+  "svg": "<svg ...>...</svg>",
+  "colors": 2,
+  "changes": [{ "color": "#fefefe", "into": "#ffffff", "delta_e": 0.2 }]
+}
+```
+
+`colors` is the number of color layers of the edited SVG, `changes` every color that was
+replaced, with the CIEDE2000 difference (`delta_e`) to its new color. The SVG keeps the
+contract: one `<g>` per layer bottom to top, ids kept, `fill` on a path only when it
+differs from its layer's. Layers that end up with the same color are **joined**: the
+layer covering less moves on top of the one covering more (every layer would otherwise
+be its own filament in a 3D print).
+
+### `POST /api/v1/svg/merge-similar`
+
+`max_delta_e` (> 0–10, default 2): layers whose colors are closer than this on the
+CIEDE2000 scale (under 1 invisible, 1–2 only side by side) become one — the closest pair
+first, until no pair is that close, as `merge_delta_e` of `/quantize` and the editor's
+*Similar colors* ([08](08-svg-editor.md#similar-colors-)). Shapes whose own color is that
+close to their layer's take the layer's color.
+
+Errors: `413 FILE_TOO_LARGE`, `422 INVALID_SVG`, `422 VALIDATION_ERROR`.
 
 ---
 

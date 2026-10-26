@@ -33,11 +33,13 @@ backend/
 │   │       ├── health.py       # /health, /health/ready, /limits
 │   │       ├── export.py       # /export/* (STL, 3MF, DXF, PDF, EPS, lithophane, estimates)
 │   │       ├── quantize.py
+│   │       ├── svg.py          # /svg/* (server-side SVG edits)
 │   │       └── vectorize.py
 │   ├── schemas/
 │   │   ├── export.py           # export form parsers, filament plan / estimate responses
 │   │   ├── palette.py          # PaletteColor, Palette
 │   │   ├── quantize.py         # QuantizeAlgorithm, QuantizeResponse
+│   │   ├── svg.py              # SvgEditResponse, ColorChangeModel
 │   │   ├── system.py           # HealthResponse, LimitsResponse
 │   │   └── vectorize.py        # TracingMode, Stacking, VectorizeResponse
 │   └── services/
@@ -47,6 +49,7 @@ backend/
 │       ├── vectorization.py    # label_map + palette → raw SVG (vtracer)
 │       ├── svg_postprocess.py  # sanitize, group per color, add ids / data attrs
 │       ├── svg_geometry.py     # parse contract SVG, flatten curves, polygons (exports)
+│       ├── svg_edit.py         # serialize contract SVG, merge similar colors (/svg/*)
 │       ├── model_options.py    # StlOptions, Body, layer snapping (shared by 3D exports)
 │       ├── export_stl.py       # SVG → STL (heights, parts, 3D bodies)
 │       ├── mixed_colors.py     # filament stacks of mixed colors → bodies
