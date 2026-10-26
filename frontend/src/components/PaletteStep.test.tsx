@@ -44,9 +44,14 @@ describe('PaletteStep', () => {
     vi.stubGlobal('fetch', fetchResponses(QUANTIZED));
     render(<PaletteStep />);
 
+    const more = screen.getByText('More color options');
+    expect(more).toHaveTextContent('Smooth: Light · similar: Close · small: 2% · enlarge');
+    await user.click(more);
     await user.click(screen.getByRole('radio', { name: 'Fast (median cut)' }));
     await user.click(screen.getByRole('radio', { name: 'Strong' }));
     await user.click(screen.getByLabelText('Enlarge small images'));
+    expect(more).toHaveTextContent('Smooth: Strong · similar: Close · small: 2%');
+    expect(more).not.toHaveTextContent('enlarge');
 
     expect(store()).toMatchObject({ algorithm: 'median_cut', smooth: 3, upscale: false });
     expect(screen.getByRole('radio', { name: 'Strong' })).toHaveAttribute('aria-checked', 'true');

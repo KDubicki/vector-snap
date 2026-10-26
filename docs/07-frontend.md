@@ -93,6 +93,11 @@ tracing and export options). Narrower windows stack everything and scroll normal
   Sharma–Wu–Dalal reference data): CIE76 overstates differences of saturated colors, so
   one threshold would not mean "looks alike" across the gamut. Two olive shades of one
   area (ΔE2000 15) are offered for merging; yellow-green vs. gold (16.6) stay apart.
+- **More color options** (folded by default): Smooth regions, Enlarge small images,
+  Merge similar colors, Merge small colors and Locked colors below. Number of colors,
+  method and palette come first, the choices made on every image; the folded heading
+  lists the current values (*Smooth: Light · similar: Close · small: 2% · enlarge ·
+  1 locked*), so the defaults are visible without opening it.
 - **Smooth regions**: Off / Light / Medium / Strong, sent as `smooth` 0–3 (default
   Light). Removes specks and jagged edges, which matters most for photos and 3D prints;
   changing it re-quantizes like the other parameters.
@@ -146,6 +151,9 @@ tracing and export options). Narrower windows stack everything and scroll normal
   precision (FR-24). Values are clamped to the ranges accepted by `POST /vectorize`
   (`src/lib/tracing.ts`); "Restore defaults" resets all tracing options.
 - **Convert to SVG** → `POST /vectorize` with the indexed PNG and the final palette.
+  It stays docked at the foot of the window while the panel scrolls, as do **Download
+  SVG** (step 3) and **Download 3MF / STL** (step 4); every step opens scrolled to its
+  top.
 
 ### Step 3 — SVG editor
 

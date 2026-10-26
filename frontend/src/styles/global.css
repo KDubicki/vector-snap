@@ -405,6 +405,22 @@ select {
   cursor: pointer;
 }
 
+/* Options folded away behind a summary of their current values. */
+.more-options__values {
+  display: block;
+  margin-top: 2px;
+  color: var(--color-muted);
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+
+.more-options__body {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-top: 12px;
+}
+
 .color-count {
   display: flex;
   align-items: center;
