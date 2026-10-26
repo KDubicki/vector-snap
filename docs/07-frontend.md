@@ -93,7 +93,7 @@ tracing and export options). Narrower windows stack everything and scroll normal
   Sharma–Wu–Dalal reference data): CIE76 overstates differences of saturated colors, so
   one threshold would not mean "looks alike" across the gamut. Two olive shades of one
   area (ΔE2000 15) are offered for merging; yellow-green vs. gold (16.6) stay apart.
-- **More color options** (folded by default): Smooth regions, Enlarge small images,
+- **More color options** (folded by default, `Fold`): Smooth regions, Enlarge small images,
   Merge similar colors, Merge small colors and Locked colors below. Number of colors,
   method and palette come first, the choices made on every image; the folded heading
   lists the current values (*Smooth: Light · similar: Close · small: 2% · enlarge ·
@@ -258,6 +258,9 @@ unit-tested), opened from the "3D print" button in the SVG step or the header:
   elements get a dashed outline, the selection an accent outline. Raises are stored per
   shape id and sent as `shape_heights` (color height + extra layers), so the backend
   prints them as their own parts — e.g. letters 3 layers above a flat AMS sign.
+- **Base plate** and **Outlines** are folded (`Fold`): the heading sums up what is set —
+  *Follow the design · 2 mm border · loop 4 mm*, *None* — and a fold opens by itself
+  while one of its fields has an error.
 - **Base plate**: shape (outline, rectangle, rounded, circle, oval, hexagon; one list in `src/lib/baseShapes.ts` for the print step, the export panel and settings files), border, raised rim (as
   high as the colors), hanging loop (with the side it sticks out of, `loop_position`),
   magnet pocket (depth checked against the base; **Magnets** 1–4 spreads several along

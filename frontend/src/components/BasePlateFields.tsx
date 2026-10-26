@@ -1,6 +1,7 @@
 import { BASE_SHAPES } from '../lib/baseShapes';
 import { screwBorderMm } from '../lib/printPlan';
 import type { BaseShape, LoopPosition, PrintSettings } from '../lib/printPlan';
+import { Fold } from './Fold';
 import { NumberField } from './NumberField';
 
 const SCREW_HOLES = [
@@ -22,6 +23,35 @@ interface BasePlateFieldsProps {
   onChange: (change: Partial<PrintSettings>) => void;
 }
 
+// Settings of the plate whose errors open the fold.
+const FIELDS = [
+  'rimMm',
+  'loopHoleMm',
+  'magnetDepthMm',
+  'magnetCount',
+  'screwHoles',
+  'screwHoleMm',
+  'inlay',
+];
+
+/** What the plate has, in a few words: "Circle · 3 mm border · loop 4 mm". */
+function basePlateSummary(print: PrintSettings): string {
+  const shape = BASE_SHAPES.find((item) => item.value === print.baseShape)?.label;
+  const magnets = print.magnetCount > 1 ? `${print.magnetCount} magnets` : 'magnet';
+  return [
+    shape ?? print.baseShape,
+    print.marginMm > 0 && `${print.marginMm} mm border`,
+    print.rimMm > 0 && `${print.rimMm} mm rim`,
+    print.loopHoleMm > 0 && `loop ${print.loopHoleMm} mm`,
+    print.magnetMm > 0 && `${magnets} ${print.magnetMm} mm`,
+    print.screwHoles > 0 && `${print.screwHoles} screw holes`,
+    print.inlay && print.style !== 'cutout' && 'flat top',
+    print.mirror && 'mirrored',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
+
 /** Base plate shape, border, raised rim, hanging loop, magnet pocket, inlay and mirror. */
 export function BasePlateFields({
   settings: print,
@@ -29,8 +59,11 @@ export function BasePlateFields({
   onChange: update,
 }: BasePlateFieldsProps) {
   return (
-    <div className="field">
-      <span>Base plate</span>
+    <Fold
+      title="Base plate"
+      values={basePlateSummary(print)}
+      invalid={FIELDS.some((field) => errors[field])}
+    >
       <div className="options">
         <div className="option">
           <label htmlFor="print-shape">Shape</label>
@@ -206,6 +239,6 @@ export function BasePlateFields({
           reads the right way round.
         </span>
       </div>
-    </div>
+    </Fold>
   );
 }

@@ -5,6 +5,7 @@ import { useObjectUrl } from '../lib/useObjectUrl';
 import { useAppStore } from '../state/store';
 import { ColorCountSelector } from './ColorCountSelector';
 import { FilamentLibraryPanel } from './FilamentLibraryPanel';
+import { Fold } from './Fold';
 import { LockedColors } from './LockedColors';
 import { MergedColors } from './MergedColors';
 import { PaletteAdvice } from './PaletteAdvice';
@@ -209,102 +210,96 @@ export function PaletteStep() {
             }
           />
         )}
-        <details className="field more-options">
-          <summary>
-            More color options
-            <span className="more-options__values">{moreOptionsSummary}</span>
-          </summary>
-          <div className="more-options__body">
-            <div className="field">
-              <span>Smooth regions</span>
-              <div className="segmented" role="radiogroup" aria-label="Smooth regions">
-                {SMOOTH_LEVELS.map(({ value, label }) => (
-                  <button
-                    key={value}
-                    type="button"
-                    role="radio"
-                    aria-checked={smooth === value}
-                    className={smooth === value ? 'active' : ''}
-                    onClick={() => actions.setSmooth(value)}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-              <span className="hint">
-                Removes specks and evens out jagged edges, so photos and scans become clean shapes
-                for 3D printing and cutting.
-              </span>
+        <Fold title="More color options" values={moreOptionsSummary}>
+          <div className="field">
+            <span>Smooth regions</span>
+            <div className="segmented" role="radiogroup" aria-label="Smooth regions">
+              {SMOOTH_LEVELS.map(({ value, label }) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={smooth === value}
+                  className={smooth === value ? 'active' : ''}
+                  onClick={() => actions.setSmooth(value)}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
-            <div className="field">
-              <span>Merge similar colors</span>
-              <div className="segmented" role="radiogroup" aria-label="Merge similar colors">
-                {SIMILAR_LEVELS.map(({ value, label, title }) => (
-                  <button
-                    key={value}
-                    type="button"
-                    role="radio"
-                    title={title}
-                    aria-checked={mergeDeltaE === value}
-                    className={mergeDeltaE === value ? 'active' : ''}
-                    onClick={() => actions.setMergeDeltaE(value)}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-              <span className="hint">
-                Colors this close become one, however much of the image they cover: #ffffff and
-                #fefefe look the same and should not be two filaments. Measured as CIEDE2000 (ΔE00),
-                the eye&apos;s scale: under 1 invisible, 1–2 only side by side, 2–10 at a glance.
-              </span>
-            </div>
-            <div className="field">
-              <span>Merge small colors</span>
-              <div className="segmented" role="radiogroup" aria-label="Merge small colors">
-                {MERGE_LEVELS.map(({ value, label }) => (
-                  <button
-                    key={value}
-                    type="button"
-                    role="radio"
-                    aria-checked={minCoverage === value}
-                    className={minCoverage === value ? 'active' : ''}
-                    onClick={() => actions.setMinCoverage(value)}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-              <span className="hint">
-                A color covering less of the image joins its nearest similar color — a gray speck
-                goes to the black next to it — even if that leaves fewer colors than chosen. Small
-                colors unlike every other (black eyes on red) stay. Each color costs a filament in a
-                3D print.
-              </span>
-            </div>
-            <div className="field">
-              <div className="checkbox">
-                <input
-                  id="upscale"
-                  type="checkbox"
-                  checked={upscale}
-                  onChange={(event) => actions.setUpscale(event.target.checked)}
-                />
-                <label htmlFor="upscale">Enlarge small images</label>
-              </div>
-              <span className="hint">
-                Images under 1024 px are scaled up (up to 4×) first, so outlines and 3D model edges
-                come out smooth instead of stepped.
-              </span>
-            </div>
-            <LockedColors
-              locked={locked}
-              canLock={canLock}
-              onLock={actions.lockColor}
-              onUnlock={actions.unlockColor}
-            />
+            <span className="hint">
+              Removes specks and evens out jagged edges, so photos and scans become clean shapes for
+              3D printing and cutting.
+            </span>
           </div>
-        </details>
+          <div className="field">
+            <span>Merge similar colors</span>
+            <div className="segmented" role="radiogroup" aria-label="Merge similar colors">
+              {SIMILAR_LEVELS.map(({ value, label, title }) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  title={title}
+                  aria-checked={mergeDeltaE === value}
+                  className={mergeDeltaE === value ? 'active' : ''}
+                  onClick={() => actions.setMergeDeltaE(value)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <span className="hint">
+              Colors this close become one, however much of the image they cover: #ffffff and
+              #fefefe look the same and should not be two filaments. Measured as CIEDE2000 (ΔE00),
+              the eye&apos;s scale: under 1 invisible, 1–2 only side by side, 2–10 at a glance.
+            </span>
+          </div>
+          <div className="field">
+            <span>Merge small colors</span>
+            <div className="segmented" role="radiogroup" aria-label="Merge small colors">
+              {MERGE_LEVELS.map(({ value, label }) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={minCoverage === value}
+                  className={minCoverage === value ? 'active' : ''}
+                  onClick={() => actions.setMinCoverage(value)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <span className="hint">
+              A color covering less of the image joins its nearest similar color — a gray speck goes
+              to the black next to it — even if that leaves fewer colors than chosen. Small colors
+              unlike every other (black eyes on red) stay. Each color costs a filament in a 3D
+              print.
+            </span>
+          </div>
+          <div className="field">
+            <div className="checkbox">
+              <input
+                id="upscale"
+                type="checkbox"
+                checked={upscale}
+                onChange={(event) => actions.setUpscale(event.target.checked)}
+              />
+              <label htmlFor="upscale">Enlarge small images</label>
+            </div>
+            <span className="hint">
+              Images under 1024 px are scaled up (up to 4×) first, so outlines and 3D model edges
+              come out smooth instead of stepped.
+            </span>
+          </div>
+          <LockedColors
+            locked={locked}
+            canLock={canLock}
+            onLock={actions.lockColor}
+            onUnlock={actions.unlockColor}
+          />
+        </Fold>
         <TracingOptionsPanel
           options={tracing}
           onChange={actions.setTracing}

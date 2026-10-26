@@ -1,5 +1,6 @@
 import { formatGrams } from '../lib/meshStats';
 import type { PrintSettings } from '../lib/printPlan';
+import { Fold } from './Fold';
 import { NumberField } from './NumberField';
 
 interface OutlineFieldsProps {
@@ -23,8 +24,15 @@ export function OutlineFields({
   const slot = slots?.get(color);
   const used = grams?.get(color);
   return (
-    <div className="field">
-      <span>Outlines</span>
+    <Fold
+      title="Outlines"
+      values={
+        print.outlineMm > 0
+          ? `${print.outlineMm} mm in ${color}${print.outlineRaised ? ', raised' : ''}`
+          : 'None'
+      }
+      invalid={Boolean(errors.outlineMm)}
+    >
       <div className="options">
         <NumberField
           id="print-outline"
@@ -73,6 +81,6 @@ export function OutlineFields({
           </>
         )}
       </div>
-    </div>
+    </Fold>
   );
 }

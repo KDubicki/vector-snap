@@ -406,7 +406,7 @@ select {
 }
 
 /* Options folded away behind a summary of their current values. */
-.more-options__values {
+.fold__values {
   display: block;
   margin-top: 2px;
   color: var(--color-muted);
@@ -414,7 +414,7 @@ select {
   font-weight: 400;
 }
 
-.more-options__body {
+.fold__body {
   display: flex;
   flex-direction: column;
   gap: 20px;
