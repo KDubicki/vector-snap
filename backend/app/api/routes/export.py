@@ -22,6 +22,7 @@ from app.services.color_changes import PLA_DENSITY, ChangeCosts, estimate_color_
 from app.services.export_3mf import export_3mf
 from app.services.export_dxf import DxfOptions, export_dxf
 from app.services.export_eps import EpsOptions, export_eps
+from app.services.export_layers import LayerFormat, LayersOptions, export_layers
 from app.services.export_pdf import PageSize, PdfOptions, export_pdf
 from app.services.export_png import PngOptions, export_png
 from app.services.export_stl import export_stl, export_stl_parts, model_size
@@ -295,3 +296,23 @@ async def export_to_png(
     )
     content = await run_in_threadpool(export_png, document, options)
     return _attachment(content, "image/png", "png")
+
+
+@router.post(
+    "/layers",
+    response_class=Response,
+    responses={200: {"content": {"application/zip": {}}, "description": "ZIP, a file per color"}},
+)
+async def export_to_layers(
+    document: UploadedSvg,
+    layer_format: Annotated[LayerFormat, Form(description="File format of every color")] = "svg",
+    width_mm: Annotated[
+        float, Form(gt=0, le=10_000, description="Drawing width (DXF, PDF)")
+    ] = 100.0,
+    margin_mm: Annotated[float, Form(ge=0, le=100, description="Page margin (PDF)")] = 0.0,
+) -> Response:
+    """One file per color on the same canvas, so they line up when stacked: vinyl
+    cutters, screen printing, laser cutting one material per color."""
+    options = LayersOptions(layer_format=layer_format, width_mm=width_mm, margin_mm=margin_mm)
+    content = await run_in_threadpool(export_layers, document, options)
+    return _attachment(content, "application/zip", "zip")

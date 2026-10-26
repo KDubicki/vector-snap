@@ -13,6 +13,7 @@ of the microservice can use it too.
 | 3MF | `POST /api/v1/export/3mf` | Multi-color / multi-material 3D printing (AMS, MMU, tool changers) | ✅ |
 | 3MF tiles (ZIP) | `POST /api/v1/export/tiles` | A model larger than the bed, cut into tiles that each fit | ✅ |
 | Lithophane (STL) | `POST /api/v1/export/lithophane` | Backlit photo plate made from the **original image** | ✅ |
+| Layers (ZIP) | `POST /api/v1/export/layers` | One SVG, DXF or PDF per color: vinyl cutters, screen printing, laser cutting | ✅ |
 | DXF | `POST /api/v1/export/dxf` | Laser cutters, vinyl plotters, CNC | ✅ |
 | PDF | `POST /api/v1/export/pdf` | Print, documents | ✅ |
 | EPS | `POST /api/v1/export/eps` | Design tools, print shops, older layout software | ✅ |
@@ -564,6 +565,30 @@ the 3MF, one filament per distinct color:
   each as counted here. Every layer with n colors costs n − 1 changes, so the count shows
   what thinner colors or fewer colors save — stepped colors are not always cheaper, as
   every step stands on the base and the lower layers hold all colors.
+
+## Layers (ZIP)
+
+```bash
+curl -F svg=@logo.svg -F layer_format=dxf -F width_mm=300 \
+     http://localhost:8000/api/v1/export/layers -o logo-layers.zip
+```
+
+| Option | Default | Meaning |
+|--------|---------|---------|
+| `layer_format` | `svg` | `svg`, `dxf` or `pdf`: the format of every color's file |
+| `width_mm` | `100` | Drawing width of the DXF and PDF files (and the areas in `colors.txt`) |
+| `margin_mm` | `0` | Page margin of the PDF files |
+
+- One file per **color** (`app/services/export_layers.py`): shapes are grouped by their
+  effective color — a shape with its own color goes to that color's file — in the order
+  the colors first appear bottom to top: `color-01-ffffff.svg`, `color-02-ff0000.svg`, …
+- Every file keeps the **whole canvas** — the same SVG viewBox, DXF coordinates and PDF
+  page — so the sheets line up again when stacked: a vinyl sheet per color, a screen per
+  color, a laser-cut material per color.
+- `colors.txt`: file, color, shape count and area in mm² at `width_mm`, tab-separated —
+  how much vinyl or material each color takes.
+- The single-color files are made by the SVG serializer (`svg_edit.serialize_svg`, the
+  VectorSnap contract) and the DXF and PDF exporters below.
 
 ## DXF
 

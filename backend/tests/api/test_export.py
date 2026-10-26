@@ -573,3 +573,16 @@ def test_exports_png(client: TestClient) -> None:
 @pytest.mark.parametrize("form", [{"width_px": "8"}, {"background": "white"}, {"dpi": "10"}])
 def test_png_options_are_validated(client: TestClient, form: dict[str, str]) -> None:
     assert _post(client, "png", form).status_code == 422
+
+
+def test_exports_layers(client: TestClient) -> None:
+    response = _post(client, "layers", {"layer_format": "dxf"})
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/zip"
+    with zipfile.ZipFile(io.BytesIO(response.content)) as archive:
+        assert archive.namelist() == ["color-01-000000.dxf", "color-02-ff0000.dxf", "colors.txt"]
+
+
+def test_layer_format_is_validated(client: TestClient) -> None:
+    assert _post(client, "layers", {"layer_format": "eps"}).status_code == 422
