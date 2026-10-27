@@ -5,7 +5,7 @@
  */
 
 import type { ModelSize } from '../types/api';
-import type { PrintSettings } from './printPlan';
+import { COPY_GAP_MM, copyGrid, type PrintSettings } from './printPlan';
 
 /** Wall around the hanging loop hole (backend `LOOP_WALL_MM`). */
 const LOOP_WALL_MM = 2;
@@ -154,6 +154,28 @@ export function fitWidthMm(
   const ratio = Math.min(scale(size.x_mm, maxX, border), scale(size.y_mm, maxY, border + loop));
   const width = Math.floor(settings.widthMm * ratio);
   return width >= 1 && width < settings.widthMm ? width : null;
+}
+
+/**
+ * The most copies, up to the ones asked for, whose grid fits the bed, or null when they
+ * fit already or not even one does. `size` is the whole batch of `copies`.
+ */
+export function copiesThatFit(size: ModelSize, copies: number, printer: Printer): number | null {
+  if (!printer.buildMm || copies <= 1) return null;
+  const [maxX, maxY, maxZ] = printer.buildMm;
+  if ((size.x_mm <= maxX && size.y_mm <= maxY) || size.z_mm > maxZ) return null;
+  const grid = copyGrid(copies);
+  const one = {
+    x: (size.x_mm - (grid.columns - 1) * COPY_GAP_MM) / grid.columns,
+    y: (size.y_mm - (grid.rows - 1) * COPY_GAP_MM) / grid.rows,
+  };
+  for (let count = copies - 1; count >= 1; count -= 1) {
+    const { columns, rows } = copyGrid(count);
+    const x = columns * one.x + (columns - 1) * COPY_GAP_MM;
+    const y = rows * one.y + (rows - 1) * COPY_GAP_MM;
+    if (x <= maxX && y <= maxY) return count;
+  }
+  return null;
 }
 
 /** At most this many tiles (`POST /export/tiles`). */

@@ -3,6 +3,7 @@ import { DEFAULT_PRINT } from './printPlan';
 import {
   ANY_LAYERS,
   buildProblems,
+  copiesThatFit,
   fitToPrinter,
   fitWidthMm,
   layerChoices,
@@ -82,5 +83,22 @@ describe('printers', () => {
     expect(tileGrid({ x_mm: 260, y_mm: 260, z_mm: 300 }, kobraX)).toBeNull();
     expect(tileGrid({ x_mm: 2000, y_mm: 2000, z_mm: 3 }, kobraX)).toBeNull(); // 64 tiles
     expect(tileGrid({ x_mm: 410, y_mm: 100, z_mm: 3 }, printerById('any'))).toBeNull();
+  });
+});
+
+describe('copiesThatFit', () => {
+  // Six 60 x 40 mm copies: 3 columns and 2 rows, 5 mm apart.
+  const six = { x_mm: 3 * 60 + 10, y_mm: 2 * 40 + 5, z_mm: 3 };
+
+  it('finds the most copies whose grid fits the bed', () => {
+    const small = { ...kobraX, buildMm: [130, 90, 100] as [number, number, number] };
+    expect(copiesThatFit(six, 6, small)).toBe(4); // 2 x 2: 125 x 85 mm
+    expect(copiesThatFit(six, 6, kobraX)).toBeNull(); // fits already
+  });
+
+  it('gives up when even one copy is too large or the batch is one model', () => {
+    const tiny = { ...kobraX, buildMm: [50, 50, 100] as [number, number, number] };
+    expect(copiesThatFit(six, 6, tiny)).toBeNull();
+    expect(copiesThatFit({ x_mm: 900, y_mm: 10, z_mm: 3 }, 1, kobraX)).toBeNull();
   });
 });

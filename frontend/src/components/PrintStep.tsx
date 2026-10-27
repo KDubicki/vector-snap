@@ -7,6 +7,8 @@ import {
   outlined,
   heightPlan,
   nextSelection,
+  COPY_GAP_MM,
+  MAX_COPIES,
   layersToMm,
   mixPlan,
   cutoutChange,
@@ -47,6 +49,7 @@ import type { PreviewRequest } from './ModelPreview';
 import { PrintColorsTable } from './PrintColorsTable';
 import { PrintDownloads, type PrintFormat } from './PrintDownloads';
 import { PrintSettingsFile } from './PrintSettingsFile';
+import { NumberField } from './NumberField';
 import { PrintSummary } from './PrintSummary';
 import { PrintUndo } from './PrintUndo';
 import { PrinterPicker } from './PrinterPicker';
@@ -337,6 +340,18 @@ export function PrintStep() {
         )}
 
         <PrinterTuningFields settings={print} errors={errors} onChange={update} />
+
+        <NumberField
+          id="print-copies"
+          label="Copies on the bed"
+          value={print.copies}
+          min={1}
+          max={MAX_COPIES}
+          step={1}
+          hint={`Printed together in a grid, ${COPY_GAP_MM} mm apart: a batch of magnets or keychains in one go.`}
+          error={errors.copies}
+          onChange={(copies) => update({ copies })}
+        />
 
         <FilamentSlotsCheck
           printer={printer}

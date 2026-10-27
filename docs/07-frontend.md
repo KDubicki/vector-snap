@@ -336,6 +336,13 @@ unit-tested), opened from the "3D print →" button next to Download SVG at the 
   the backend cuts them (*2 × 1 tiles of 205 × 260 mm, printed one by one and joined
   edge to edge*), and `POST /export/tiles` with the bed as `tile_x_mm` / `tile_y_mm`
   downloads `<image>.tiles.zip`, one 3MF per tile. More than 36 tiles offer none.
+- **Copies on the bed** (`copies`, 1–100, kept when a project is chosen): the model is
+  printed that many times in one go, in a grid as square as possible 5 mm apart
+  (`copyGrid`, as the backend), sent as `copies` with every model request, so the
+  footprint, grams and build check are the whole batch's. A batch too large for the bed
+  offers **Print 9 copies (fit the bed)** instead of fitting the width or tiles:
+  `copiesThatFit` (`src/lib/printers.ts`) takes one copy's size out of the batch and
+  finds the most copies whose grid fits.
 - **Thin shapes** (`ThinShapesCheck`, any printer): like the size, the panel asks
   `POST /export/print-check` with the nozzle as `nozzle_mm` (`usePrintCheck` in
   `src/lib/useBackendResult.ts`) and names the shapes narrower than it where they print:

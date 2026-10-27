@@ -96,4 +96,22 @@ describe('BuildVolumeCheck', () => {
     );
     expect(container).toBeEmptyDOMElement();
   });
+
+  it('offers fewer copies, not a smaller or tiled model, for a batch too large', async () => {
+    const onChange = vi.fn();
+    render(
+      <BuildVolumeCheck
+        printer={kobraX}
+        settings={{ ...settings, widthMm: 100, copies: 9 }}
+        size={{ x_mm: 3 * 100 + 10, y_mm: 3 * 50 + 10, z_mm: 3 }}
+        onChange={onChange}
+        onTiles={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole('button', { name: /Fit to the bed/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /tiles/ })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Print 4 copies (fit the bed)' }));
+    expect(onChange).toHaveBeenCalledWith({ copies: 4 }); // 2 x 2: 205 x 105 mm
+  });
 });

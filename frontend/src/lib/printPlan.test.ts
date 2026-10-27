@@ -8,6 +8,7 @@ import {
   filamentMatches,
   PROJECTS,
   applyProject,
+  copyGrid,
   cutoutChange,
   heightPlan,
   layersToMm,
@@ -494,5 +495,25 @@ describe('reliefRaise', () => {
     expect(filamentMatches(doc, settings({ style: 'mixed' }), [white])).toBeUndefined();
     expect(filamentMatches(doc, settings({ style: 'cutout' }), [white])).toBeUndefined();
     expect(filamentMatches(doc, settings(), [])?.size).toBe(0);
+  });
+});
+
+describe('copies', () => {
+  it('lays copies out in a grid as square as possible, like the backend', () => {
+    expect([1, 2, 4, 5, 10].map(copyGrid)).toEqual([
+      { columns: 1, rows: 1 },
+      { columns: 2, rows: 1 },
+      { columns: 2, rows: 2 },
+      { columns: 3, rows: 2 },
+      { columns: 4, rows: 3 },
+    ]);
+  });
+
+  it('sends the copies, checks them and keeps them across projects', () => {
+    expect(printOptions(doc, settings({ copies: 6 }))).toMatchObject({ copies: 6 });
+    expect(validatePrint(doc, settings({ copies: 0 })).copies).toBe('Between 1 and 100 copies.');
+    expect(validatePrint(doc, settings({ copies: 2.5 })).copies).toBeDefined();
+    expect(validatePrint(doc, settings({ copies: 6 })).copies).toBeUndefined();
+    expect(applyProject(settings({ copies: 6 }), 'magnet').copies).toBe(6);
   });
 });

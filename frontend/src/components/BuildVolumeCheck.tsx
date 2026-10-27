@@ -1,5 +1,5 @@
 import type { PrintSettings } from '../lib/printPlan';
-import { buildProblems, fitWidthMm, tileGrid, type Printer } from '../lib/printers';
+import { buildProblems, copiesThatFit, fitWidthMm, tileGrid, type Printer } from '../lib/printers';
 import type { ModelSize } from '../types/api';
 
 interface BuildVolumeCheckProps {
@@ -38,13 +38,21 @@ export function BuildVolumeCheck({
       </p>
     );
   }
-  const width = fitWidthMm(settings, size, printer);
-  const tiles = tileGrid(size, printer);
+  // A batch of copies too large for the bed: fewer copies, not a smaller or tiled model.
+  const batch = settings.copies > 1;
+  const fewer = batch ? copiesThatFit(size, settings.copies, printer) : null;
+  const width = batch ? null : fitWidthMm(settings, size, printer);
+  const tiles = batch ? null : tileGrid(size, printer);
   return (
     <div className="print-build print-build--over" role="status">
       <p className="field-error">
         Model {model} is too large for the {printer.label}: {problems.join('; ')}.
       </p>
+      {fewer !== null && (
+        <button type="button" className="secondary" onClick={() => onChange({ copies: fewer })}>
+          Print {fewer} {fewer === 1 ? 'copy' : 'copies'} (fit the bed)
+        </button>
+      )}
       {width !== null && (
         <button type="button" className="secondary" onClick={() => onChange({ widthMm: width })}>
           Fit to the bed ({width} mm wide)

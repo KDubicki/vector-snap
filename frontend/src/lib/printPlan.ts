@@ -94,6 +94,8 @@ export interface PrintSettings {
   shapeRaise: Record<string, number>;
   /** Loaded filaments for mixed colors; the first one prints the base plate. */
   filaments: Filament[];
+  /** Copies printed together on the bed, in a grid `COPY_GAP_MM` apart. */
+  copies: number;
 }
 
 /** Settings that belong to the design or the printer, so projects keep them. */
@@ -111,6 +113,7 @@ export const KEPT_BY_PROJECTS = [
   'elephantFootMm',
   'simplifyMm',
   'colorGapMm',
+  'copies',
 ] as const;
 
 /** Settings a project applies. */
@@ -206,7 +209,18 @@ export const DEFAULT_PRINT: PrintSettings = {
   elephantFootMm: 0,
   simplifyMm: 0,
   colorGapMm: 0,
+  copies: 1,
 };
+
+/** Space between copies on the bed (mm), the backend's `copy_gap_mm` default. */
+export const COPY_GAP_MM = 5;
+export const MAX_COPIES = 100;
+
+/** Columns and rows of `copies` on the bed, as the backend lays them out. */
+export function copyGrid(copies: number): { columns: number; rows: number } {
+  const columns = Math.ceil(Math.sqrt(copies));
+  return { columns, rows: Math.ceil(copies / columns) };
+}
 
 /** Apply a project's settings; colors, style and filaments stay. Custom changes nothing. */
 export function applyProject(settings: PrintSettings, id: ProjectId): PrintSettings {
@@ -341,6 +355,9 @@ export function validatePrint(doc: EditorDoc, settings: PrintSettings): Record<s
     if (!isHexColor(settings.outlineColor)) errors.outlineColor = 'Choose a color.';
   }
   if (settings.rimMm > 0 && base <= 0) errors.rimMm = 'A rim needs a base.';
+  if (!Number.isInteger(settings.copies) || settings.copies < 1 || settings.copies > MAX_COPIES) {
+    errors.copies = `Between 1 and ${MAX_COPIES} copies.`;
+  }
   if (settings.elephantFootMm > 0 && base <= 0) {
     errors.elephantFootMm = "Elephant's foot compensation needs a base.";
   }
@@ -425,6 +442,7 @@ export function printOptions(
     simplify_mm: settings.simplifyMm,
     color_gap_mm: settings.colorGapMm,
     mirror: settings.mirror,
+    copies: settings.copies,
     ...mixed,
   };
 }
