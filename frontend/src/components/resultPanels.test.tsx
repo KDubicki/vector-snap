@@ -66,6 +66,32 @@ describe('EditorPalettePanel', () => {
     const { container } = render(<EditorPalettePanel />);
     expect(container).toBeEmptyDOMElement();
   });
+
+  it('offers to recolor every color to my filaments', async () => {
+    useAppStore.setState({
+      filamentLibrary: { owned: ['#f7f7f5', '#c12e1f'], custom: [] },
+    });
+    render(<EditorPalettePanel />);
+
+    const list = screen.getByRole('list', { name: 'Colors and the filaments they become' });
+    expect(within(list).getAllByText('Red').length).toBeGreaterThan(0);
+    await userEvent.click(screen.getByRole('button', { name: 'Use my filaments' }));
+
+    expect(new Set(store().editor!.groups.map((group) => group.fill))).toEqual(
+      new Set(['#f7f7f5', '#c12e1f']),
+    );
+    expect(store().notice).toBe('Every color is now one of your filaments: 2 filaments.');
+    expect(screen.getByText('Every color is one of your filaments.')).toBeInTheDocument();
+    store().undo();
+    expect(store().editor).toEqual(sampleDoc());
+  });
+
+  it('asks for the filaments when none are chosen', () => {
+    useAppStore.setState({ filamentLibrary: { owned: [], custom: [] } });
+    render(<EditorPalettePanel />);
+
+    expect(screen.getByText(/Choose the filaments you have/)).toBeInTheDocument();
+  });
 });
 
 describe('SmallShapesSelector', () => {

@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
+import { filamentChanges } from '../editor/filamentSnap';
 import { findSimilarColors } from '../editor/similarColors';
 import { SIMILAR_LEVELS } from '../lib/color';
+import { availableFilaments } from '../lib/filamentLibrary';
 import { useAppStore } from '../state/store';
 
 const LEVELS = SIMILAR_LEVELS.filter((level) => level.value > 0);
@@ -12,6 +14,13 @@ export function EditorPalettePanel() {
   const recolorGroup = useAppStore((s) => s.recolorGroup);
   const select = useAppStore((s) => s.select);
   const mergeSimilarColors = useAppStore((s) => s.mergeSimilarColors);
+  const snapToFilaments = useAppStore((s) => s.snapToFilaments);
+  const library = useAppStore((s) => s.filamentLibrary);
+  const filaments = useMemo(() => availableFilaments(library), [library]);
+  const changes = useMemo(
+    () => (editor ? filamentChanges(editor, filaments) : []),
+    [editor, filaments],
+  );
   const [level, setLevel] = useState(DEFAULT_LEVEL);
   const similar = useMemo(() => editor && findSimilarColors(editor, level), [editor, level]);
 
@@ -97,6 +106,40 @@ export function EditorPalettePanel() {
           Colors this close print as filaments nobody can tell apart (CIEDE2000: under 1 invisible,
           1–2 only side by side). The color covering less joins the other one.
         </span>
+      </div>
+      <div className="field merged-colors">
+        <span>My filaments</span>
+        {!filaments.length ? (
+          <span className="hint">
+            Choose the filaments you have under My filaments in the colors step.
+          </span>
+        ) : changes.length ? (
+          <>
+            <ul aria-label="Colors and the filaments they become">
+              {changes.map((change) => (
+                <li key={change.paletteIndex}>
+                  <span className="merged-colors__swatch" style={{ background: change.fill }} />
+                  <code>{change.fill}</code>→
+                  <span
+                    className="merged-colors__swatch"
+                    style={{ background: change.filament.color }}
+                  />
+                  <span>{change.filament.name}</span>
+                  <span className="hint">ΔE {change.deltaE.toFixed(1)}</span>
+                </li>
+              ))}
+            </ul>
+            <button type="button" className="secondary" onClick={() => snapToFilaments(filaments)}>
+              Use my filaments
+            </button>
+            <span className="hint">
+              Every color becomes the closest filament you have, so the print matches the SVG;
+              colors that become the same filament join.
+            </span>
+          </>
+        ) : (
+          <span className="hint">Every color is one of your filaments.</span>
+        )}
       </div>
     </>
   );

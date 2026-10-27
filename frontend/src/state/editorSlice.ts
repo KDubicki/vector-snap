@@ -10,6 +10,7 @@ import {
   recolorShapes,
   resetShapeColors,
 } from '../editor/operations';
+import { snapToFilaments } from '../editor/filamentSnap';
 import { findSimilarColors, mergeSimilarColors } from '../editor/similarColors';
 import { cutWithRegion, splitAlongLine } from '../editor/split';
 import {
@@ -19,6 +20,7 @@ import {
   translation,
   type SelectionTransform,
 } from '../editor/transform';
+import type { LibraryFilament } from '../lib/filamentLibrary';
 import { placeFragment, type Fragment, type PlaceOptions } from '../lib/fragments';
 import type { AppState } from './store';
 
@@ -48,6 +50,8 @@ export interface EditorActions {
   recolorGroup: (paletteIndex: number, fill: string) => void;
   /** Merge colors closer than `maxDeltaE` (CIEDE2000) into one: groups and own colors. */
   mergeSimilarColors: (maxDeltaE: number) => void;
+  /** Recolor every color to the closest of `filaments`; groups of one filament join. */
+  snapToFilaments: (filaments: LibraryFilament[]) => void;
   /** Split fully crossed shapes (the selection, if any) along a line in document coordinates. */
   splitWithLine: (line: Point[]) => void;
   /**
@@ -198,6 +202,20 @@ export const createEditorSlice: StateCreator<AppState, [], [], EditorSlice> = (s
       return {
         ...commit(state, mergeSimilarColors(state.editor, similar)),
         notice: `Merged ${merged === 1 ? '1 color' : `${merged} colors`} into a similar one.`,
+      };
+    }),
+
+  snapToFilaments: (filaments) =>
+    set((state) => {
+      if (!state.editor || !filaments.length) return {};
+      const snapped = snapToFilaments(state.editor, filaments);
+      const used = new Set(snapped.groups.map((group) => group.fill)).size;
+      if (snapped === state.editor) {
+        return { notice: 'Every color is one of your filaments already.' };
+      }
+      return {
+        ...commit(state, snapped),
+        notice: `Every color is now one of your filaments: ${used === 1 ? '1 filament' : `${used} filaments`}.`,
       };
     }),
 

@@ -254,6 +254,18 @@ Recoloring, placed fragments and opened SVGs can leave colors nobody can tell ap
   shapes of a merged group move on top of the group they join (as with *Move to color
   group*) keeping own colors that differ; the listed own colors are dropped. One undo step.
 
+## My filaments ✅
+
+**My filaments** under *Similar colors* lists, for every color group, the closest of the
+filaments chosen in the colors step (*My filaments*, `filamentLibrary.owned`), by
+CIEDE2000: *#fe014d → Magenta ΔE 14.8*. **Use my filaments** (`snapToFilaments` in
+`src/editor/filamentSnap.ts`, one undo step) recolors every group and every own shape
+color to its filament; groups that become the same filament join like similar colors
+(the one covering more stays), and own colors that become their group's filament
+follow the group. The SVG then prints exactly with the loaded filaments. Without
+chosen filaments the section says where to choose them; when every color is a
+filament's already it says so.
+
 ## Undo / redo ✅
 
 Snapshot-based (`src/editor/history.ts`) instead of a command pattern: every edit is a
