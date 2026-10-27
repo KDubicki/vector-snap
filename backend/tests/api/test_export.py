@@ -678,3 +678,29 @@ def test_stencil_options_are_checked(client: TestClient, form: dict[str, str], c
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == code
+
+
+def test_exports_coloring_pages(client: TestClient) -> None:
+    response = _post(client, "coloring-page", {"page": "letter", "numbers": "false"})
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/pdf"
+    assert response.content.startswith(b"%PDF")
+
+
+@pytest.mark.parametrize(
+    ("form", "code"),
+    [
+        ({"page": "fit"}, "VALIDATION_ERROR"),
+        ({"line_mm": "0"}, "VALIDATION_ERROR"),
+        ({"numbers": "maybe"}, "INVALID_PARAMETERS"),
+        ({"exclude_colors": "[0, 1]"}, "INVALID_PARAMETERS"),
+    ],
+)
+def test_coloring_page_options_are_checked(
+    client: TestClient, form: dict[str, str], code: str
+) -> None:
+    response = _post(client, "coloring-page", form)
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == code

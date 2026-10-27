@@ -60,6 +60,7 @@ backend/
 │       ├── filament_plan.py    # filament changes for single-extruder printers
 │       ├── print_check.py      # shapes narrower than the nozzle
 │       ├── color_changes.py    # changes, purge and filament use of multi-color printers
+│       ├── coloring_page.py    # SVG → coloring page / paint by numbers PDF
 │       ├── cookie_cutter.py    # SVG silhouette → cookie cutter STL
 │       ├── sticker.py          # SVG → print-and-cut sticker (CutContour)
 │       ├── stencil.py          # SVG → stencil sheet with bridges (SVG, DXF)

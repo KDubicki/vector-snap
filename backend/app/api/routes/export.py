@@ -21,6 +21,7 @@ from app.schemas.export import (
 )
 from app.schemas.palette import parse_palette_indices
 from app.services.color_changes import PLA_DENSITY, ChangeCosts, estimate_color_changes
+from app.services.coloring_page import ColoringOptions, ColoringPageSize, export_coloring_page
 from app.services.cookie_cutter import CookieCutterOptions, export_cookie_cutter
 from app.services.export_3mf import export_3mf
 from app.services.export_dxf import DxfOptions, export_dxf
@@ -457,3 +458,33 @@ async def export_to_stencil(
         response = _attachment(content, "image/svg+xml", "svg")
     response.headers["X-Stencil-Bridges"] = str(stencil.bridges)
     return response
+
+
+@router.post(
+    "/coloring-page",
+    response_class=Response,
+    responses={200: {"content": {"application/pdf": {}}, "description": "One-page PDF"}},
+)
+async def export_to_coloring_page(
+    document: UploadedSvg,
+    page: Annotated[ColoringPageSize, Form(description="a4 or letter")] = "a4",
+    margin_mm: Annotated[float, Form(ge=0, le=50, description="Page margin")] = 12.0,
+    line_mm: Annotated[float, Form(ge=0.1, le=3, description="Outline width")] = 0.4,
+    numbers: Annotated[
+        str | None,
+        Form(description="Paint by numbers: numbered regions and a legend; default true"),
+    ] = None,
+    exclude_colors: Annotated[
+        str, Form(description="JSON array of palette indices left white, e.g. the background")
+    ] = "[]",
+) -> Response:
+    """Outlines of every color region on a page, to color in or paint by numbers."""
+    options = ColoringOptions(
+        page=page,
+        margin_mm=margin_mm,
+        line_mm=line_mm,
+        numbers=parse_flag(numbers, "numbers", default=True),
+        exclude=frozenset(parse_palette_indices(exclude_colors, "exclude_colors")),
+    )
+    content = await run_in_threadpool(export_coloring_page, document, options)
+    return _attachment(content, "application/pdf", "pdf")

@@ -13,6 +13,7 @@ of the microservice can use it too.
 | 3MF | `POST /api/v1/export/3mf` | Multi-color / multi-material 3D printing (AMS, MMU, tool changers) | ✅ |
 | 3MF tiles (ZIP) | `POST /api/v1/export/tiles` | A model larger than the bed, cut into tiles that each fit | ✅ |
 | Cookie cutter (STL) | `POST /api/v1/export/cookie-cutter` | Cutter following the design's silhouette: blade and flange | ✅ |
+| Coloring page (PDF) | `POST /api/v1/export/coloring-page` | Outlines to color in, or paint by numbers with a legend | ✅ |
 | Stencil (SVG, DXF) | `POST /api/v1/export/stencil` | Sheet to cut for spray paint or screen printing; islands held by bridges | ✅ |
 | Sticker (SVG, PDF) | `POST /api/v1/export/sticker` | Print-and-cut sticker: background around the design, `CutContour` cut line | ✅ |
 | Lithophane (STL) | `POST /api/v1/export/lithophane` | Backlit photo plate made from the **original image** | ✅ |
@@ -440,6 +441,29 @@ curl -F svg=@face.svg -F border_mm=3 -F exclude_colors='[0]' -F sticker_format=p
   print-then-cut.
 - A design whose background covers the whole canvas gives a rectangular sticker: leave
   it out with `exclude_colors`.
+
+## Coloring page
+
+```bash
+curl -F svg=@face.svg -F exclude_colors='[0]' \
+     http://localhost:8000/api/v1/export/coloring-page -o face-coloring.pdf
+```
+
+| Option | Default | Meaning |
+|--------|---------|---------|
+| `page` | `a4` | `a4` or `letter`; landscape when the design is wider than tall |
+| `margin_mm` | `12` | Page margin (0–50) |
+| `line_mm` | `0.4` | Outline width (0.1–3) |
+| `numbers` | `true` | Paint by numbers: numbered regions and a legend; `false` = plain coloring page |
+| `exclude_colors` | `[]` | Palette indices left white and unnumbered, such as the background |
+
+- `app/services/coloring_page.py`. Every shape keeps what it **shows**: shapes above it
+  are cut out (stacked SVGs would otherwise outline hidden edges). The edges of those
+  regions are drawn black, scaled to fit the page and hung from the top margin.
+- **Numbers** follow the order colors first appear, bottom to top. Each region gets its
+  number at its pole of inaccessibility (the point farthest from its edges, `polylabel`),
+  4.5–14 pt to fit; slivers too thin for 4.5 pt stay unnumbered. The legend under the
+  drawing shows each color as a swatch with its number and hex value.
 
 ## Stencil
 
