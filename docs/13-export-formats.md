@@ -500,6 +500,7 @@ curl -F svg=@logo.svg -F width_mm=150 -F exclude_colors='[0]' -D - \
 | `margin_mm` | `10` | Sheet around the cuts (1–100) |
 | `bridge_mm` | `1.5` | Bridge width (0.2–20) |
 | `bridges` | `horizontal` | `horizontal`, `vertical` or `both` (two bridges each way: sturdier, more to touch up) |
+| `per_color` | `false` | A ZIP of one stencil per color, `stencil-<n>-<rrggbb>.<format>` |
 | `exclude_colors` | `[]` | Palette indices left out, such as the background |
 
 - `app/services/stencil.py`. The **cuts** are the kept colors united (pieces under
@@ -511,6 +512,11 @@ curl -F svg=@logo.svg -F width_mm=150 -F exclude_colors='[0]' -D - \
   sheet always comes out in one piece. The `X-Stencil-Bridges` header says how many.
 - The SVG has the sheet outline and the cuts (black, even-odd); cutting software follows
   both as paths.
+- **One per color** (`per_color`): the cuts of each color (its shapes whole, as it is
+  painted bottom color first), every stencil on the same sheet around all colors, so
+  lining up the sheet edges registers the colors. Colors are numbered in painting
+  order. Without it, all kept colors are cut as one stencil, which for a design in
+  several colors is just its silhouette.
 
 ## Lithophane
 

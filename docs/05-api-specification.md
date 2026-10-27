@@ -261,7 +261,7 @@ as an attachment (`Content-Disposition: attachment; filename="vectorsnap.<ext>"`
 Formats, options and geometry are described in [13-export-formats.md](13-export-formats.md).
 
 **True/false form fields** that default to `true` (`layered`, `slicer_config` and
-`thumbnail` of the 3MF, `mirror` of the cookie cutter, `numbers` of the coloring page) are read as text — `true`/`false`, `1`/`0`, `yes`/`no`, `on`/`off`;
+`thumbnail` of the 3MF, `mirror` of the cookie cutter, `numbers` of the coloring page, `per_color` of the stencil) are read as text — `true`/`false`, `1`/`0`, `yes`/`no`, `on`/`off`;
 anything else is `422 INVALID_PARAMETERS` — so leaving them out keeps the default.
 FastAPI 0.149 and later read a missing `bool` form field as an unchecked checkbox (false).
 
@@ -275,7 +275,7 @@ FastAPI 0.149 and later read a missing `bool` form field as an unchecked checkbo
 | `sticker` | `image/svg+xml`, `application/pdf` | `sticker_format` (`svg` \| `pdf`, default `svg`), `width_mm` (0–1000, 70), `border_mm` (0–50, 3), `background` (`#rrggbb`, `#ffffff`), `smooth_mm` (0–10, 1), `margin_mm` (0–100, 5; PDF), `exclude_colors` (JSON `[index, ...]`) |
 | `palette` | `text/plain`, `application/octet-stream`, `text/css`, `application/json` | `palette_format` (`gpl` \| `ase` \| `css` \| `json`, default `gpl`), `title` (1–100 characters, `VectorSnap`; the GPL name) |
 | `coloring-page` | `application/pdf` | `page` (`a4` \| `letter`, default `a4`), `margin_mm` (0–50, 12), `line_mm` (0.1–3, 0.4), `numbers` (bool, true: paint by numbers), `exclude_colors` (JSON `[index, ...]`, left white) |
-| `stencil` | `image/svg+xml`, `image/vnd.dxf` | `stencil_format` (`svg` \| `dxf`, default `svg`), `width_mm` (0–10000, 100), `margin_mm` (1–100, 10), `bridge_mm` (0.2–20, 1.5), `bridges` (`horizontal` \| `vertical` \| `both`), `exclude_colors` (JSON `[index, ...]`); header `X-Stencil-Bridges`: bridges added |
+| `stencil` | `image/svg+xml`, `image/vnd.dxf` | `stencil_format` (`svg` \| `dxf`, default `svg`), `width_mm` (0–10000, 100), `margin_mm` (1–100, 10), `bridge_mm` (0.2–20, 1.5), `bridges` (`horizontal` \| `vertical` \| `both`), `per_color` (bool, false: a ZIP of one stencil per color, `stencil-<n>-<rrggbb>.<format>`), `exclude_colors` (JSON `[index, ...]`); header `X-Stencil-Bridges`: bridges added |
 | `lithophane` | `model/stl` | Takes `image` (the JPEG/PNG upload) instead of `svg`. `width_mm` (0–1000, default 100), `min_thickness_mm` (0.2–10, 0.8), `max_thickness_mm` (0.2–20, 3; > `min_thickness_mm`), `resolution_mm` (0.05–5, 0.2; at most 1,000,000 grid points), `frame_mm` (0–50, 0), `invert` (bool, false) |
 | `dxf` | `image/vnd.dxf` | `width_mm` (0–10000, default 100), `fill` (bool, false) |
 | `pdf` | `application/pdf` | `page` (`fit` \| `a4` \| `letter`, default `fit`), `width_mm` (0–10000, 100), `margin_mm` (0–100, 10) |

@@ -4,11 +4,14 @@ The cuts are the kept colors united; the sheet is a rectangle around them. Cutti
 inside of an O would drop its middle: every piece of sheet that the cuts set loose (an
 island) is held by **bridges**, strips of sheet left across the cut on both sides of
 it. They run horizontally through the island first; islands still loose after that
-(held only by other loose islands) get vertical bridges too. See
+(held only by other loose islands) get vertical bridges too. For a design in several
+colors, one stencil per color, all on the same sheet, are painted one after the other.
+See
 docs/13-export-formats.md#stencil.
 """
 
 import io
+import zipfile
 from dataclasses import dataclass, replace
 from typing import Literal
 
@@ -19,6 +22,7 @@ from shapely.geometry.base import BaseGeometry
 
 from app import __version__
 from app.core.errors import InvalidParameters
+from app.services.export_layers import color_documents
 from app.services.svg_geometry import SVG_NS, VectorDocument, layer_geometries, polygons
 
 StencilFormat = Literal["svg", "dxf"]
@@ -37,6 +41,7 @@ class StencilOptions:
     margin_mm: float = 10.0  # sheet around the cuts
     bridge_mm: float = 1.5  # bridge width
     bridges: BridgeDirection = "horizontal"  # first direction tried
+    per_color: bool = False  # a ZIP of one stencil per color instead of one for all
     exclude: frozenset[int] = frozenset()  # palette indices left out, e.g. the background
 
 
@@ -81,20 +86,28 @@ def _bridged(
     return cuts - strips, len(lines)
 
 
-def stencil_layout(document: VectorDocument, options: StencilOptions) -> Stencil:
+def _kept(document: VectorDocument, options: StencilOptions) -> VectorDocument:
     kept = replace(
         document,
         layers=[layer for layer in document.layers if layer.palette_index not in options.exclude],
     )
     if not kept.layers:
         raise InvalidParameters("Every color is excluded.", {"field": "exclude_colors"})
+    return kept
+
+
+def _design_cuts(document: VectorDocument, options: StencilOptions) -> BaseGeometry:
+    """The document's shapes united in mm (y down), specks dropped; may be empty."""
     scale = options.width_mm / document.width
-    design = affinity.scale(unary_union(layer_geometries(kept)), scale, scale, origin=(0, 0))
-    pieces = [piece for piece in polygons(design) if piece.area >= MIN_CUT_MM2]
-    if not pieces:
-        raise InvalidParameters("The design has nothing large enough to cut.", {"field": "svg"})
-    cuts: BaseGeometry = unary_union(pieces)
-    left, top, right, bottom = cuts.bounds
+    design = affinity.scale(unary_union(layer_geometries(document)), scale, scale, origin=(0, 0))
+    return unary_union([piece for piece in polygons(design) if piece.area >= MIN_CUT_MM2])
+
+
+def _on_sheet(
+    cuts: BaseGeometry, bounds: tuple[float, float, float, float], options: StencilOptions
+) -> Stencil:
+    """`cuts` on the sheet `margin_mm` around `bounds`, bridged."""
+    left, top, right, bottom = bounds
     margin = options.margin_mm
     cuts = affinity.translate(cuts, margin - left, margin - top)
     sheet = box(0, 0, right - left + 2 * margin, bottom - top + 2 * margin)
@@ -106,8 +119,33 @@ def stencil_layout(document: VectorDocument, options: StencilOptions) -> Stencil
     # held by nothing but other loose islands.
     again = islands if options.bridges == "both" else _loose(sheet, cuts)
     cuts, added = _bridged(sheet, cuts, again, options.bridge_mm, not vertical)
-    count += added
-    return Stencil(sheet, cuts, count)
+    return Stencil(sheet, cuts, count + added)
+
+
+def _nothing_to_cut() -> InvalidParameters:
+    return InvalidParameters("The design has nothing large enough to cut.", {"field": "svg"})
+
+
+def stencil_layout(document: VectorDocument, options: StencilOptions) -> Stencil:
+    """One stencil for all kept colors together."""
+    cuts = _design_cuts(_kept(document, options), options)
+    if cuts.is_empty:
+        raise _nothing_to_cut()
+    return _on_sheet(cuts, cuts.bounds, options)
+
+
+def color_stencils(document: VectorDocument, options: StencilOptions) -> list[tuple[str, Stencil]]:
+    """One stencil per kept color, bottom to top (the order to paint them), all on the
+    same sheet so they line up: the sheet's edges are the registration."""
+    colors = [
+        (single.layers[0].fill, _design_cuts(single, options))
+        for single in color_documents(_kept(document, options))
+    ]
+    colors = [(fill, cuts) for fill, cuts in colors if not cuts.is_empty]
+    if not colors:
+        raise _nothing_to_cut()
+    bounds = unary_union([cuts for _, cuts in colors]).bounds
+    return [(fill, _on_sheet(cuts, bounds, options)) for fill, cuts in colors]
 
 
 def _number(value: float) -> str:
@@ -176,8 +214,21 @@ def _dxf(stencil: Stencil) -> bytes:
     return stream.getvalue().encode("utf-8")
 
 
-def export_stencil(document: VectorDocument, options: StencilOptions) -> tuple[bytes, Stencil]:
-    """The stencil file and its layout (for the bridge count)."""
-    stencil = stencil_layout(document, options)
-    content = _svg(stencil) if options.stencil_format == "svg" else _dxf(stencil)
-    return content, stencil
+def _render(stencil: Stencil, options: StencilOptions) -> bytes:
+    return _svg(stencil) if options.stencil_format == "svg" else _dxf(stencil)
+
+
+def export_stencil(document: VectorDocument, options: StencilOptions) -> tuple[bytes, int]:
+    """The stencil file, or with `per_color` a ZIP of `stencil-<n>-<rrggbb>.<format>`,
+    and how many bridges were added."""
+    if not options.per_color:
+        stencil = stencil_layout(document, options)
+        return _render(stencil, options), stencil.bridges
+    buffer = io.BytesIO()
+    bridges = 0
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        for number, (fill, stencil) in enumerate(color_stencils(document, options), start=1):
+            name = f"stencil-{number:02d}-{fill[1:]}.{options.stencil_format}"
+            archive.writestr(name, _render(stencil, options))
+            bridges += stencil.bridges
+    return buffer.getvalue(), bridges

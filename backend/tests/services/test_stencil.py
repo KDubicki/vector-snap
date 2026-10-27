@@ -1,3 +1,5 @@
+import io
+import zipfile
 from dataclasses import replace
 
 import pytest
@@ -5,7 +7,13 @@ from lxml import etree
 from shapely import Polygon
 
 from app.core.errors import InvalidParameters
-from app.services.stencil import BridgeDirection, StencilOptions, export_stencil, stencil_layout
+from app.services.stencil import (
+    BridgeDirection,
+    StencilOptions,
+    color_stencils,
+    export_stencil,
+    stencil_layout,
+)
 from app.services.svg_geometry import VectorDocument, parse_svg, polygons
 from tests.vectors import contract_svg
 
@@ -56,7 +64,8 @@ def test_both_bridges_every_island_both_ways() -> None:
 
 
 def test_svg_and_dxf_hold_the_sheet_and_the_cuts() -> None:
-    svg, _ = export_stencil(_document(LETTER_O), OPTIONS)
+    svg, bridges = export_stencil(_document(LETTER_O), OPTIONS)
+    assert bridges == 2
     root = etree.fromstring(svg)
     sheet, cuts = list(root)
     assert (root.get("width"), root.get("height")) == ("50mm", "50mm")
@@ -78,3 +87,29 @@ def test_svg_and_dxf_hold_the_sheet_and_the_cuts() -> None:
 def test_nothing_to_cut_is_an_error(options: StencilOptions, message: str) -> None:
     with pytest.raises(InvalidParameters, match=message):
         export_stencil(_document(LETTER_O), options)
+
+
+def test_one_stencil_per_color_on_the_same_sheet() -> None:
+    document = parse_svg(
+        contract_svg(
+            100,
+            60,
+            [
+                ("#ffffff", [BACKGROUND]),
+                ("#ff0000", [LETTER_O]),
+                ("#0000ff", ["M50,20 H90 V40 H50 Z"]),
+            ],
+        )
+    )
+    stencils = color_stencils(document, OPTIONS)
+
+    assert [fill for fill, _ in stencils] == ["#ff0000", "#0000ff"]
+    (_, red), (_, blue) = stencils
+    assert red.sheet.bounds == blue.sheet.bounds == (0, 0, 100, 50)
+    assert (red.bridges, blue.bridges) == (2, 0)
+    assert blue.cuts.bounds == (50, 20, 90, 40)  # lines up with the red one
+
+    data, bridges = export_stencil(document, replace(OPTIONS, per_color=True))
+    with zipfile.ZipFile(io.BytesIO(data)) as archive:
+        assert archive.namelist() == ["stencil-01-ff0000.svg", "stencil-02-0000ff.svg"]
+    assert bridges == 2

@@ -424,7 +424,7 @@ async def export_to_sticker(
     response_class=Response,
     responses={
         200: {
-            "content": {"image/svg+xml": {}, "image/vnd.dxf": {}},
+            "content": {"image/svg+xml": {}, "image/vnd.dxf": {}, "application/zip": {}},
             "description": "Sheet and cuts; X-Stencil-Bridges: bridges added",
         }
     },
@@ -438,6 +438,10 @@ async def export_to_stencil(
     bridges: Annotated[
         BridgeDirection, Form(description="Bridges across islands: horizontal, vertical, both")
     ] = "horizontal",
+    per_color: Annotated[
+        str | None,
+        Form(description="A ZIP of one stencil per color on the same sheet; default false"),
+    ] = None,
     exclude_colors: Annotated[
         str, Form(description="JSON array of palette indices to leave out, e.g. the background")
     ] = "[]",
@@ -450,14 +454,17 @@ async def export_to_stencil(
         margin_mm=margin_mm,
         bridge_mm=bridge_mm,
         bridges=bridges,
+        per_color=parse_flag(per_color, "per_color", default=False),
         exclude=frozenset(parse_palette_indices(exclude_colors, "exclude_colors")),
     )
-    content, stencil = await run_in_threadpool(export_stencil, document, options)
-    if stencil_format == "dxf":
+    content, bridges_added = await run_in_threadpool(export_stencil, document, options)
+    if options.per_color:
+        response = _attachment(content, "application/zip", "zip")
+    elif stencil_format == "dxf":
         response = _attachment(content, "image/vnd.dxf", "dxf")
     else:
         response = _attachment(content, "image/svg+xml", "svg")
-    response.headers["X-Stencil-Bridges"] = str(stencil.bridges)
+    response.headers["X-Stencil-Bridges"] = str(bridges_added)
     return response
 
 

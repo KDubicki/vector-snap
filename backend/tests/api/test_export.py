@@ -664,6 +664,10 @@ def test_exports_stencils_with_their_bridge_count(client: TestClient) -> None:
     assert dxf.headers["content-type"] == "image/vnd.dxf"
     assert dxf.headers["x-stencil-bridges"] == "4"
 
+    per_color = _post(client, "stencil", {"per_color": "true"})
+    assert per_color.headers["content-type"] == "application/zip"
+    assert per_color.headers["content-disposition"].endswith('.zip"')
+
 
 @pytest.mark.parametrize(
     ("form", "code"),
