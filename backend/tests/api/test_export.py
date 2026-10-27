@@ -615,3 +615,38 @@ def test_cookie_cutter_options_are_checked(
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == code
+
+
+@pytest.mark.parametrize(
+    ("sticker_format", "media_type", "start"),
+    [("svg", "image/svg+xml", b"<?xml"), ("pdf", "application/pdf", b"%PDF")],
+)
+def test_exports_stickers(
+    client: TestClient, sticker_format: str, media_type: str, start: bytes
+) -> None:
+    response = _post(
+        client,
+        "sticker",
+        {"sticker_format": sticker_format, "border_mm": "2", "exclude_colors": "[1]"},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith(media_type)
+    assert response.headers["content-disposition"].endswith(f'.{sticker_format}"')
+    assert response.content.startswith(start)
+    assert b"CutContour" in response.content
+
+
+@pytest.mark.parametrize(
+    ("form", "code"),
+    [
+        ({"sticker_format": "png"}, "VALIDATION_ERROR"),
+        ({"background": "white"}, "VALIDATION_ERROR"),
+        ({"exclude_colors": "[0, 1]"}, "INVALID_PARAMETERS"),
+    ],
+)
+def test_sticker_options_are_checked(client: TestClient, form: dict[str, str], code: str) -> None:
+    response = _post(client, "sticker", form)
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == code

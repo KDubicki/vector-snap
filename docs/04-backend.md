@@ -61,6 +61,7 @@ backend/
 │       ├── print_check.py      # shapes narrower than the nozzle
 │       ├── color_changes.py    # changes, purge and filament use of multi-color printers
 │       ├── cookie_cutter.py    # SVG silhouette → cookie cutter STL
+│       ├── sticker.py          # SVG → print-and-cut sticker (CutContour)
 │       ├── lithophane.py       # image → lithophane STL
 │       ├── export_layers.py    # SVG → ZIP of one SVG/DXF/PDF per color
 │       ├── export_dxf.py       # SVG → DXF (outlines per color layer)

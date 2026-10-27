@@ -33,6 +33,7 @@ from app.services.filament_plan import filament_plan
 from app.services.image_io import decode_image
 from app.services.lithophane import LithophaneOptions, export_lithophane
 from app.services.print_check import check_print
+from app.services.sticker import StickerFormat, StickerOptions, export_sticker
 from app.services.tiles import export_tiles
 
 router = APIRouter(prefix="/export", tags=["export"])
@@ -363,3 +364,48 @@ async def export_to_cookie_cutter(
     )
     content = await run_in_threadpool(export_cookie_cutter, document, options)
     return _attachment(content, "model/stl", "stl")
+
+
+@router.post(
+    "/sticker",
+    response_class=Response,
+    responses={
+        200: {
+            "content": {"image/svg+xml": {}, "application/pdf": {}},
+            "description": "SVG or PDF with a CutContour line",
+        }
+    },
+)
+async def export_to_sticker(
+    document: UploadedSvg,
+    sticker_format: Annotated[StickerFormat, Form(description="svg or pdf")] = "svg",
+    width_mm: Annotated[float, Form(gt=0, le=1000, description="Design width")] = 70.0,
+    border_mm: Annotated[
+        float, Form(ge=0, le=50, description="Background beyond the design's outline")
+    ] = 3.0,
+    background: Annotated[
+        str, Form(pattern=r"^#[0-9a-fA-F]{6}$", description="Background color, #rrggbb")
+    ] = "#ffffff",
+    smooth_mm: Annotated[
+        float, Form(ge=0, le=10, description="Close notches narrower than twice this")
+    ] = 1.0,
+    margin_mm: Annotated[float, Form(ge=0, le=100, description="Page margin (PDF)")] = 5.0,
+    exclude_colors: Annotated[
+        str, Form(description="JSON array of palette indices to leave out, e.g. the background")
+    ] = "[]",
+) -> Response:
+    """Print-and-cut sticker: the design on a background around its outline, and a
+    `CutContour` line along the background's edge for the plotter."""
+    options = StickerOptions(
+        sticker_format=sticker_format,
+        width_mm=width_mm,
+        border_mm=border_mm,
+        background=background.lower(),
+        smooth_mm=smooth_mm,
+        margin_mm=margin_mm,
+        exclude=frozenset(parse_palette_indices(exclude_colors, "exclude_colors")),
+    )
+    content = await run_in_threadpool(export_sticker, document, options)
+    if sticker_format == "pdf":
+        return _attachment(content, "application/pdf", "pdf")
+    return _attachment(content, "image/svg+xml", "svg")

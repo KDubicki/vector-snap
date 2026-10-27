@@ -7,6 +7,7 @@ inside the margins. See docs/13-export-formats.md#pdf.
 """
 
 import io
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal
 
@@ -52,6 +53,27 @@ def _placement(document: VectorDocument, options: PdfOptions) -> _Placement:
     return _Placement(scale, x, y, (width, height))
 
 
+def draw_shapes(
+    canvas: Canvas, document: VectorDocument, point: Callable[[Point], tuple[float, float]]
+) -> None:
+    """Fill every shape of the document in its color, bottom layer first; `point` maps
+    document px to page points."""
+    for layer in document.layers:
+        for shape in layer.shapes:
+            path = canvas.beginPath()
+            for command, points in curve_path(shape.d):
+                if command == "M":
+                    path.moveTo(*point(points[0]))
+                elif command == "L":
+                    path.lineTo(*point(points[0]))
+                elif command == "C":
+                    path.curveTo(*point(points[0]), *point(points[1]), *point(points[2]))
+                else:
+                    path.close()
+            canvas.setFillColor(shape.fill)
+            canvas.drawPath(path, stroke=0, fill=1, fillMode=FILL_NON_ZERO)
+
+
 def export_pdf(document: VectorDocument, options: PdfOptions) -> bytes:
     """Return a one-page PDF with every shape filled in its color."""
     placement = _placement(document, options)
@@ -67,20 +89,7 @@ def export_pdf(document: VectorDocument, options: PdfOptions) -> bytes:
     canvas.setTitle("VectorSnap export")
     canvas.setCreator(f"VectorSnap {__version__}")
 
-    for layer in document.layers:
-        for shape in layer.shapes:
-            path = canvas.beginPath()
-            for command, points in curve_path(shape.d):
-                if command == "M":
-                    path.moveTo(*point(points[0]))
-                elif command == "L":
-                    path.lineTo(*point(points[0]))
-                elif command == "C":
-                    path.curveTo(*point(points[0]), *point(points[1]), *point(points[2]))
-                else:
-                    path.close()
-            canvas.setFillColor(shape.fill)
-            canvas.drawPath(path, stroke=0, fill=1, fillMode=FILL_NON_ZERO)
+    draw_shapes(canvas, document, point)
 
     canvas.showPage()
     canvas.save()

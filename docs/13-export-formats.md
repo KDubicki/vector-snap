@@ -13,6 +13,7 @@ of the microservice can use it too.
 | 3MF | `POST /api/v1/export/3mf` | Multi-color / multi-material 3D printing (AMS, MMU, tool changers) | ✅ |
 | 3MF tiles (ZIP) | `POST /api/v1/export/tiles` | A model larger than the bed, cut into tiles that each fit | ✅ |
 | Cookie cutter (STL) | `POST /api/v1/export/cookie-cutter` | Cutter following the design's silhouette: blade and flange | ✅ |
+| Sticker (SVG, PDF) | `POST /api/v1/export/sticker` | Print-and-cut sticker: background around the design, `CutContour` cut line | ✅ |
 | Lithophane (STL) | `POST /api/v1/export/lithophane` | Backlit photo plate made from the **original image** | ✅ |
 | Layers (ZIP) | `POST /api/v1/export/layers` | One SVG, DXF or PDF per color: vinyl cutters, screen printing, laser cutting | ✅ |
 | DXF | `POST /api/v1/export/dxf` | Laser cutters, vinyl plotters, CNC | ✅ |
@@ -409,6 +410,35 @@ curl -F svg=@star.svg -F width_mm=70 -F exclude_colors='[0]' \
   background out with `exclude_colors` (or remove it in the palette step before tracing).
 - Checked in Anycubic Slicer Next (Kobra X, 0.2 mm): the sample face, background left
   out, slices into an oval cutter of 67 × 55 mm, 4.9 g, 13 min.
+
+## Sticker
+
+```bash
+curl -F svg=@face.svg -F border_mm=3 -F exclude_colors='[0]' -F sticker_format=pdf \
+     http://localhost:8000/api/v1/export/sticker -o face-sticker.pdf
+```
+
+| Option | Default | Meaning |
+|--------|---------|---------|
+| `sticker_format` | `svg` | `svg` (mm) or `pdf` (page fitted to the cut line plus `margin_mm`) |
+| `width_mm` | `70` | Design width (0–1000); the border comes on top |
+| `border_mm` | `3` | Background beyond the design's silhouette (0–50; 0 = cut along the design) |
+| `background` | `#ffffff` | Background color, `#rrggbb` |
+| `smooth_mm` | `1` | Notches narrower than twice this are closed: a cutter blade cannot follow them (0–10) |
+| `margin_mm` | `5` | PDF page margin around the cut line (0–100) |
+| `exclude_colors` | `[]` | Palette indices left out, such as a background around the design |
+
+- `app/services/sticker.py`. The **silhouette** is the cookie cutter's (holes filled,
+  notches closed, specks under 4 mm² dropped), grown by `border_mm` with round joins.
+  Separate pieces become separate stickers on one sheet.
+- The file stacks the **background** (the grown silhouette in `background`), the
+  **design** (the kept colors, exact curves) and the **cut line**: a hairline along the
+  background's edge, a path with id `CutContour` in magenta in the SVG and the spot color
+  (separation) `CutContour`, overprinted, in the PDF. Roland, Mimaki and Summa RIPs cut
+  along that spot color without printing it; Cricut and Silhouette import the SVG for
+  print-then-cut.
+- A design whose background covers the whole canvas gives a rectangular sticker: leave
+  it out with `exclude_colors`.
 
 ## Lithophane
 

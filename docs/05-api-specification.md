@@ -21,6 +21,7 @@ Responses are JSON unless stated otherwise. Errors use the format described in
 | `POST` | `/api/v1/export/stl` | SVG → STL 3D model ([details](13-export-formats.md#stl)) |
 | `POST` | `/api/v1/export/3mf` | SVG → multi-color 3MF ([details](13-export-formats.md#3mf)) |
 | `POST` | `/api/v1/export/cookie-cutter` | SVG silhouette → cookie cutter STL ([details](13-export-formats.md#cookie-cutter)) |
+| `POST` | `/api/v1/export/sticker` | SVG → print-and-cut sticker, SVG or PDF ([details](13-export-formats.md#sticker)) |
 | `POST` | `/api/v1/export/dxf` | SVG → DXF outlines per color ([details](13-export-formats.md#dxf)) |
 | `POST` | `/api/v1/export/pdf` | SVG → vector PDF ([details](13-export-formats.md#pdf)) |
 | `POST` | `/api/v1/export/eps` | SVG → Encapsulated PostScript ([details](13-export-formats.md#eps)) |
@@ -268,6 +269,7 @@ FastAPI 0.149 and later read a missing `bool` form field as an unchecked checkbo
 | `stl-parts` | `application/zip` | same as `stl` (including `stl_format`); one STL per body plus `colors.txt` (file, color, filament number, z range, volume) |
 | `tiles` | `application/zip` | same as `3mf`; plus `tile_x_mm`, `tile_y_mm` (10–10000, 220): the largest tile. One 3MF per tile, `tile-r<row>-c<column>.3mf`, plus `tiles.txt` (file, row, column, width, depth); at most 36 tiles |
 | `cookie-cutter` | `model/stl` | `width_mm` (0–500, default 80), `height_mm` (3–60, 15), `wall_mm` (0.4–5, 1.2), `flange_mm` (0–20, 4), `flange_height_mm` (0–20, 2; < `height_mm`), `smooth_mm` (0–10, 1), `mirror` (bool, true), `exclude_colors` (JSON `[index, ...]`) |
+| `sticker` | `image/svg+xml`, `application/pdf` | `sticker_format` (`svg` \| `pdf`, default `svg`), `width_mm` (0–1000, 70), `border_mm` (0–50, 3), `background` (`#rrggbb`, `#ffffff`), `smooth_mm` (0–10, 1), `margin_mm` (0–100, 5; PDF), `exclude_colors` (JSON `[index, ...]`) |
 | `lithophane` | `model/stl` | Takes `image` (the JPEG/PNG upload) instead of `svg`. `width_mm` (0–1000, default 100), `min_thickness_mm` (0.2–10, 0.8), `max_thickness_mm` (0.2–20, 3; > `min_thickness_mm`), `resolution_mm` (0.05–5, 0.2; at most 1,000,000 grid points), `frame_mm` (0–50, 0), `invert` (bool, false) |
 | `dxf` | `image/vnd.dxf` | `width_mm` (0–10000, default 100), `fill` (bool, false) |
 | `pdf` | `application/pdf` | `page` (`fit` \| `a4` \| `letter`, default `fit`), `width_mm` (0–10000, 100), `margin_mm` (0–100, 10) |
