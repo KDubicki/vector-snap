@@ -122,6 +122,10 @@ def stl_options(
     elephant_foot_mm: Annotated[
         float, Form(ge=0, le=0.5, description="Inset the base plate's first layer; 0 = off")
     ] = 0.0,
+    copies: Annotated[
+        int, Form(ge=1, le=100, description="Copies of the model on the bed, in a grid")
+    ] = 1,
+    copy_gap_mm: Annotated[float, Form(ge=0, le=100, description="Space between the copies")] = 5.0,
     filaments: Annotated[
         str,
         Form(description='Mixed colors: loaded filaments, e.g. ["#ffffff", "#ff0000"]'),
@@ -167,6 +171,8 @@ def stl_options(
         elephant_foot_mm=elephant_foot_mm,
         filaments=parse_filaments(filaments),
         color_stacks=parse_color_stacks(color_stacks),
+        copies=copies,
+        copy_gap_mm=copy_gap_mm,
     )
 
 

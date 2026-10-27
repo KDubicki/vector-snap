@@ -58,6 +58,11 @@ def build_tiles(
 ) -> list[Tile]:
     """The model cut into the fewest equal tiles of at most `tile_x_mm` x `tile_y_mm`;
     cells the model leaves empty are skipped."""
+    if options.copies > 1:
+        raise InvalidParameters(
+            "Tiles cut one model larger than the bed; print copies of each tile instead.",
+            {"field": "copies"},
+        )
     corner = replace(options, origin="corner")
     points = np.concatenate(
         [body.triangles.reshape(-1, 3) for body in build_bodies(document, corner)]

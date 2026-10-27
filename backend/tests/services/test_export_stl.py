@@ -8,6 +8,7 @@ import pytest
 from app.core.errors import InvalidParameters
 from app.services.export_stl import (
     build_bodies,
+    copy_grid,
     export_stl,
     export_stl_parts,
     model_size,
@@ -924,3 +925,26 @@ def test_hanging_loop_on_the_side_widens_the_model() -> None:
 
     # The ring (4 mm hole, 2 mm wall) sticks out 6 mm to the left; the height is unchanged.
     assert (side.x_mm, side.y_mm) == pytest.approx((plain.x_mm + 6, plain.y_mm), abs=0.01)
+
+
+@pytest.mark.parametrize(
+    ("copies", "grid"), [(1, (1, 1)), (2, (2, 1)), (4, (2, 2)), (5, (3, 2)), (10, (4, 3))]
+)
+def test_copies_fill_a_grid_as_square_as_possible(copies: int, grid: tuple[int, int]) -> None:
+    assert copy_grid(copies) == grid
+
+
+def test_copies_repeat_every_body_in_a_grid_on_the_bed() -> None:
+    groups = [("#ffffff", ["M0,0 H40 V20 H0 Z"]), ("#ff0000", ["M10,5 H30 V15 H10 Z"])]
+    one = _bodies(StlOptions(width_mm=40, base_mm=1, layer_mm=1), groups)
+    six = _bodies(StlOptions(width_mm=40, base_mm=1, layer_mm=1, copies=6, copy_gap_mm=5), groups)
+
+    assert list(six) == list(one)  # still one body per color
+    for name in one:
+        assert signed_volume(six[name].triangles) == pytest.approx(
+            6 * signed_volume(one[name].triangles)
+        )
+        assert is_balanced(six[name].triangles)
+    document = parse_svg(contract_svg(40, 20, groups))
+    size = model_size(document, StlOptions(width_mm=40, copies=6, copy_gap_mm=5))
+    assert (size.x_mm, size.y_mm) == (3 * 40 + 2 * 5, 2 * 20 + 5)

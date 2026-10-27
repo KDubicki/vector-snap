@@ -112,3 +112,8 @@ def test_exports_a_3mf_per_tile_and_lists_them() -> None:
             model = package.read("3D/3dmodel.model").decode()
     assert listing == "tile-r1-c1.3mf\t1\t1\t20\t20\ntile-r1-c2.3mf\t1\t2\t20\t20\n"
     assert "Sign (row 1, column 2)" in model
+
+
+def test_tiles_do_not_take_copies() -> None:
+    with pytest.raises(InvalidParameters, match="copies of each tile"):
+        build_tiles(_document([("#000000", [PLATE])]), StlOptions(width_mm=40, copies=2), 20, 20)

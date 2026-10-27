@@ -97,6 +97,10 @@ class StlOptions:
     # one per filament and height range instead of one per color.
     filaments: tuple[str, ...] = ()
     color_stacks: Mapping[int, ColorStack] = field(default_factory=dict)
+    # Copies of the model on the bed, in rows and columns as square as possible, this far
+    # apart (mm): a batch of magnets or keychains in one print.
+    copies: int = 1
+    copy_gap_mm: float = 5.0
 
 
 @dataclass(frozen=True)

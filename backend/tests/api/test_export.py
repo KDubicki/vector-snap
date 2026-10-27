@@ -735,3 +735,26 @@ def test_palette_format_is_checked(client: TestClient) -> None:
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_model_size_counts_every_copy(client: TestClient) -> None:
+    one = client.post(
+        "/api/v1/export/model-size",
+        files={"svg": ("doc.svg", SVG, "image/svg+xml")},
+        data={"width_mm": "40"},
+    ).json()
+    four = client.post(
+        "/api/v1/export/model-size",
+        files={"svg": ("doc.svg", SVG, "image/svg+xml")},
+        data={"width_mm": "40", "copies": "4", "copy_gap_mm": "10"},
+    ).json()
+
+    assert four["x_mm"] == pytest.approx(2 * one["x_mm"] + 10)
+    assert four["y_mm"] == pytest.approx(2 * one["y_mm"] + 10)
+
+
+def test_copies_are_checked(client: TestClient) -> None:
+    response = _post(client, "3mf", {"copies": "0"})
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"

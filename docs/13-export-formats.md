@@ -81,6 +81,8 @@ curl -F svg=@logo.svg -F width_mm=120 -F base_mm=1.5 -F layer_mm=0.8 \
 | `outline_color` | `#000000` | Outline filament (`#rrggbb`) |
 | `outline_height_mm` | `0` | Outline height above the base (0–100); `0` = as high as the tallest color (a flat top), more stands out like a cookie cutter's edge |
 | `elephant_foot_mm` | `0` | Elephant's foot compensation (0–0.5 mm): the first printer layer of the base plate (`print_layer_mm`, or 0.2 mm) is inset by this much, so the squashed first layer does not bulge past the walls; needs `base_mm > 0`. `0` = off |
+| `copies` | `1` | Copies of the model on the bed (1–100), in a grid as square as possible: a batch of magnets or keychains in one print |
+| `copy_gap_mm` | `5` | Space between the copies (0–100) |
 | `mirror` | `false` | Mirror horizontally — for stamps or printing the top face down on the bed |
 | `origin` | `corner` | Where the model sits: `corner` keeps the design's coordinates (x and y from 0), `center` puts the middle of its footprint at x = y = 0 — for CAD, CNC and tools that do not re-center imports. z always starts at 0 |
 | `print_layer_mm` | `0` | Printer layer height (≤ 1 mm): the base and every color are rounded to whole layers, so each color ends exactly on a layer boundary; `0` keeps the exact heights |
@@ -189,6 +191,12 @@ Model construction:
   above the base. Outlines need colors standing on the plate: with `relief` `inlay` or
   `engrave`, or with mixed colors, the export is `422 INVALID_PARAMETERS` (`field`
   `outline_mm`). In a 3MF the outline is one more filament, so it takes an AMS/ACE slot.
+- **Copies** (`copies`, `copy_gap_mm`): the finished model is repeated in columns and
+  rows (`ceil(√copies)` columns, left to right, front to back), `copy_gap_mm` apart. Every
+  body holds all its copies, so the 3MF keeps one part per filament and the slicer
+  assigns the filaments once; `model-size` and the printer check measure the whole batch.
+  Tiles take no copies (`422`, field `copies`). Six 50 mm round face magnets sliced in
+  Anycubic Slicer Next for the Kobra X in 43 min, 16 g.
 - **Elephant's foot** (`elephant_foot_mm`): the first layer is squashed onto the bed and
   bulges out, which spoils fitted parts and sharp bottom edges. The base plate's lowest
   `print_layer_mm` (0.2 mm when not set) is offset inward with mitred joins
@@ -280,7 +288,7 @@ curl -F svg=@logo.svg -F base_mm=1 -F layer_heights='{"0": 0}' \
 ```
 
 Same options and the same bodies as STL (`width_mm`, `base_mm`, `base_shape`,
-`base_margin_mm`, `stack_order`, `relief`, `origin`, `simplify_mm`, `color_gap_mm`, `rim_mm`, `rim_height_mm`, `loop_hole_mm`, `loop_position`, `magnet_mm`, `magnet_depth_mm`, `magnet_count`, `elephant_foot_mm`, `layer_mm`, `layered`, `layer_heights`, `shape_heights`, `mirror`, `min_feature_mm`,
+`base_margin_mm`, `stack_order`, `relief`, `origin`, `simplify_mm`, `color_gap_mm`, `rim_mm`, `rim_height_mm`, `loop_hole_mm`, `loop_position`, `magnet_mm`, `magnet_depth_mm`, `magnet_count`, `elephant_foot_mm`, `copies`, `copy_gap_mm`, `layer_mm`, `layered`, `layer_heights`, `shape_heights`, `mirror`, `min_feature_mm`,
 `print_layer_mm`, `filaments`, `color_stacks`), but packaged so a slicer keeps the colors apart — STL has no
 notion of parts or colors.
 

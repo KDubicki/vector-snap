@@ -21,6 +21,7 @@ See docs/13-export-formats.md.
 """
 
 import io
+import math
 import zipfile
 from dataclasses import dataclass
 
@@ -278,7 +279,34 @@ def build_bodies(
             f"Nothing to export: every shape is thinner than {options.min_feature_mm:g} mm.",
             {"field": "min_feature_mm"},
         )
+    if clip is None:
+        bodies = _copied(bodies, options.copies, options.copy_gap_mm)
     return _placed(bodies, options.origin)
+
+
+def copy_grid(copies: int) -> tuple[int, int]:
+    """Columns and rows for `copies`, as square as possible, wider than deep."""
+    columns = math.ceil(math.sqrt(copies))
+    return columns, math.ceil(copies / columns)
+
+
+def _copied(bodies: list[Body], copies: int, gap: float) -> list[Body]:
+    """Every body repeated `copies` times in a grid, left to right and front to back,
+    `gap` apart: each body keeps its color and holds all its copies, so the 3MF still has
+    one part per filament."""
+    if copies <= 1:
+        return bodies
+    points = np.concatenate([body.triangles for body in bodies]).reshape(-1, 3)
+    width, depth = points[:, :2].max(axis=0) - points[:, :2].min(axis=0)
+    columns, _ = copy_grid(copies)
+    shifts = [
+        np.array([column * (width + gap), row * (depth + gap), 0.0])
+        for row, column in (divmod(copy, columns) for copy in range(copies))
+    ]
+    return [
+        Body(body.name, body.color, np.concatenate([body.triangles + shift for shift in shifts]))
+        for body in bodies
+    ]
 
 
 def _check_options(options: StlOptions, base: float) -> None:
