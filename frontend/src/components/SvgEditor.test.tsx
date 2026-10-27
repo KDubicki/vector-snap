@@ -1,12 +1,15 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { findShape } from '../editor/model';
+import { download } from '../lib/download';
 import { shapesBounds } from '../editor/transform';
 import { useAppStore } from '../state/store';
 import { sampleDoc } from '../test/fixtures';
 import { SvgEditor } from './SvgEditor';
+
+vi.mock('../lib/download', () => ({ download: vi.fn() }));
 
 const store = () => useAppStore.getState();
 
@@ -282,5 +285,36 @@ describe('SvgEditor', () => {
       [20, 25],
     ]); // starts and ends inside the shape
     expect(screen.getByText(/Draw a line that fully crosses a shape/)).toBeInTheDocument();
+  });
+
+  it('lists the shortcuts on ? and from the toolbar', async () => {
+    const user = userEvent.setup();
+    setup();
+
+    await user.keyboard('?');
+    const dialog = screen.getByRole('dialog', { name: 'Keyboard shortcuts' });
+    expect(dialog).toHaveTextContent('Knife (split along a line)');
+    expect(dialog).toHaveTextContent('Download the SVG');
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Keyboard shortcuts' }));
+    expect(screen.getByRole('dialog', { name: 'Keyboard shortcuts' })).toBeInTheDocument();
+  });
+
+  it('downloads the edited SVG on Ctrl/Cmd+S', async () => {
+    const user = userEvent.setup();
+    useAppStore.setState({ file: new File(['png'], 'logo.png', { type: 'image/png' }) });
+    setup();
+    store().select(ids()[0]);
+    store().deleteSelection();
+    expect(store().savedDoc).not.toBe(store().editor);
+
+    await user.keyboard('{Control>}s{/Control}');
+
+    expect(download).toHaveBeenCalledWith(expect.any(Blob), 'logo.svg');
+    const svg = await vi.mocked(download).mock.calls[0][0].text();
+    expect(svg.match(/<path /g)).toHaveLength(ids().length); // the deleted shape is gone
+    expect(store().savedDoc).toBe(store().editor);
   });
 });

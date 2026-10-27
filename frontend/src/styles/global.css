@@ -1346,6 +1346,65 @@ select {
   line-height: 1.45;
 }
 
+/* Editor keyboard shortcuts (`?`) */
+.shortcuts {
+  width: min(640px, calc(100vw - 32px));
+}
+
+.shortcuts__groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 8px 24px;
+  margin-bottom: 20px;
+}
+
+.shortcuts h3 {
+  margin: 8px 0 6px;
+  color: var(--color-muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.shortcuts dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 12px;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.shortcuts dt {
+  white-space: nowrap;
+}
+
+.shortcuts dd {
+  margin: 0;
+}
+
+.shortcuts kbd {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 1px 5px;
+  border: 1px solid var(--color-border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--color-bg);
+  font-family: inherit;
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.shortcuts__or {
+  color: var(--color-muted);
+  font-size: 0.8rem;
+}
+
+.editor__help {
+  min-width: 32px;
+  font-weight: 600;
+}
+
 /* 3D print step */
 .print-main {
   display: flex;

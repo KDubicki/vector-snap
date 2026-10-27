@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'react';
+import { serializeSvg } from '../editor/export';
 import { EditorScene, type ViewPoint } from '../editor/scene';
 import { BACKDROPS, readBackdrop, saveBackdrop, type Backdrop } from '../lib/backdrop';
+import { download } from '../lib/download';
+import { exportFileName } from '../lib/exportFormats';
 import { browserStorage } from '../lib/theme';
 import { useAppStore } from '../state/store';
+import { ShortcutsDialog } from './ShortcutsDialog';
 
 const DRAG_THRESHOLD_PX = 3;
 const WHEEL_ZOOM_STEP = 1.15;
@@ -106,6 +110,7 @@ export function SvgEditor() {
     saveBackdrop(browserStorage(), value);
   };
   const [tool, setTool] = useState<Tool>('select');
+  const [showShortcuts, setShowShortcuts] = useState(false);
 
   // Create the Paper.js scene once and keep it sized to the viewport element.
   // The wrapper is observed, not the canvas: on HiDPI screens Paper.js writes an inline
@@ -203,6 +208,19 @@ export function SvgEditor() {
       if ((event.metaKey || event.ctrlKey) && key === 'a') {
         event.preventDefault();
         store.selectAll();
+        return;
+      }
+      if ((event.metaKey || event.ctrlKey) && key === 's') {
+        event.preventDefault(); // not the browser's "save page"
+        download(
+          new Blob([serializeSvg(doc)], { type: 'image/svg+xml' }),
+          exportFileName(store.file?.name, 'svg'),
+        );
+        store.markSaved();
+        return;
+      }
+      if (event.key === '?') {
+        setShowShortcuts(true);
         return;
       }
       if (event.metaKey || event.ctrlKey || event.altKey) return;
@@ -481,8 +499,18 @@ export function SvgEditor() {
             </button>
           ))}
         </div>
+        <button
+          type="button"
+          className="editor__help"
+          aria-label="Keyboard shortcuts"
+          title="Keyboard shortcuts (?)"
+          onClick={() => setShowShortcuts(true)}
+        >
+          ?
+        </button>
         <span className="hint">{TOOLS.find((item) => item.id === tool)?.hint}</span>
       </div>
+      {showShortcuts && <ShortcutsDialog onClose={() => setShowShortcuts(false)} />}
       {notice && (
         <p className="editor__notice" role="status">
           {notice}

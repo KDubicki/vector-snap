@@ -300,4 +300,9 @@ computed from it.
 ## Keyboard shortcuts
 
 Listed in the tools table above; additionally `Esc` cancels the current tool action and
-`Ctrl/Cmd+S` triggers download.
+`Ctrl/Cmd+S` downloads the edited SVG (named after the image, like **Download SVG**, and
+marked as saved, instead of the browser saving the page). **`?`** — or the **?** button
+at the end of the toolbar — opens *Keyboard shortcuts* (`ShortcutsDialog`), every
+shortcut grouped by tools, selection, view, and file and history, with the keys as this
+keyboard prints them (⌘ and ⇧ on a Mac, Ctrl elsewhere). The list is data,
+`src/editor/shortcuts.ts`; the keys are handled in `SvgEditor`.
