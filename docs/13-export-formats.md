@@ -13,6 +13,7 @@ of the microservice can use it too.
 | 3MF | `POST /api/v1/export/3mf` | Multi-color / multi-material 3D printing (AMS, MMU, tool changers) | ✅ |
 | 3MF tiles (ZIP) | `POST /api/v1/export/tiles` | A model larger than the bed, cut into tiles that each fit | ✅ |
 | Cookie cutter (STL) | `POST /api/v1/export/cookie-cutter` | Cutter following the design's silhouette: blade and flange | ✅ |
+| Palette (GPL, ASE, CSS, JSON) | `POST /api/v1/export/palette` | The design's colors for GIMP, Inkscape, Adobe tools, the web and scripts | ✅ |
 | Coloring page (PDF) | `POST /api/v1/export/coloring-page` | Outlines to color in, or paint by numbers with a legend | ✅ |
 | Stencil (SVG, DXF) | `POST /api/v1/export/stencil` | Sheet to cut for spray paint or screen printing; islands held by bridges | ✅ |
 | Sticker (SVG, PDF) | `POST /api/v1/export/sticker` | Print-and-cut sticker: background around the design, `CutContour` cut line | ✅ |
@@ -441,6 +442,26 @@ curl -F svg=@face.svg -F border_mm=3 -F exclude_colors='[0]' -F sticker_format=p
   print-then-cut.
 - A design whose background covers the whole canvas gives a rectangular sticker: leave
   it out with `exclude_colors`.
+
+## Palette
+
+```bash
+curl -F svg=@logo.svg -F palette_format=ase \
+     http://localhost:8000/api/v1/export/palette -o logo.ase
+```
+
+`app/services/export_palette.py`. The colors the design **shows**, in the order they
+first appear bottom to top (colors hidden entirely under others are left out), named
+*Color 1 #rrggbb*, …:
+
+| `palette_format` | For | Content |
+|------------------|-----|---------|
+| `gpl` | GIMP, Inkscape, Krita | GIMP palette text: RGB and name per line, `Name:` = `title` |
+| `ase` | Illustrator, Photoshop, InDesign | Adobe Swatch Exchange 1.0: one RGB process color per swatch |
+| `css` | Web | `:root { --color-1: #rrggbb; /* 45.5% */ … }` |
+| `json` | Scripts | `{"colors": [{"number", "hex", "rgb", "share", "shapes"}, …]}` |
+
+`share` is the part of the design (all visible colors) a color covers, 0 to 1.
 
 ## Coloring page
 

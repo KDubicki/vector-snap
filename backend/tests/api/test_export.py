@@ -704,3 +704,30 @@ def test_coloring_page_options_are_checked(
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == code
+
+
+@pytest.mark.parametrize(
+    ("palette_format", "media_type", "start"),
+    [
+        ("gpl", "text/plain", b"GIMP Palette"),
+        ("ase", "application/octet-stream", b"ASEF"),
+        ("css", "text/css", b":root {"),
+        ("json", "application/json", b"{"),
+    ],
+)
+def test_exports_palettes(
+    client: TestClient, palette_format: str, media_type: str, start: bytes
+) -> None:
+    response = _post(client, "palette", {"palette_format": palette_format})
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith(media_type)
+    assert response.headers["content-disposition"].endswith(f'.{palette_format}"')
+    assert response.content.startswith(start)
+
+
+def test_palette_format_is_checked(client: TestClient) -> None:
+    response = _post(client, "palette", {"palette_format": "aco"})
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"

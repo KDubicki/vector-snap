@@ -27,6 +27,7 @@ from app.services.export_3mf import export_3mf
 from app.services.export_dxf import DxfOptions, export_dxf
 from app.services.export_eps import EpsOptions, export_eps
 from app.services.export_layers import LayerFormat, LayersOptions, export_layers
+from app.services.export_palette import MEDIA_TYPES, PaletteFormat, export_palette
 from app.services.export_pdf import PageSize, PdfOptions, export_pdf
 from app.services.export_png import PngOptions, export_png
 from app.services.export_stl import export_stl, export_stl_parts, model_size
@@ -488,3 +489,27 @@ async def export_to_coloring_page(
     )
     content = await run_in_threadpool(export_coloring_page, document, options)
     return _attachment(content, "application/pdf", "pdf")
+
+
+@router.post(
+    "/palette",
+    response_class=Response,
+    responses={
+        200: {
+            "content": {media: {} for media in MEDIA_TYPES.values()},
+            "description": "Palette file",
+        }
+    },
+)
+async def export_to_palette(
+    document: UploadedSvg,
+    palette_format: Annotated[
+        PaletteFormat, Form(description="gpl (GIMP, Inkscape), ase (Adobe), css or json")
+    ] = "gpl",
+    title: Annotated[
+        str, Form(min_length=1, max_length=100, description="Palette name (gpl)")
+    ] = "VectorSnap",
+) -> Response:
+    """The design's colors as a palette file, in order, with the share each one covers."""
+    content = await run_in_threadpool(export_palette, document, palette_format, title)
+    return _attachment(content, MEDIA_TYPES[palette_format], palette_format)
