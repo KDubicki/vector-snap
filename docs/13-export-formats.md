@@ -872,8 +872,11 @@ between the lithophane and the colored formats closes the other preview):
   lives in `src/lib/modelScene.ts` and is tested on real STL / 3MF data generated in the
   tests (`src/test/models.ts`); `ModelPreview` itself is tested with a stand-in renderer.
 
-The result step has an **Export to other formats** panel: choose STL, 3MF, lithophane, cookie cutter, colors (ZIP), DXF, PDF, EPS or PNG, adjust
+The result step has an **Export to other formats** panel: choose STL, 3MF, lithophane, cookie cutter, colors (ZIP), sticker, stencil, coloring page,
+palette, DXF, PDF, EPS or PNG, adjust
 its options (number, checkbox and choice options, validated in the browser with the same
 ranges as the API; each format remembers its own values) and download the file named
-after the uploaded image (`logo.png` → `logo.stl`). The export always uses
+after the uploaded image (`logo.png` → `logo.stl`; formats with a file format option name
+the file after it, `logo.sticker.pdf`, `logo.palette.ase`, or `logo.stencils.zip` for one
+stencil per color, on by default). The export always uses
 the **edited** document. Formats are declared in `src/lib/exportFormats.ts`.

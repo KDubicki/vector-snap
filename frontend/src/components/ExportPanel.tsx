@@ -6,6 +6,7 @@ import {
   changedCount,
   defaultValues,
   exportFileName,
+  formatExtension,
   modelTitle,
   optionSections,
   validate,
@@ -272,7 +273,9 @@ export function ExportPanel() {
           type="button"
           className="secondary"
           disabled={job.exporting || invalid}
-          onClick={() => void job.run(render, exportFileName(file?.name, format.extension))}
+          onClick={() =>
+            void job.run(render, exportFileName(file?.name, formatExtension(format, current)))
+          }
         >
           {job.exporting ? 'Exporting…' : `Export ${format.label}`}
         </button>

@@ -229,4 +229,63 @@ describe('ExportPanel', () => {
     expect(vi.mocked(exportFile).mock.calls[0][0]).toBe('layers');
     expect(vi.mocked(exportFile).mock.calls[0][2]).toEqual({ layer_format: 'dxf', width_mm: 100 });
   });
+
+  it.each([
+    ['Sticker', 'pdf', 'sticker', 'logo.sticker.pdf', { sticker_format: 'pdf', border_mm: 3 }],
+    [
+      'Stencil',
+      'dxf',
+      'stencil',
+      'logo.stencils.zip',
+      { stencil_format: 'dxf', bridges: 'horizontal', per_color: true },
+    ],
+    ['Palette', 'ase', 'palette', 'logo.palette.ase', { palette_format: 'ase' }],
+  ])('exports a %s in the chosen file format', async (label, fileFormat, id, fileName, options) => {
+    const u = user();
+    vi.mocked(exportFile).mockResolvedValue(new Blob(['file']));
+    await renderPanel();
+
+    await u.click(screen.getByRole('radio', { name: label }));
+    await u.selectOptions(screen.getByLabelText('File format'), fileFormat);
+    await u.click(screen.getByRole('button', { name: `Export ${label}` }));
+
+    await waitFor(() => expect(download).toHaveBeenCalledWith(expect.any(Blob), fileName));
+    expect(vi.mocked(exportFile).mock.calls[0][0]).toBe(id);
+    expect(vi.mocked(exportFile).mock.calls[0][2]).toMatchObject(options);
+  });
+
+  it('cuts one stencil for all colors when asked', async () => {
+    const u = user();
+    vi.mocked(exportFile).mockResolvedValue(new Blob(['svg']));
+    await renderPanel();
+
+    await u.click(screen.getByRole('radio', { name: 'Stencil' }));
+    await u.click(screen.getByLabelText(/^One stencil per color/));
+    await u.click(screen.getByRole('button', { name: 'Export Stencil' }));
+
+    await waitFor(() =>
+      expect(download).toHaveBeenCalledWith(expect.any(Blob), 'logo.stencil.svg'),
+    );
+    expect(vi.mocked(exportFile).mock.calls[0][2]).toMatchObject({ per_color: false });
+  });
+
+  it('exports a coloring page, plain or paint by numbers', async () => {
+    const u = user();
+    vi.mocked(exportFile).mockResolvedValue(new Blob(['pdf']));
+    await renderPanel();
+
+    await u.click(screen.getByRole('radio', { name: 'Coloring page' }));
+    await u.click(screen.getByLabelText('Paint by numbers (numbers and a legend)'));
+    await u.click(screen.getByRole('button', { name: 'Export Coloring page' }));
+
+    await waitFor(() =>
+      expect(download).toHaveBeenCalledWith(expect.any(Blob), 'logo.coloring.pdf'),
+    );
+    expect(vi.mocked(exportFile).mock.calls[0][0]).toBe('coloring-page');
+    expect(vi.mocked(exportFile).mock.calls[0][2]).toEqual({
+      numbers: false,
+      page: 'a4',
+      line_mm: 0.4,
+    });
+  });
 });
