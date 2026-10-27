@@ -650,3 +650,31 @@ def test_sticker_options_are_checked(client: TestClient, form: dict[str, str], c
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == code
+
+
+def test_exports_stencils_with_their_bridge_count(client: TestClient) -> None:
+    o_shape = contract_svg(40, 40, [("#000000", ["M0,0 H40 V40 H0 Z M10,10 V30 H30 V10 Z"])])
+    response = _post(client, "stencil", {"width_mm": "40"}, data=o_shape)
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("image/svg+xml")
+    assert response.headers["x-stencil-bridges"] == "2"
+
+    dxf = _post(client, "stencil", {"stencil_format": "dxf", "bridges": "both"}, data=o_shape)
+    assert dxf.headers["content-type"] == "image/vnd.dxf"
+    assert dxf.headers["x-stencil-bridges"] == "4"
+
+
+@pytest.mark.parametrize(
+    ("form", "code"),
+    [
+        ({"bridges": "diagonal"}, "VALIDATION_ERROR"),
+        ({"margin_mm": "0"}, "VALIDATION_ERROR"),
+        ({"exclude_colors": "[0, 1]"}, "INVALID_PARAMETERS"),
+    ],
+)
+def test_stencil_options_are_checked(client: TestClient, form: dict[str, str], code: str) -> None:
+    response = _post(client, "stencil", form)
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == code

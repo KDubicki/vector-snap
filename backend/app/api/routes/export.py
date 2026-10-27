@@ -33,6 +33,12 @@ from app.services.filament_plan import filament_plan
 from app.services.image_io import decode_image
 from app.services.lithophane import LithophaneOptions, export_lithophane
 from app.services.print_check import check_print
+from app.services.stencil import (
+    BridgeDirection,
+    StencilFormat,
+    StencilOptions,
+    export_stencil,
+)
 from app.services.sticker import StickerFormat, StickerOptions, export_sticker
 from app.services.tiles import export_tiles
 
@@ -409,3 +415,45 @@ async def export_to_sticker(
     if sticker_format == "pdf":
         return _attachment(content, "application/pdf", "pdf")
     return _attachment(content, "image/svg+xml", "svg")
+
+
+@router.post(
+    "/stencil",
+    response_class=Response,
+    responses={
+        200: {
+            "content": {"image/svg+xml": {}, "image/vnd.dxf": {}},
+            "description": "Sheet and cuts; X-Stencil-Bridges: bridges added",
+        }
+    },
+)
+async def export_to_stencil(
+    document: UploadedSvg,
+    stencil_format: Annotated[StencilFormat, Form(description="svg or dxf")] = "svg",
+    width_mm: Annotated[float, Form(gt=0, le=10_000, description="Design width")] = 100.0,
+    margin_mm: Annotated[float, Form(ge=1, le=100, description="Sheet around the cuts")] = 10.0,
+    bridge_mm: Annotated[float, Form(ge=0.2, le=20, description="Bridge width")] = 1.5,
+    bridges: Annotated[
+        BridgeDirection, Form(description="Bridges across islands: horizontal, vertical, both")
+    ] = "horizontal",
+    exclude_colors: Annotated[
+        str, Form(description="JSON array of palette indices to leave out, e.g. the background")
+    ] = "[]",
+) -> Response:
+    """Stencil sheet with the design cut out; islands, like the middle of an O, are held
+    by bridges so they do not fall out."""
+    options = StencilOptions(
+        stencil_format=stencil_format,
+        width_mm=width_mm,
+        margin_mm=margin_mm,
+        bridge_mm=bridge_mm,
+        bridges=bridges,
+        exclude=frozenset(parse_palette_indices(exclude_colors, "exclude_colors")),
+    )
+    content, stencil = await run_in_threadpool(export_stencil, document, options)
+    if stencil_format == "dxf":
+        response = _attachment(content, "image/vnd.dxf", "dxf")
+    else:
+        response = _attachment(content, "image/svg+xml", "svg")
+    response.headers["X-Stencil-Bridges"] = str(stencil.bridges)
+    return response

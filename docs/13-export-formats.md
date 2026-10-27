@@ -13,6 +13,7 @@ of the microservice can use it too.
 | 3MF | `POST /api/v1/export/3mf` | Multi-color / multi-material 3D printing (AMS, MMU, tool changers) | ✅ |
 | 3MF tiles (ZIP) | `POST /api/v1/export/tiles` | A model larger than the bed, cut into tiles that each fit | ✅ |
 | Cookie cutter (STL) | `POST /api/v1/export/cookie-cutter` | Cutter following the design's silhouette: blade and flange | ✅ |
+| Stencil (SVG, DXF) | `POST /api/v1/export/stencil` | Sheet to cut for spray paint or screen printing; islands held by bridges | ✅ |
 | Sticker (SVG, PDF) | `POST /api/v1/export/sticker` | Print-and-cut sticker: background around the design, `CutContour` cut line | ✅ |
 | Lithophane (STL) | `POST /api/v1/export/lithophane` | Backlit photo plate made from the **original image** | ✅ |
 | Layers (ZIP) | `POST /api/v1/export/layers` | One SVG, DXF or PDF per color: vinyl cutters, screen printing, laser cutting | ✅ |
@@ -439,6 +440,32 @@ curl -F svg=@face.svg -F border_mm=3 -F exclude_colors='[0]' -F sticker_format=p
   print-then-cut.
 - A design whose background covers the whole canvas gives a rectangular sticker: leave
   it out with `exclude_colors`.
+
+## Stencil
+
+```bash
+curl -F svg=@logo.svg -F width_mm=150 -F exclude_colors='[0]' -D - \
+     http://localhost:8000/api/v1/export/stencil -o logo-stencil.svg
+```
+
+| Option | Default | Meaning |
+|--------|---------|---------|
+| `stencil_format` | `svg` | `svg` (mm) or `dxf` (R2010, mm, layers `sheet` and `cuts`) |
+| `width_mm` | `100` | Design width (0–10000) |
+| `margin_mm` | `10` | Sheet around the cuts (1–100) |
+| `bridge_mm` | `1.5` | Bridge width (0.2–20) |
+| `bridges` | `horizontal` | `horizontal`, `vertical` or `both` (two bridges each way: sturdier, more to touch up) |
+| `exclude_colors` | `[]` | Palette indices left out, such as the background |
+
+- `app/services/stencil.py`. The **cuts** are the kept colors united (pieces under
+  1 mm² dropped); the **sheet** is the rectangle `margin_mm` around them.
+- **Bridges**: every piece of sheet the cuts set loose (the middle of an O, a ring
+  between two cuts) gets a line through it in the first direction; the stretches of cut
+  that line crosses on both sides of the piece stay sheet, `bridge_mm` wide. Pieces still
+  loose afterwards (held only by other loose pieces) get bridges the other way, so the
+  sheet always comes out in one piece. The `X-Stencil-Bridges` header says how many.
+- The SVG has the sheet outline and the cuts (black, even-odd); cutting software follows
+  both as paths.
 
 ## Lithophane
 

@@ -24,7 +24,7 @@ def create_app() -> FastAPI:
         allow_origins=settings.cors_origins,
         allow_methods=["GET", "POST"],
         allow_headers=["*"],
-        expose_headers=["X-Request-ID"],
+        expose_headers=["X-Request-ID", "X-Stencil-Bridges"],
     )
     app.middleware("http")(request_id_middleware)
     register_exception_handlers(app)
