@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useShallow } from 'zustand/react/shallow';
+import { ContinueSession } from './components/ContinueSession';
 import { ImageUpload } from './components/ImageUpload';
 import { PaletteStep } from './components/PaletteStep';
 import { PrintStep } from './components/PrintStep';
@@ -7,6 +8,7 @@ import { ResultStep } from './components/ResultStep';
 import { ThemeToggle } from './components/ThemeToggle';
 import { useConfirm } from './components/useConfirm';
 import { useDiscardGuard } from './components/useDiscardGuard';
+import { useAutosave } from './lib/useAutosave';
 import { hasUnsavedEdits } from './state/editorSlice';
 import { STEPS, reachableSteps, useAppStore, type Step } from './state/store';
 
@@ -41,6 +43,7 @@ export function App() {
   const { loadLimits, selectFile, goTo } = useAppStore.getState();
   const { confirm, dialog } = useConfirm();
   const guard = useDiscardGuard(confirm);
+  useAutosave();
 
   useEffect(() => {
     void loadLimits();
@@ -107,6 +110,7 @@ export function App() {
         </div>
       )}
 
+      {step === 'upload' && <ContinueSession />}
       {step === 'upload' && (
         <ImageUpload
           maxUploadMb={maxUploadMb}

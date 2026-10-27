@@ -54,6 +54,19 @@ Status legend: ✅ implemented · 🔜 planned (see [Roadmap](11-roadmap.md)).
 - File size is checked against `GET /api/v1/limits` (loaded on startup, defaults used if
   unavailable); the backend remains authoritative — its error message is shown inline.
 
+#### Autosave
+
+The last design is kept in this browser (`src/lib/session.ts`, IndexedDB database
+`vectorsnap`): a second after every change it keeps (`useAutosave`), and right away on
+`pagehide`, it stores the image, the color and tracing choices, the reduced colors
+(`quantized`), the SVG with its edits, the print settings and the step. The upload step
+then offers **Continue where you left off?** (*logo.png · 3D print · saved 5 minutes ago
+· edits not downloaded yet*) with **Continue** and **Discard** (`ContinueSession`).
+Continuing restores the step (a step that needs a missing SVG falls back to the colors),
+sets `quantizedFor` so the colors are not reduced again, and starts with an empty undo
+history. Starting over with a new image forgets the kept design; where IndexedDB is
+unavailable nothing is kept and nothing is offered.
+
 ### Step 2 — Colors & palette ✅
 
 Layout: left = original and quantized previews side by side, right = controls. On wide

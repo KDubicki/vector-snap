@@ -2119,3 +2119,29 @@ select {
   border-radius: 3px;
   border: 1px solid var(--color-border);
 }
+
+/* Upload step: continue the design kept in this browser. */
+.continue {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.continue > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.continue__actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
