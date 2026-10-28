@@ -244,7 +244,14 @@ Implemented in `src/editor/operations.ts` (pure functions, unit-tested).
   that group* (like **Move to color group**) instead of copying the color — no second
   group of the same color appears, and later recolors of the group reach them too.
   Without a selection, or when nothing would change, a notice says so.
-- 🔜 Creating new groups for new colors.
+- ✅ **New color group** — the **+** after the *Move to color group* swatches
+  (`moveShapesToNewGroup()`, store action `moveSelectionToNewGroup()`): the selection
+  becomes a color group of its own in its color, so a recolored part gets its own
+  filament and height in a 3D print instead of staying an own color inside its old
+  group. The group takes the next free palette index and sits just above the highest
+  group the shapes came from, so they stay above what they covered; groups left empty
+  disappear. Disabled for mixed colors (recolor them first); a notice says when the
+  shapes already are a group of their own.
 
 ## Similar colors ✅
 

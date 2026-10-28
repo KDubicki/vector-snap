@@ -195,3 +195,42 @@ export function matchColor(doc: EditorDoc, ids: string[], sourceId: string): Edi
   if (moving.length) next = moveShapesToGroup(next, idsOf(moving), index);
   return next;
 }
+
+/**
+ * Move shapes into a new color group of `fill` (FR-34), so they get a filament and height
+ * of their own in a 3D print. The group is placed just above the highest group the shapes
+ * come from, so they stay above everything they were above; it takes the next free
+ * palette index. Returns `doc` itself when the shapes already are one group of that color.
+ */
+export function moveShapesToNewGroup(doc: EditorDoc, ids: string[], fill: string): EditorDoc {
+  const moving = new Set(ids);
+  const color = fill.toLowerCase();
+  const sources = doc.groups.filter((group) => group.shapes.some((shape) => moving.has(shape.id)));
+  if (!sources.length) return doc;
+  const [only] = sources;
+  const alreadyAlone =
+    sources.length === 1 &&
+    only.fill === color &&
+    only.shapes.every((shape) => moving.has(shape.id) && shape.fill === undefined);
+  if (alreadyAlone) return doc;
+
+  const group: ColorGroup = {
+    paletteIndex: Math.max(...doc.groups.map((candidate) => candidate.paletteIndex)) + 1,
+    fill: color,
+    shapes: sources.flatMap((source) =>
+      source.shapes.filter((shape) => moving.has(shape.id)).map(withoutFill),
+    ),
+  };
+  const top = doc.groups.indexOf(sources[sources.length - 1]);
+  return {
+    ...doc,
+    groups: doc.groups
+      .flatMap((candidate, index) => {
+        const kept = sources.includes(candidate)
+          ? { ...candidate, shapes: candidate.shapes.filter((shape) => !moving.has(shape.id)) }
+          : candidate;
+        return index === top ? [kept, group] : [kept];
+      })
+      .filter((candidate) => candidate.shapes.length > 0),
+  };
+}

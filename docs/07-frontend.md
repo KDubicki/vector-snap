@@ -541,7 +541,8 @@ interface EditorSlice {
   notice: string | null;                     // why an edit did nothing
   // actions: select, selectMany, selectAll, recolorSelection, resetSelectionColor, matchSelectionColor,
   // recolorGroup, mergeSimilarColors, splitWithLine, cutWithLasso, deleteSelection,
-  // mergeSelection, moveSelectionToGroup, moveSelection, transformSelection, placeFragment, undo, redo
+  // mergeSelection, moveSelectionToGroup, moveSelectionToNewGroup, moveSelection, transformSelection,
+  // placeFragment, undo, redo
 }
 
 interface FragmentsSlice {

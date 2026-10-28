@@ -14,8 +14,13 @@ const TRANSFORMS: { kind: SelectionTransform; label: string; title: string }[] =
 export function ShapeInspector() {
   const editor = useAppStore((s) => s.editor);
   const selection = useAppStore((s) => s.selection);
-  const { recolorSelection, resetSelectionColor, moveSelectionToGroup, transformSelection } =
-    useAppStore.getState();
+  const {
+    recolorSelection,
+    resetSelectionColor,
+    moveSelectionToGroup,
+    moveSelectionToNewGroup,
+    transformSelection,
+  } = useAppStore.getState();
 
   if (!editor) return null;
   if (selection.length === 0) {
@@ -67,6 +72,20 @@ export function ShapeInspector() {
               onClick={() => moveSelectionToGroup(group.paletteIndex)}
             />
           ))}
+          <button
+            type="button"
+            className="swatch-button swatch-button--new"
+            aria-label="Move to a new color group"
+            title={
+              colors.size === 1
+                ? 'New color group of this color: its own filament and height in a 3D print'
+                : 'Give the shapes one color first'
+            }
+            disabled={colors.size !== 1}
+            onClick={moveSelectionToNewGroup}
+          >
+            +
+          </button>
         </div>
       </div>
       <div className="transform">

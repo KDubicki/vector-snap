@@ -1,5 +1,5 @@
 import type { StateCreator } from 'zustand';
-import { findShape, parseSvg, type EditorDoc } from '../editor/model';
+import { findShape, parseSvg, shapeFill, type EditorDoc } from '../editor/model';
 import { pathArea, shapesSmallerThan, uniteShapes, type Point } from '../editor/geometry';
 import { emptyHistory, record, redo, undo, type History } from '../editor/history';
 import {
@@ -7,6 +7,7 @@ import {
   matchColor,
   mergeShapes,
   moveShapesToGroup,
+  moveShapesToNewGroup,
   recolorGroup,
   recolorShapes,
   resetShapeColors,
@@ -67,6 +68,8 @@ export interface EditorActions {
   mergeSelection: () => void;
   /** Move the selected shapes into another color group. */
   moveSelectionToGroup: (paletteIndex: number) => void;
+  /** Move the selected shapes into a new color group of their (first) color. */
+  moveSelectionToNewGroup: () => void;
   /**
    * Move the selected shapes by a document offset. Repeated moves (arrow-key nudges)
    * are one undo step.
@@ -291,6 +294,21 @@ export const createEditorSlice: StateCreator<AppState, [], [], EditorSlice> = (s
         ? commit(state, moveShapesToGroup(state.editor, state.selection, paletteIndex))
         : {},
     ),
+
+  moveSelectionToNewGroup: () =>
+    set((state) => {
+      if (!state.editor || !state.selection.length) return {};
+      const first = findShape(state.editor, state.selection[0]);
+      if (!first) return {};
+      const next = moveShapesToNewGroup(
+        state.editor,
+        state.selection,
+        shapeFill(first.group, first.shape),
+      );
+      return next === state.editor
+        ? { notice: 'These shapes already are a color group of their own.' }
+        : commit(state, next);
+    }),
 
   moveSelection: (dx, dy) =>
     set((state) =>

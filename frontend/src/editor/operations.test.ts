@@ -5,6 +5,7 @@ import {
   matchColor,
   mergeShapes,
   moveShapesToGroup,
+  moveShapesToNewGroup,
   recolorGroup,
   recolorShapes,
   replaceShape,
@@ -200,5 +201,33 @@ describe('matchColor', () => {
     expect(matchColor(doc, ['missing'], 'b')).toBe(doc);
     const shared = matchColor(doc, ['a'], 'b');
     expect(matchColor(shared, ['a'], 'b')).toBe(shared);
+  });
+});
+
+describe('moveShapesToNewGroup', () => {
+  it('puts the shapes in a new group just above the group they come from', () => {
+    const next = moveShapesToNewGroup(doc, ['b'], '#00FF00');
+
+    expect(next.groups.map((g) => [g.paletteIndex, g.fill, g.shapes.map((s) => s.id)])).toEqual([
+      [0, '#ff0000', ['a']],
+      [2, '#00ff00', ['b']],
+      [1, '#0000ff', ['c']],
+    ]);
+    expect(next.groups[1].shapes[0].fill).toBeUndefined();
+  });
+
+  it('gathers shapes of several groups above the highest one and drops empty groups', () => {
+    const next = moveShapesToNewGroup(doc, ['a', 'c'], '#123456');
+
+    expect(next.groups.map((g) => [g.paletteIndex, g.shapes.map((s) => s.id)])).toEqual([
+      [0, ['b']],
+      [2, ['a', 'c']],
+    ]);
+  });
+
+  it('returns the document itself for a group of its own already, or no shapes', () => {
+    expect(moveShapesToNewGroup(doc, ['c'], '#0000ff')).toBe(doc);
+    expect(moveShapesToNewGroup(doc, ['missing'], '#0000ff')).toBe(doc);
+    expect(moveShapesToNewGroup(doc, ['c'], '#00ff00')).not.toBe(doc); // a new color
   });
 });

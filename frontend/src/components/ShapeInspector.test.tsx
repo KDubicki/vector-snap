@@ -54,6 +54,27 @@ describe('ShapeInspector', () => {
     expect(findShape(store().editor!, 'p-1-0')!.group.paletteIndex).toBe(0);
   });
 
+  it('moves the selection to a new color group of its color', async () => {
+    store().selectMany(['p-1-0', 'p-1-1']);
+    const { rerender } = render(<ShapeInspector />);
+    const add = screen.getByRole('button', { name: 'Move to a new color group' });
+    expect(add).toBeDisabled(); // mixed colors
+
+    store().select('p-1-1');
+    rerender(<ShapeInspector />);
+    await userEvent.click(add);
+    const moved = findShape(store().editor!, 'p-1-1')!;
+    expect([moved.group.paletteIndex, moved.group.fill, moved.shape.fill]).toEqual([
+      2,
+      '#0000ff',
+      undefined,
+    ]);
+
+    await userEvent.click(add);
+    expect(store().notice).toBe('These shapes already are a color group of their own.');
+    expect(store().history.past).toHaveLength(1);
+  });
+
   it('scales, flips and rotates the selection', async () => {
     const user = userEvent.setup();
     store().select('p-1-1');
