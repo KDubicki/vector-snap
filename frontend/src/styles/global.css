@@ -1136,6 +1136,35 @@ select {
   width: 84px;
 }
 
+.used-colors {
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+.used-colors legend {
+  padding: 0 4px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.used-colors ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 0 0 6px;
+  padding: 0;
+  list-style: none;
+}
+
+.used-colors label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+}
+
 .model-preview {
   display: flex;
   flex-direction: column;

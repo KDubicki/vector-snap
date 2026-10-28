@@ -15,6 +15,7 @@ import {
 } from '../lib/exportFormats';
 import { layerHeightsJson, validateColorHeights, type ColorHeight } from '../lib/colorHeights';
 import { rasterSize, svgToPng } from '../lib/raster';
+import { backgroundGroup, excludedColors, usedColorsError } from '../lib/usedColors';
 import { useExport } from '../lib/useExport';
 import { useAppStore } from '../state/store';
 import type { FilamentPlan } from '../types/api';
@@ -22,6 +23,7 @@ import { ColorHeightsTable } from './ColorHeightsTable';
 import { ExportProgress } from './ExportProgress';
 import { FilamentPlanView } from './FilamentPlanView';
 import type { PreviewRequest } from './ModelPreview';
+import { UsedColors } from './UsedColors';
 
 // three.js is only downloaded when a 3D preview is opened.
 const ModelPreview = lazy(() => import('./ModelPreview'));
@@ -45,6 +47,8 @@ export function ExportPanel() {
   const errors = useMemo(() => validate(format, current), [format, current]);
   const job = useExport();
   const [colorSettings, setColorSettings] = useState<Record<number, Partial<ColorHeight>>>({});
+  // Colors the craft formats leave out; null until chosen (then the background).
+  const [chosenExcluded, setChosenExcluded] = useState<number[] | null>(null);
   const [preview, setPreview] = useState<PreviewRequest | null>(null);
   // Cleared whenever an option changes, so a shown plan always matches the options.
   const [plan, setPlan] = useState<FilamentPlan | null>(null);
@@ -59,19 +63,23 @@ export function ExportPanel() {
     height: colorSettings[group.paletteIndex]?.height ?? null,
   }));
   const colorHeightsError = format.perColorHeights ? validateColorHeights(colorHeights) : null;
+  const excluded = excludedColors(editor, chosenExcluded);
+  const usedColorsInvalid = format.colorChoice ? usedColorsError(editor, excluded) : null;
 
   const update = (name: string, value: number | boolean | string) => {
     setValues((all) => ({ ...all, [format.id]: { ...current, [name]: value } }));
     setPlan(null);
   };
 
-  const requestOptions = () =>
-    format.perColorHeights
-      ? { ...current, layer_heights: layerHeightsJson(colorHeights) }
-      : current;
+  const requestOptions = (): ExportValues => ({
+    ...current,
+    ...(format.perColorHeights && { layer_heights: layerHeightsJson(colorHeights) }),
+    ...(format.colorChoice && { exclude_colors: JSON.stringify(excluded) }),
+  });
   // 3MF models are named after the image in the slicer.
   const titled = (options: ExportValues) => ({ ...options, title: modelTitle(file?.name) });
-  const invalid = Object.keys(errors).length > 0 || colorHeightsError !== null;
+  const invalid =
+    Object.keys(errors).length > 0 || colorHeightsError !== null || usedColorsInvalid !== null;
   const raster =
     format.client && !invalid
       ? rasterSize(editor.width, editor.height, Number(current.width_px))
@@ -251,6 +259,15 @@ export function ExportPanel() {
             );
             setPlan(null);
           }}
+        />
+      )}
+      {format.colorChoice && (
+        <UsedColors
+          groups={editor.groups}
+          excluded={excluded}
+          background={backgroundGroup(editor)}
+          error={usedColorsInvalid}
+          onChange={setChosenExcluded}
         />
       )}
       {job.error && (

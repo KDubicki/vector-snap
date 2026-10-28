@@ -286,6 +286,33 @@ describe('ExportPanel', () => {
       numbers: false,
       page: 'a4',
       line_mm: 0.4,
+      exclude_colors: '[0]',
     });
+  });
+
+  it('leaves out the background and the colors chosen', async () => {
+    const u = user();
+    vi.mocked(exportFile).mockResolvedValue(new Blob(['svg']));
+    await renderPanel();
+
+    await u.click(screen.getByRole('radio', { name: 'Sticker' }));
+    const colors = screen.getByRole('group', { name: 'Colors to use' });
+    const white = within(colors).getByRole('checkbox', { name: /#ffffff/ });
+    const red = within(colors).getByRole('checkbox', { name: /#ff0000/ });
+    expect(white).not.toBeChecked(); // the background
+    expect(white.closest('label')).toHaveTextContent('background');
+
+    await u.click(red);
+    expect(within(colors).getByRole('alert')).toHaveTextContent('Use at least one color.');
+    expect(screen.getByRole('button', { name: 'Export Sticker' })).toBeDisabled();
+
+    await u.click(white);
+    await u.click(screen.getByRole('radio', { name: 'Cookie cutter' })); // the choice stays
+    await u.click(screen.getByRole('button', { name: 'Export Cookie cutter' }));
+    await waitFor(() => expect(exportFile).toHaveBeenCalled());
+    expect(vi.mocked(exportFile).mock.calls[0][2]).toMatchObject({ exclude_colors: '[1]' });
+
+    await u.click(screen.getByRole('radio', { name: 'STL' }));
+    expect(screen.queryByRole('group', { name: 'Colors to use' })).not.toBeInTheDocument();
   });
 });

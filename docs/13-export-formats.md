@@ -844,6 +844,17 @@ heights** makes the model flat again. The 3D print step works the same way: colo
 level, extra layers raise a color or selected elements, and **Make all colors flat
 again** clears the color raises.
 
+### Colors to use
+
+Cookie cutter, sticker, stencil and coloring page list the design's colors under
+**Colors to use** (`UsedColors`, `src/lib/usedColors.ts`); unticked ones are sent as
+`exclude_colors`. A background kept from the image — the lowest color group whose
+outline spans at least 98 % of the image's width and height (`backgroundGroup()`; with
+cutout tracing that is not the bottom group but one with holes for the design) — starts
+unticked and is labelled *background*, since it would turn the outline into the rectangle of the whole
+image. The choice is shared by the four formats and only covers colors the design still
+has; leaving out every color disables the export with an explanation.
+
 ### Filament changes
 
 For STL and 3MF, **Plan filament changes** shows the plan for the current options: the

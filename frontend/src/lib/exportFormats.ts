@@ -52,6 +52,8 @@ export interface ExportFormat {
   options: ExportOption[];
   /** Offers per-color heights (sent as `layer_heights`). */
   perColorHeights?: boolean;
+  /** Offers the colors to use; the others are sent as `exclude_colors` (lib/usedColors). */
+  colorChoice?: boolean;
   /** Rendered in the browser instead of converted by the backend. */
   client?: boolean;
   /** Built by the backend from the original uploaded image instead of the SVG. */
@@ -481,7 +483,8 @@ export const EXPORT_FORMATS: ExportFormat[] = [
     label: 'Cookie cutter',
     extension: 'cookie-cutter.stl',
     description:
-      'Cutter following the outline of the whole design: a thin blade on a flange, printed flange down. Remove the background in the colors step first, or the cutter is the whole image.',
+      'Cutter following the outline of the whole design: a thin blade on a flange, printed flange down. Leave out the background below, or the cutter is the whole image.',
+    colorChoice: true,
     options: [
       {
         type: 'number',
@@ -594,7 +597,8 @@ export const EXPORT_FORMATS: ExportFormat[] = [
     extension: 'sticker.svg',
     extensionFor: (values) => `sticker.${String(values.sticker_format)}`,
     description:
-      'Print-and-cut sticker: the design on a border around its outline, with a CutContour cut line for Cricut, Silhouette and print-and-cut plotters. Remove the background in the colors step first.',
+      'Print-and-cut sticker: the design on a border around its outline, with a CutContour cut line for Cricut, Silhouette and print-and-cut plotters.',
+    colorChoice: true,
     options: [
       {
         type: 'choice',
@@ -647,7 +651,8 @@ export const EXPORT_FORMATS: ExportFormat[] = [
     extensionFor: (values) =>
       values.per_color ? 'stencils.zip' : `stencil.${String(values.stencil_format)}`,
     description:
-      'Sheets with the design cut out, for spray paint or screen printing: one per color on the same sheet, so the edges line them up. Islands such as the middle of an O are held by bridges so they do not fall out. Remove the background in the colors step first.',
+      'Sheets with the design cut out, for spray paint or screen printing: one per color on the same sheet, so the edges line them up. Islands such as the middle of an O are held by bridges so they do not fall out.',
+    colorChoice: true,
     options: [
       {
         type: 'choice',
@@ -714,7 +719,8 @@ export const EXPORT_FORMATS: ExportFormat[] = [
     label: 'Coloring page',
     extension: 'coloring.pdf',
     description:
-      'Outlines of every color region on a page, to color in — or paint by numbers, with a numbered legend of the colors.',
+      'Outlines of every color region on a page, to color in — or paint by numbers, with a numbered legend of the colors. Colors left out stay white.',
+    colorChoice: true,
     options: [
       {
         type: 'boolean',
