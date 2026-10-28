@@ -115,7 +115,9 @@ def test_curve_path_keeps_curves_and_converts_quadratics_and_arcs_to_cubic() -> 
     assert commands[1][1] == [(10, 0)]
     assert commands[2][1] == [(10, 5), (5, 10), (0, 10)]
     # quadratic (0,10) -> (-6,4) -> (0,0): controls 2/3 of the way to the control point
-    assert commands[3][1] == pytest.approx([(-4, 6), (-4, 8 / 3), (0, 0)])
+    # pytest.approx compares flat sequences only (nested ones fail since pytest 9.2)
+    flat = [coordinate for point in commands[3][1] for coordinate in point]
+    assert flat == pytest.approx([-4, 6, -4, 8 / 3, 0, 0])
     arc = commands[6:]
     assert arc and all(c == "C" for c, _ in arc)
     assert arc[-1][1][-1] == pytest.approx((30, 0))
