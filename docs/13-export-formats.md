@@ -815,7 +815,7 @@ Common options are always shown; less common ones sit in collapsed sections (for
 3MF: **Base plate extras** — shape, margin, loop, magnet — **Print tuning** — color
 order, detail removal, layer snapping, outline simplification, gap between colors,
 elephant's foot, raised or inlaid colors — and **File** — position (`origin`) plus the
-STL encoding or the 3MF parts layout; `section` in `src/lib/exportFormats.ts`). A
+STL encoding or the 3MF parts layout; `section` in `src/lib/exportFormats/modelOptions.ts`). A
 collapsed section's header shows how many of its options differ from the defaults
 ("2 changed") or, when one is invalid, "1 to fix" in the error color, so a disabled
 Export button is never left unexplained.
@@ -898,4 +898,9 @@ ranges as the API; each format remembers its own values) and download the file n
 after the uploaded image (`logo.png` → `logo.stl`; formats with a file format option name
 the file after it, `logo.sticker.pdf`, `logo.palette.ase`, or `logo.stencils.zip` for one
 stencil per color, on by default). The export always uses
-the **edited** document. Formats are declared in `src/lib/exportFormats.ts`.
+the **edited** document. Formats are declared in `src/lib/exportFormats/`, grouped like
+the backend routes: `models.ts` (STL, 3MF, lithophane, cookie cutter, with the shared 3D
+options in `modelOptions.ts`), `crafts.ts` (colors ZIP, sticker, stencil, coloring page)
+and `drawings.ts` (palette, DXF, PDF, EPS, PNG); `index.ts` lists them in panel order
+and holds the helpers (defaults, sections, validation, file names), `types.ts` the
+option and format shapes.
