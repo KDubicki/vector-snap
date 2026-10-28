@@ -1,4 +1,5 @@
-"""Form fields the exports share: the uploaded SVG, the 3D model and 3MF package options.
+"""Form fields the exports share: the uploaded SVG, the 3D model and 3MF package options,
+the colors to leave out.
 
 Every 3D endpoint (STL, STL parts, 3MF, filament plan, model size, color changes) reads
 the same options, so they are declared once here as FastAPI dependencies. See
@@ -18,6 +19,7 @@ from app.schemas.export import (
     parse_layer_heights,
     parse_shape_heights,
 )
+from app.schemas.palette import parse_palette_indices
 from app.services.base_plate import BaseShape, LoopPosition
 from app.services.export_3mf import Layout, ThreeMfOptions
 from app.services.mesh import StlFormat
@@ -216,3 +218,15 @@ def package_options(
 
 
 PackageOptions = Annotated[ThreeMfOptions, Depends(package_options)]
+
+
+def excluded_colors(
+    exclude_colors: Annotated[
+        str, Form(description="JSON array of palette indices to leave out, e.g. the background")
+    ] = "[]",
+) -> frozenset[int]:
+    """Colors a 2D export leaves out (cookie cutter, sticker, stencil, coloring page)."""
+    return frozenset(parse_palette_indices(exclude_colors, "exclude_colors"))
+
+
+ExcludedColors = Annotated[frozenset[int], Depends(excluded_colors)]

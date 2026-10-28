@@ -27,11 +27,16 @@ backend/
 │   │   └── logging.py          # Structured JSON logging, request-id middleware
 │   ├── api/
 │   │   ├── deps.py             # Shared dependencies (size-limited upload reading)
-│   │   ├── export_forms.py     # Form dependencies of the exports (SVG, 3D and 3MF options)
+│   │   ├── export_forms.py     # Form dependencies of the exports (SVG, 3D, 3MF, colors left out)
+│   │   ├── responses.py        # attachment(): a file to download
 │   │   ├── router.py           # Aggregates routers under /api/v1
 │   │   └── routes/
 │   │       ├── health.py       # /health, /health/ready, /limits
-│   │       ├── export.py       # /export/* (STL, 3MF, DXF, PDF, EPS, PNG, lithophane, estimates)
+│   │       ├── export/         # /export/*, one router per topic
+│   │       │   ├── models.py     # STL, STL parts, 3MF, tiles, lithophane, cookie cutter
+│   │       │   ├── estimates.py  # model size, filament plan, color changes, print check
+│   │       │   ├── drawings.py   # DXF, PDF, EPS, PNG, layers, palette
+│   │       │   └── crafts.py     # sticker, stencil, coloring page
 │   │       ├── quantize.py
 │   │       ├── svg.py          # /svg/* (server-side SVG edits)
 │   │       └── vectorize.py
