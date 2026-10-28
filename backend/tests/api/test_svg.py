@@ -70,3 +70,47 @@ def test_recolor_rejects_bad_colors(client: TestClient, form: dict[str, str]) ->
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "INVALID_PARAMETERS"
+
+
+def test_splits_shapes_along_a_line(client: TestClient) -> None:
+    response = _post(client, "split", {"line": "[[25, 5], [25, 25]]"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["split"] == 1
+    assert body["created"] == ["p-2-0.a", "p-2-0.b"]
+    assert 'id="p-2-0.a"' in body["svg"]
+
+
+def test_splits_only_the_given_shapes(client: TestClient) -> None:
+    line = "[[15, 25], [45, -5]]"  # across the red and the #fefefe square
+    assert _post(client, "split", {"line": line}).json()["split"] == 2
+
+    response = _post(client, "split", {"line": line, "ids": '["p-1-0"]'})
+    assert response.json()["created"] == ["p-1-0.a", "p-1-0.b"]
+
+
+@pytest.mark.parametrize(
+    ("form", "field"),
+    [
+        ({}, None),
+        ({"line": "[[0, 0]]"}, "line"),
+        ({"line": "[[0, 0], [0, 0]]"}, "line"),
+        ({"line": '[[0, 0], [1, "a"]]'}, "line"),
+        ({"line": "[[0, 0], [1, true]]"}, "line"),
+        ({"line": "{"}, "line"),
+        ({"line": "[[0, 0], [1, 1]]", "ids": "[1]"}, "ids"),
+        ({"line": "[[0, 0], [1, 1]]", "ids": "nope"}, "ids"),
+    ],
+)
+def test_split_parameters_are_validated(
+    client: TestClient, form: dict[str, str], field: str | None
+) -> None:
+    response = _post(client, "split", form)
+
+    assert response.status_code == 422
+    error = response.json()["error"]
+    if field is None:
+        assert error["code"] == "VALIDATION_ERROR"
+    else:
+        assert error["details"]["field"] == field

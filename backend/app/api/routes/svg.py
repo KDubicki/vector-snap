@@ -8,13 +8,21 @@ from fastapi.concurrency import run_in_threadpool
 from app.api.export_forms import UploadedSvg
 from app.core.errors import InvalidParameters
 from app.schemas.palette import parse_hex_colors, rgb_to_hex
-from app.schemas.svg import ColorChangeModel, SvgEditResponse, parse_color_map
+from app.schemas.svg import (
+    ColorChangeModel,
+    SvgEditResponse,
+    SvgSplitResponse,
+    parse_color_map,
+    parse_line,
+    parse_shape_ids,
+)
 from app.services.svg_edit import (
     EditedSvg,
     merge_similar_colors,
     recolor,
     serialize_svg,
 )
+from app.services.svg_split import split_along_line
 
 router = APIRouter(prefix="/svg", tags=["svg"])
 
@@ -79,3 +87,28 @@ async def recolor_svg(
         raise InvalidParameters(f"At most {MAX_FILAMENTS} filaments.", {"field": "filaments"})
 
     return _response(await run_in_threadpool(recolor, document, mapping, loaded))
+
+
+@router.post("/split", response_model=SvgSplitResponse)
+async def split_svg(
+    document: UploadedSvg,
+    line: Annotated[
+        str,
+        Form(description="Knife line in document px, e.g. [[0, 50], [200, 50]] (2+ points)"),
+    ],
+    ids: Annotated[
+        str,
+        Form(
+            description='Shapes to split, e.g. ["p-1-0"]: when the line crosses none of them, '
+            "every shape it fully crosses"
+        ),
+    ] = "[]",
+) -> SvgSplitResponse:
+    """Split the shapes a line fully crosses into pieces, as the editor's knife: a shape
+    the line starts or ends on (the background) stays whole."""
+    points = parse_line(line, "line")
+    selected = parse_shape_ids(ids, "ids")
+    edited = await run_in_threadpool(split_along_line, document, points, selected)
+    return SvgSplitResponse(
+        svg=serialize_svg(edited.document), split=edited.split, created=edited.created
+    )

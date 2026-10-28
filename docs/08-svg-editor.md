@@ -108,6 +108,10 @@ user polyline `L` (document coordinates, sampled every 4 view px; `Shift` = stra
    parent (`p-3-12.a`, `p-3-12.b`, …, existing ids are skipped) and an own color is
    inherited.
 
+The same cut runs on the server for scripts and services: `POST /api/v1/svg/split`
+(`app/services/svg_split.py`, Shapely instead of Paper.js; curves of a split shape become
+straight segments), see [05](05-api-specification.md#post-apiv1svgsplit).
+
 ### Lasso (region cut) ✅
 
 The lasso (`L`) cuts a freehand region out of shapes — unlike the knife, it does not need

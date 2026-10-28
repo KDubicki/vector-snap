@@ -24,7 +24,14 @@ from app import __version__
 from app.core.errors import InvalidParameters
 from app.services.cookie_cutter import cutter_outline
 from app.services.export_pdf import draw_shapes
-from app.services.svg_geometry import SVG_NS, Point, VectorDocument, layer_geometries, polygons
+from app.services.svg_geometry import (
+    SVG_NS,
+    Point,
+    VectorDocument,
+    layer_geometries,
+    path_data,
+    polygons,
+)
 
 StickerFormat = Literal["svg", "pdf"]
 
@@ -74,18 +81,6 @@ def _number(value: float) -> str:
     return f"{value:.3f}".rstrip("0").rstrip(".")
 
 
-def _path_data(geometry: BaseGeometry, dx: float, dy: float) -> str:
-    rings = [
-        ring.coords
-        for polygon in polygons(geometry)
-        for ring in [polygon.exterior, *polygon.interiors]
-    ]
-    return " ".join(
-        "M" + " L".join(f"{_number(x + dx)},{_number(y + dy)}" for x, y in ring[:-1]) + " Z"
-        for ring in rings
-    )
-
-
 def _svg(sticker: Sticker, options: StickerOptions) -> bytes:
     left, top, right, bottom = sticker.outline.bounds
     width, height = right - left, bottom - top
@@ -99,7 +94,7 @@ def _svg(sticker: Sticker, options: StickerOptions) -> bytes:
             "data-generator": f"vectorsnap/{__version__}",
         },
     )
-    outline = _path_data(sticker.outline, -left, -top)
+    outline = path_data(sticker.outline, -left, -top)
     etree.SubElement(
         svg,
         f"{{{SVG_NS}}}path",

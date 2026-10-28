@@ -196,6 +196,20 @@ def polygons(geometry: BaseGeometry) -> list[Polygon]:
     return [p for g in getattr(geometry, "geoms", []) for p in polygons(g)]
 
 
+def _coordinate(value: float) -> str:
+    return f"{value:.3f}".rstrip("0").rstrip(".")
+
+
+def path_data(geometry: BaseGeometry, dx: float = 0.0, dy: float = 0.0) -> str:
+    """SVG path data of a geometry's polygons, moved by (dx, dy): one closed subpath per
+    ring, holes included (they read as holes with either fill rule)."""
+    return " ".join(
+        "M" + " L".join(f"{_coordinate(x + dx)},{_coordinate(y + dy)}" for x, y in ring[:-1]) + " Z"
+        for polygon in polygons(geometry)
+        for ring in [polygon.exterior.coords, *(hole.coords for hole in polygon.interiors)]
+    )
+
+
 # Drops near-collinear points left by flattening (straight edges traced as curves);
 # in document px, i.e. far below print/cut resolution.
 SIMPLIFY_TOLERANCE = 0.05

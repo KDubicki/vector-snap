@@ -23,7 +23,13 @@ from shapely.geometry.base import BaseGeometry
 from app import __version__
 from app.core.errors import InvalidParameters
 from app.services.export_layers import color_documents
-from app.services.svg_geometry import SVG_NS, VectorDocument, layer_geometries, polygons
+from app.services.svg_geometry import (
+    SVG_NS,
+    VectorDocument,
+    layer_geometries,
+    path_data,
+    polygons,
+)
 
 StencilFormat = Literal["svg", "dxf"]
 BridgeDirection = Literal["horizontal", "vertical", "both"]
@@ -184,14 +190,15 @@ def _svg(stencil: Stencil) -> bytes:
             "stroke-width": "0.1",
         },
     )
-    data = " ".join(
-        "M" + " L".join(f"{_number(x)},{_number(y)}" for x, y in ring) + " Z"
-        for ring in _rings(stencil.cuts)
-    )
     etree.SubElement(
         svg,
         f"{{{SVG_NS}}}path",
-        attrib={"id": "cuts", "fill": "#000000", "fill-rule": "evenodd", "d": data},
+        attrib={
+            "id": "cuts",
+            "fill": "#000000",
+            "fill-rule": "evenodd",
+            "d": path_data(stencil.cuts),
+        },
     )
     return bytes(etree.tostring(svg, xml_declaration=True, encoding="utf-8"))
 

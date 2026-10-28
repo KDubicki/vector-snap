@@ -36,6 +36,7 @@ Responses are JSON unless stated otherwise. Errors use the format described in
 | `POST` | `/api/v1/export/color-changes` | Filament changes, time and purge of multi-color printers ([details](13-export-formats.md#color-changes-of-multi-color-printers)) |
 | `POST` | `/api/v1/svg/merge-similar` | Join color layers that look the same ([details](#svg)) |
 | `POST` | `/api/v1/svg/recolor` | Replace colors, snap them to the loaded filaments ([details](#svg)) |
+| `POST` | `/api/v1/svg/split` | Split shapes along a line, as the editor's knife ([details](#post-apiv1svgsplit)) |
 
 ---
 
@@ -332,6 +333,31 @@ original color that changed with its final color.
 
 Errors: `413 FILE_TOO_LARGE`, `422 INVALID_SVG`, `422 INVALID_PARAMETERS` (bad JSON or
 colors, nothing to do, too many filaments).
+
+### `POST /api/v1/svg/split`
+
+The editor's knife ([08](08-svg-editor.md#knife-line-cut-)) on the server:
+
+- `line` (required) — JSON array of 2 to 10 000 points in document px,
+  `[[0, 50], [200, 50]]`; a polyline, not only a straight line.
+- `ids` — JSON array of shape ids, `["p-1-0"]`: when the line crosses any of them, only
+  they are split (the editor's selection); otherwise every shape the line fully crosses.
+
+A shape is split only when the line **fully crosses** it — both ends of the line lie
+outside it — so the shape a line starts and ends on, usually the background, stays
+whole. Each split shape is replaced, at its place in its layer and with its own color,
+by its pieces (holes stay with their piece; slivers under 0.5 px² are dropped), with ids
+derived from it: `p-1-0.a`, `p-1-0.b`, … (taken ids are skipped). A split shape's curves
+become straight segments. Response:
+
+```json
+{ "svg": "<svg ...>...</svg>", "split": 1, "created": ["p-1-0.a", "p-1-0.b"] }
+```
+
+`split` 0 means the line fully crosses no shape; the SVG comes back unchanged.
+
+Errors: `413 FILE_TOO_LARGE`, `422 INVALID_SVG`, `422 VALIDATION_ERROR` (no `line`),
+`422 INVALID_PARAMETERS` (bad `line` or `ids`).
 
 ---
 

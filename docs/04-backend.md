@@ -38,13 +38,13 @@ backend/
 │   │       │   ├── drawings.py   # DXF, PDF, EPS, PNG, layers, palette
 │   │       │   └── crafts.py     # sticker, stencil, coloring page
 │   │       ├── quantize.py
-│   │       ├── svg.py          # /svg/* (server-side SVG edits)
+│   │       ├── svg.py          # /svg/* (server-side SVG edits: merge, recolor, split)
 │   │       └── vectorize.py
 │   ├── schemas/
 │   │   ├── export.py           # export form parsers, filament plan / estimate responses
 │   │   ├── palette.py          # PaletteColor, Palette
 │   │   ├── quantize.py         # QuantizeAlgorithm, QuantizeResponse
-│   │   ├── svg.py              # SvgEditResponse, ColorChangeModel
+│   │   ├── svg.py              # SvgEditResponse, SvgSplitResponse, line and id parsers
 │   │   ├── system.py           # HealthResponse, LimitsResponse
 │   │   └── vectorize.py        # TracingMode, Stacking, VectorizeResponse
 │   └── services/
@@ -55,6 +55,7 @@ backend/
 │       ├── svg_postprocess.py  # sanitize, group per color, add ids / data attrs
 │       ├── svg_geometry.py     # parse contract SVG, flatten curves, polygons (exports)
 │       ├── svg_edit.py         # serialize contract SVG, merge similar, recolor (/svg/*)
+│       ├── svg_split.py        # split shapes along a line, the editor's knife (/svg/split)
 │       ├── model_options.py    # StlOptions, Body, layer snapping (shared by 3D exports)
 │       ├── export_stl.py       # SVG → STL (heights, parts, 3D bodies)
 │       ├── mixed_colors.py     # filament stacks of mixed colors → bodies
