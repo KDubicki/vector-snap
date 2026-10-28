@@ -13,7 +13,7 @@ const WHEEL_ZOOM_STEP = 1.15;
 /** Minimum distance between recorded knife points, in view pixels. */
 const KNIFE_SAMPLE_PX = 4;
 
-type Tool = 'select' | 'hand' | 'knife' | 'lasso';
+type Tool = 'select' | 'hand' | 'knife' | 'lasso' | 'eyedropper';
 
 const TOOLS: { id: Tool; label: string; key: string; title: string; hint: string }[] = [
   {
@@ -44,10 +44,17 @@ const TOOLS: { id: Tool; label: string; key: string; title: string; hint: string
     title: 'Lasso (L): draw around part of a shape to cut it out',
     hint: 'Start on a shape (or select shapes first) and draw around the part to cut out',
   },
+  {
+    id: 'eyedropper',
+    label: 'Eyedropper',
+    key: 'i',
+    title: 'Eyedropper (I): click a shape to give the selected shapes its color',
+    hint: 'Select shapes, then click the shape whose color they should take · Space+drag pans',
+  },
 ];
 
 interface Gesture {
-  mode: 'pending' | 'pan' | 'knife' | 'lasso' | 'marquee' | 'move';
+  mode: 'pending' | 'pan' | 'knife' | 'lasso' | 'marquee' | 'move' | 'pick';
   /** Shape under the pointer when the gesture started (lasso target without selection). */
   startId: string | null;
   start: ViewPoint;
@@ -55,6 +62,13 @@ interface Gesture {
   /** Knife line in document coordinates; for a move, the start and the last position. */
   line: ViewPoint[];
 }
+
+/** Gestures the drawing tools start; Select starts a box or a move, Hand pans. */
+const TOOL_GESTURES: Partial<Record<Tool, Gesture['mode']>> = {
+  knife: 'knife',
+  lasso: 'lasso',
+  eyedropper: 'pick',
+};
 
 const NUDGE: Record<string, [number, number]> = {
   ArrowLeft: [-1, 0],
@@ -190,7 +204,7 @@ export function SvgEditor() {
   }, [redraw]);
 
   // Keyboard shortcuts: Ctrl/Cmd+Z undo, Ctrl/Cmd+Shift+Z or Ctrl+Y redo, Delete removes,
-  // V/K tools, Esc cancels/clears, Space pans, 0 fits, +/- zoom.
+  // V/H/K/L/I tools, Esc cancels/clears, Space pans, 0 fits, +/- zoom.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const scene = sceneRef.current;
@@ -296,13 +310,7 @@ export function SvgEditor() {
     const moving = tool === 'select' && hit !== null && selection.includes(hit) && !event.shiftKey;
     scene.hover(null);
     gestureRef.current = {
-      mode: panning
-        ? 'pan'
-        : tool === 'knife' || tool === 'lasso'
-          ? tool
-          : moving
-            ? 'move'
-            : 'pending',
+      mode: panning ? 'pan' : (TOOL_GESTURES[tool] ?? (moving ? 'move' : 'pending')),
       startId: tool === 'lasso' ? hit : null,
       start: point,
       last: point,
@@ -316,15 +324,18 @@ export function SvgEditor() {
     if (!scene) return;
     const point = viewPoint(event, event.currentTarget);
     if (!gesture) {
-      // Preview what a click would select; selected shapes can be dragged.
-      const hit = tool === 'select' && !spaceRef.current ? scene.hitTest(point) : null;
+      // Preview what a click would select or pick; selected shapes can be dragged.
+      const picks = tool === 'select' || tool === 'eyedropper';
+      const hit = picks && !spaceRef.current ? scene.hitTest(point) : null;
       scene.hover(hit);
       event.currentTarget.classList.toggle(
         'editor__canvas--movable',
-        hit !== null && selection.includes(hit),
+        tool === 'select' && hit !== null && selection.includes(hit),
       );
       return;
     }
+
+    if (gesture.mode === 'pick') return; // the color is picked where the click ends
 
     if (gesture.mode === 'move') {
       const position = scene.toDocument(point);
@@ -401,6 +412,8 @@ export function SvgEditor() {
     } else if (gesture.mode === 'marquee') {
       const ids = scene.shapesInside(gesture.line[0], scene.toDocument(point));
       useAppStore.getState().selectMany(ids, event.shiftKey);
+    } else if (gesture.mode === 'pick') {
+      useAppStore.getState().matchSelectionColor(scene.hitTest(point));
     } else if (gesture.mode === 'pending') {
       select(scene.hitTest(point), event.shiftKey);
     }

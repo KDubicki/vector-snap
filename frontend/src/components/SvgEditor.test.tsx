@@ -182,6 +182,28 @@ describe('SvgEditor', () => {
     expect(ids()).toContain('p-1-1.a');
   });
 
+  it('gives the selection the color of a shape clicked with the eyedropper', async () => {
+    const user = userEvent.setup();
+    const { click, drag } = setup();
+
+    click(20, 20); // the red square
+    await user.click(screen.getByRole('button', { name: 'Eyedropper' }));
+    drag([
+      [55, 15],
+      [80, 40],
+    ]); // a drag picks where it ends, it draws no box
+    expect(store().selection).toEqual(['p-1-0']);
+    expect(findShape(store().editor!, 'p-1-0')!.shape.fill).toBeUndefined();
+
+    click(55, 15); // the blue square: its own color
+    expect(findShape(store().editor!, 'p-1-0')!.shape.fill).toBe('#0000ff');
+
+    await user.keyboard('i');
+    click(80, 40); // the white background: its group
+    const moved = findShape(store().editor!, 'p-1-0')!;
+    expect([moved.group.paletteIndex, moved.shape.fill]).toEqual([0, undefined]);
+  });
+
   it('pans with the hand tool without selecting', async () => {
     const user = userEvent.setup();
     const { drag, click } = setup();

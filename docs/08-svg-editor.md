@@ -56,7 +56,7 @@ Status: ✅ implemented · 🔜 planned.
 | Lasso | `L` / toolbar | Draw a freehand region; the part of the target shape inside it becomes a separate shape and gets selected (see [Lasso](#lasso-region-cut-)). | ✅ |
 | Scale / flip / rotate | inspector | Smaller, Larger (10 % steps), mirror horizontally or vertically, rotate 90° around the selection center. | ✅ |
 | Recolor | inspector / color groups panel | Recolor the selection or a whole palette group (see [Recoloring](#recoloring)). | ✅ |
-| Eyedropper | `I` | Pick a color from a shape as the current color. | 🔜 |
+| Eyedropper | `I` / toolbar | Select shapes, then click the shape whose color they take (see [Recoloring](#recoloring)). Drags do not draw a box; the color is picked where the click ends. | ✅ |
 | Merge | `M` / toolbar | Unite the selected shapes into one (see [Merging and moving](#merging-and-moving-shapes-)). | ✅ |
 | Delete | `Del` / `Backspace` / toolbar | Remove selected shapes; groups left empty disappear. | ✅ |
 | Undo / Redo | `Ctrl/Cmd+Z` / `Ctrl/Cmd+Shift+Z`, `Ctrl+Y` / toolbar | History navigation (see [Undo / redo](#undo--redo-)). | ✅ |
@@ -234,6 +234,12 @@ Implemented in `src/editor/operations.ts` (pure functions, unit-tested).
   it. Overrides that become equal to the new group color are dropped. **Select** selects
   all shapes of a group.
 - ✅ Moving shapes to another palette group (see [Merging and moving](#merging-and-moving-shapes-)).
+- ✅ **Eyedropper** (`I`) — `matchColor()`, store action `matchSelectionColor(id)`: the
+  selection takes the clicked shape's color. A shape with its own color passes that color
+  on; a shape that follows its group passes the group itself, so the selection *moves into
+  that group* (like **Move to color group**) instead of copying the color — no second
+  group of the same color appears, and later recolors of the group reach them too.
+  Without a selection, or when nothing would change, a notice says so.
 - 🔜 Creating new groups for new colors.
 
 ## Similar colors ✅

@@ -4,6 +4,7 @@ import { pathArea, shapesSmallerThan, uniteShapes, type Point } from '../editor/
 import { emptyHistory, record, redo, undo, type History } from '../editor/history';
 import {
   deleteShapes,
+  matchColor,
   mergeShapes,
   moveShapesToGroup,
   recolorGroup,
@@ -47,6 +48,8 @@ export interface EditorActions {
   selectSmallerThan: (maxArea: number) => void;
   recolorSelection: (fill: string) => void;
   resetSelectionColor: () => void;
+  /** Give the selected shapes the color of shape `id` (eyedropper, see `matchColor`). */
+  matchSelectionColor: (id: string | null) => void;
   recolorGroup: (paletteIndex: number, fill: string) => void;
   /** Merge colors closer than `maxDeltaE` (CIEDE2000) into one: groups and own colors. */
   mergeSimilarColors: (maxDeltaE: number) => void;
@@ -181,6 +184,18 @@ export const createEditorSlice: StateCreator<AppState, [], [], EditorSlice> = (s
         ? commit(state, resetShapeColors(state.editor, state.selection))
         : {},
     ),
+
+  matchSelectionColor: (id) =>
+    set((state) => {
+      if (!state.editor || id === null) return {};
+      if (!state.selection.length) {
+        return { notice: 'Select the shapes to recolor first, then click the color to give them.' };
+      }
+      const next = matchColor(state.editor, state.selection, id);
+      return next === state.editor
+        ? { notice: 'The selected shapes already have this color.' }
+        : commit(state, next);
+    }),
 
   recolorGroup: (paletteIndex, fill) =>
     set((state) =>

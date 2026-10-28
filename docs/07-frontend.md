@@ -176,6 +176,7 @@ tracing and export options). Narrower windows stack everything and scroll normal
 - ✅ Recolor the selection (own color / back to group color) and whole color groups.
 - ✅ Knife tool: split shapes along a freehand or straight line.
 - ✅ Lasso tool: cut a freehand region out of a shape.
+- ✅ Eyedropper: give the selected shapes the color of a clicked shape.
 - ✅ Select shapes smaller than an area (specks) to delete, recolor or move them at once.
 - ✅ Merge shapes and move them between color groups.
 - ✅ Move the selection (drag, arrow keys); scale, flip and rotate it.
@@ -538,7 +539,7 @@ interface EditorSlice {
   selection: string[];                       // selected shape ids
   history: History;                          // undo/redo snapshots of `editor`
   notice: string | null;                     // why an edit did nothing
-  // actions: select, selectMany, selectAll, recolorSelection, resetSelectionColor,
+  // actions: select, selectMany, selectAll, recolorSelection, resetSelectionColor, matchSelectionColor,
   // recolorGroup, mergeSimilarColors, splitWithLine, cutWithLasso, deleteSelection,
   // mergeSelection, moveSelectionToGroup, moveSelection, transformSelection, placeFragment, undo, redo
 }

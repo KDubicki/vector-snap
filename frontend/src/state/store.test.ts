@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { findShape } from '../editor/model';
 import { DEFAULT_PRINT } from '../lib/printPlan';
 import { presetJson } from '../lib/printPreset';
 import { DEFAULT_TRACING } from '../lib/tracing';
@@ -667,6 +668,31 @@ describe('app store', () => {
       ['p-0-0', undefined],
     ]);
     expect(store().selection).toEqual(['p-0-0']);
+  });
+
+  it('gives the selection the color of a clicked shape (eyedropper)', async () => {
+    useAppStore.setState({ quantized });
+    const svg = vectorized.svg.replace(
+      '</svg>',
+      '<g data-palette-index="1" fill="#0000ff"><path id="p-1-0" d="M0,0 L1,1 Z"/></g></svg>',
+    );
+    vi.stubGlobal('fetch', respond({ ...vectorized, svg }));
+    await store().runVectorize();
+
+    store().matchSelectionColor('p-1-0'); // nothing selected
+    expect(store().notice).toMatch(/Select the shapes to recolor first/);
+    expect(store().history.past).toHaveLength(0);
+
+    store().select('p-0-0');
+    store().matchSelectionColor(null); // clicked beside the design
+    expect(store().history.past).toHaveLength(0);
+    store().matchSelectionColor('p-1-0');
+    expect(findShape(store().editor!, 'p-0-0')!.group.paletteIndex).toBe(1);
+    expect(store().history.past).toHaveLength(1);
+
+    store().matchSelectionColor('p-1-0');
+    expect(store().notice).toBe('The selected shapes already have this color.');
+    expect(store().history.past).toHaveLength(1);
   });
 
   it('deletes the selection and supports undo/redo of every edit', async () => {

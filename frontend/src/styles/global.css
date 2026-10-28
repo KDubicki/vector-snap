@@ -1002,6 +1002,10 @@ select {
   cursor: crosshair;
 }
 
+.editor__canvas--eyedropper {
+  cursor: copy;
+}
+
 .editor__canvas--select.editor__canvas--movable {
   cursor: move;
 }

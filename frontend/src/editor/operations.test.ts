@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { EditorDoc } from './model';
 import {
   deleteShapes,
+  matchColor,
   mergeShapes,
   moveShapesToGroup,
   recolorGroup,
@@ -162,5 +163,42 @@ describe('moveShapesToGroup', () => {
   it('ignores unknown groups and shapes', () => {
     expect(moveShapesToGroup(doc, ['a'], 7)).toBe(doc);
     expect(moveShapesToGroup(doc, ['missing'], 1)).toBe(doc);
+  });
+});
+
+describe('matchColor', () => {
+  it('passes on the own color of the source', () => {
+    const next = matchColor(doc, ['a', 'c'], 'b');
+
+    expect(next.groups[0].shapes[0].fill).toBe('#00ff00');
+    expect(next.groups[1].shapes[0].fill).toBe('#00ff00');
+  });
+
+  it('moves shapes into the group of a source that follows it', () => {
+    const next = matchColor(doc, ['b', 'c'], 'a');
+
+    expect(next.groups).toHaveLength(1);
+    expect(next.groups[0].shapes).toEqual([
+      { id: 'a', d: 'M0,0 Z' },
+      { id: 'b', d: 'M1,1 Z' },
+      { id: 'c', d: 'M2,2 Z' },
+    ]);
+  });
+
+  it('keeps shapes of the same group in place and only drops their own color', () => {
+    const next = matchColor(doc, ['b'], 'a');
+
+    expect(next.groups[0].shapes.map((s) => [s.id, s.fill])).toEqual([
+      ['a', undefined],
+      ['b', undefined],
+    ]);
+  });
+
+  it('returns the document itself when nothing changes', () => {
+    expect(matchColor(doc, ['a'], 'a')).toBe(doc);
+    expect(matchColor(doc, ['c'], 'missing')).toBe(doc);
+    expect(matchColor(doc, ['missing'], 'b')).toBe(doc);
+    const shared = matchColor(doc, ['a'], 'b');
+    expect(matchColor(shared, ['a'], 'b')).toBe(shared);
   });
 });

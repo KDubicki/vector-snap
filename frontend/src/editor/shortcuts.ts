@@ -23,6 +23,7 @@ export const SHORTCUTS: ShortcutGroup[] = [
       { keys: [['H']], action: 'Hand (pan)' },
       { keys: [['K']], action: 'Knife (split along a line)' },
       { keys: [['L']], action: 'Lasso (cut out an area)' },
+      { keys: [['I']], action: 'Eyedropper (give the selection a shape’s color)' },
       { keys: [['Space']], action: 'Pan while held' },
     ],
   },

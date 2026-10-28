@@ -2,7 +2,7 @@
  * Pure editing operations: each returns a new `EditorDoc` and never mutates its input,
  * so documents can be kept as undo snapshots. See docs/08-svg-editor.md.
  */
-import type { ColorGroup, EditorDoc, Shape } from './model';
+import { findShape, shapeFill, type ColorGroup, type EditorDoc, type Shape } from './model';
 
 function mapShapes(
   doc: EditorDoc,
@@ -164,4 +164,34 @@ export function moveShapesToGroup(doc: EditorDoc, ids: string[], paletteIndex: n
       })
       .filter((group) => group.shapes.length > 0),
   };
+}
+
+/**
+ * Give shapes the color of another shape (eyedropper). A source with its own color passes
+ * that color on; a source that follows its group passes the group itself: the shapes join
+ * it rather than copy its color, so no second group of the same color appears and later
+ * group recolors reach them too. Returns `doc` itself when nothing changes.
+ */
+export function matchColor(doc: EditorDoc, ids: string[], sourceId: string): EditorDoc {
+  const source = findShape(doc, sourceId);
+  if (!source) return doc;
+  const targets = ids
+    .filter((id) => id !== sourceId)
+    .map((id) => findShape(doc, id))
+    .filter((found) => found !== null);
+  const idsOf = (found: typeof targets) => found.map(({ shape }) => shape.id);
+
+  const own = source.shape.fill;
+  if (own !== undefined) {
+    const changing = targets.filter(({ group, shape }) => shapeFill(group, shape) !== own);
+    return changing.length ? recolorShapes(doc, idsOf(changing), own) : doc;
+  }
+  const index = source.group.paletteIndex;
+  const reset = targets.filter(
+    ({ group, shape }) => group.paletteIndex === index && shape.fill !== undefined,
+  );
+  const moving = targets.filter(({ group }) => group.paletteIndex !== index);
+  let next = reset.length ? resetShapeColors(doc, idsOf(reset)) : doc;
+  if (moving.length) next = moveShapesToGroup(next, idsOf(moving), index);
+  return next;
 }
