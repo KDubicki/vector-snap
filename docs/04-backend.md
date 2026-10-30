@@ -58,7 +58,9 @@ backend/
 │       ├── svg_shapes.py       # delete and merge shapes, as the editor (/svg/delete, /svg/merge)
 │       ├── svg_split.py        # split shapes along a line, the editor's knife (/svg/split)
 │       ├── model_options.py    # StlOptions, Body, layer snapping (shared by 3D exports)
-│       ├── export_stl.py       # SVG → STL (heights, parts, 3D bodies)
+│       ├── model_parts.py      # color order, heights, parts per color and height, footprints
+│       ├── model_checks.py     # option combinations a 3D model cannot be built with
+│       ├── export_stl.py       # parts → 3D bodies (plate, colors, rim, outline), STL, ZIP
 │       ├── mixed_colors.py     # filament stacks of mixed colors → bodies
 │       ├── mesh.py             # closed prisms, manifold fixes, binary STL
 │       ├── base_plate.py       # plate outline, rim, hanging loop, magnet pocket, detail filter

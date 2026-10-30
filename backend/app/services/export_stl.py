@@ -14,7 +14,8 @@ with `relief="engrave"` they are only cut out of it — lettering made of missin
 filament, a single-filament print — down to their height, or through the plate.
 Coordinates are converted to millimetres and the y axis is flipped (SVG y points down,
 STL z-up models are viewed from above with y up). The options and bodies are defined in
-`model_options`, the meshes come from `mesh`, the base plate from `base_plate` and the
+`model_options`, the parts per color and height in `model_parts` (checked by
+`model_checks`), the meshes come from `mesh`, the base plate from `base_plate` and the
 filament stacks of mixed colors from `mixed_colors`. `export_stl_parts` puts every body
 in an STL file of its own.
 See docs/13-export-formats.md.
@@ -27,12 +28,11 @@ from dataclasses import dataclass
 
 import numpy as np
 from numpy.typing import NDArray
-from shapely import Polygon, affinity, make_valid, unary_union
+from shapely import Polygon, unary_union
 from shapely.geometry.base import BaseGeometry
 
 from app.core.errors import InvalidParameters
 from app.services.base_plate import (
-    MAGNET_ROOF_MM,
     base_outline,
     magnet_pocket,
     printable,
@@ -42,147 +42,18 @@ from app.services.base_plate import (
 )
 from app.services.mesh import StlFormat, footed_prism, prism, without_pinches, write_stl
 from app.services.mixed_colors import ColorPiece, check_stacks, filament_bodies
-from app.services.model_options import Body, Origin, StackOrder, StlOptions, snap_to_layers
-from app.services.svg_geometry import (
-    VectorDocument,
-    VectorLayer,
-    VectorShape,
-    polygons,
-    shapes_geometry,
-    to_millimetres,
+from app.services.model_checks import check_magnet, check_options, deepest_inlay
+from app.services.model_options import Body, Origin, StlOptions, snap_to_layers
+from app.services.model_parts import (
+    Part,
+    base_height,
+    design_outline,
+    included_parts,
+    repaired,
+    stack_layers,
+    visible_footprints,
 )
-
-
-def relative_luminance(hex_color: str) -> float:
-    """WCAG relative luminance of a `#rrggbb` color: 0 (black) to 1 (white)."""
-    channels = [int(hex_color[i : i + 2], 16) / 255 for i in (1, 3, 5)]
-    r, g, b = (c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in channels)
-    return 0.2126 * r + 0.7152 * g + 0.0722 * b
-
-
-def stack_layers[T](layers: list[T], fills: list[str], order: StackOrder) -> list[T]:
-    """`layers` bottom to top in `order`; equally bright colors keep the document order."""
-    if order == "document":
-        return layers
-    sign = 1 if order == "dark_to_light" else -1
-    ranked = sorted(range(len(layers)), key=lambda i: sign * relative_luminance(fills[i]))
-    return [layers[i] for i in ranked]
-
-
-def base_height(options: StlOptions) -> float:
-    return snap_to_layers(options.base_mm, options.print_layer_mm)
-
-
-def layer_height(position: int, palette_index: int, options: StlOptions) -> float:
-    """Extrusion height above the base for the layer at `position` (bottom = 0)."""
-    if palette_index in options.layer_heights:
-        height = options.layer_heights[palette_index]
-    else:
-        height = options.layer_mm * (position + 1 if options.layered else 1)
-    return snap_to_layers(height, options.print_layer_mm)
-
-
-def _repaired(geometry: BaseGeometry) -> BaseGeometry:
-    """Valid geometry: scaling rounds coordinates, which can make nearly touching rings
-    (e.g. chains of sliver holes) cross; GEOS cannot triangulate such polygons."""
-    return geometry if geometry.is_valid else make_valid(geometry)
-
-
-def _in_millimetres(
-    geometry: BaseGeometry, document: VectorDocument, options: StlOptions
-) -> BaseGeometry:
-    """Scale (and mirror) document-px geometry to the model, repairing rounding damage."""
-    result = to_millimetres(geometry, document, options.width_mm)
-    if options.mirror:
-        result = affinity.scale(result, xfact=-1, yfact=1, origin=(options.width_mm / 2, 0))
-    result = _repaired(result)
-    if options.simplify_mm > 0:
-        result = _repaired(result.simplify(options.simplify_mm))
-    return result
-
-
-@dataclass(frozen=True)
-class _Part:
-    """Shapes of one color extruded to one height above the base."""
-
-    layer: VectorLayer
-    shapes: tuple[VectorShape, ...]
-    geometry: BaseGeometry  # millimetres
-    height: float
-    own_height: bool  # shapes with a height of their own (`shape_heights`)
-
-
-def _parts(document: VectorDocument, options: StlOptions) -> list[_Part]:
-    """Included parts, bottom color first: per color, its shapes grouped by height."""
-    layers = stack_layers(
-        document.layers, [layer.fill for layer in document.layers], options.stack_order
-    )
-    parts: list[_Part] = []
-    for position, layer in enumerate(layers):
-        color_height = layer_height(position, layer.palette_index, options)
-        groups: dict[float | None, list[VectorShape]] = {}
-        for shape in layer.shapes:
-            own = options.shape_heights.get(shape.id)
-            height = None if own is None else snap_to_layers(own, options.print_layer_mm)
-            # Shapes at their color's height merge with it (no walls between them).
-            groups.setdefault(None if height == color_height else height, []).append(shape)
-        for key, shapes in groups.items():
-            height = color_height if key is None else key
-            if height > 0:
-                geometry = _in_millimetres(shapes_geometry(shapes), document, options)
-                parts.append(_Part(layer, tuple(shapes), geometry, height, key is not None))
-    return parts
-
-
-OVERLAP_TOLERANCE_MM2 = 1e-6
-
-
-def _visible(document: VectorDocument, parts: list[_Part]) -> list[BaseGeometry]:
-    """Each part's geometry without the areas covered by shapes drawn above it.
-
-    Shapes above in the document (later layers) own their footprint, as in the SVG: a
-    shape moved or a fragment placed onto other shapes would otherwise print as bodies
-    overlapping in the same space (slicers resolve that inconsistently). Traced colors
-    overlap the ones below them by a pixel, so their seams have no gaps.
-    """
-    order = {id(layer): position for position, layer in enumerate(document.layers)}
-    by_drawing = sorted(range(len(parts)), key=lambda i: order[id(parts[i].layer)])
-    visible: list[BaseGeometry] = [part.geometry for part in parts]
-    covered: BaseGeometry | None = None
-    for index in reversed(by_drawing):
-        geometry = parts[index].geometry
-        if (
-            covered is not None
-            and geometry.intersects(covered)
-            and geometry.intersection(covered).area > OVERLAP_TOLERANCE_MM2
-        ):
-            visible[index] = _repaired(geometry.difference(covered))
-        covered = geometry if covered is None else covered.union(geometry)
-    return visible
-
-
-@dataclass(frozen=True)
-class ShapeFootprint:
-    """The area of one shape that prints: its color's, without what is drawn above it."""
-
-    shape_id: str
-    palette_index: int
-    color: str
-    geometry: BaseGeometry  # millimetres, before thin details are dropped
-
-
-def shape_footprints(document: VectorDocument, options: StlOptions) -> list[ShapeFootprint]:
-    """Every included shape's printed area, bottom color first."""
-    parts = _parts(document, options)
-    footprints: list[ShapeFootprint] = []
-    for part, visible in zip(parts, _visible(document, parts), strict=True):
-        for shape in part.shapes:
-            geometry = _in_millimetres(shapes_geometry([shape]), document, options)
-            if visible is not part.geometry:  # partly covered by shapes drawn above
-                geometry = _repaired(geometry.intersection(visible))
-            layer = part.layer
-            footprints.append(ShapeFootprint(shape.id, layer.palette_index, layer.fill, geometry))
-    return footprints
+from app.services.svg_geometry import VectorDocument, polygons
 
 
 @dataclass(frozen=True)
@@ -213,17 +84,17 @@ def build_bodies(
     `origin` moves the model) only that part of the model is built, as if cut out of the
     whole one: a tile (`tiles`); a clip the model misses gives no bodies.
     """
-    included = _parts(document, options)
+    included = included_parts(document, options)
     if not included:
         raise InvalidParameters("Nothing to export: every color has height 0.")
     if options.filaments:
         check_stacks((part.layer.palette_index for part in included), options)
 
     base = base_height(options)
-    _check_options(options, base)
+    check_options(options, base)
     # Top of the solid plate: inlaid colors take the plate's upper part.
-    plate_top = base - _deepest_inlay(included, base, options)
-    _check_magnet(options, base, plate_top)
+    plate_top = base - deepest_inlay(included, base, options)
+    check_magnet(options, base, plate_top)
     engrave = options.relief == "engrave"
     base_color = _plate_color(document, included, options)
     plate = _BasePlate(Polygon(), Polygon())
@@ -232,8 +103,8 @@ def build_bodies(
         plate = _base_plate(document, included, options)
         if clip is not None:
             plate = _BasePlate(
-                _repaired(plate.silhouette.intersection(clip)),
-                _repaired(plate.border.intersection(clip)),
+                repaired(plate.silhouette.intersection(clip)),
+                repaired(plate.border.intersection(clip)),
                 _clipped_pockets(plate.pocket, clip),
             )
         parts = [
@@ -244,17 +115,17 @@ def build_bodies(
         if parts:
             bodies.append(Body("base", base_color, np.concatenate(parts)))
     silhouette, border = plate.silhouette, plate.border
-    visible = _visible(document, included)
+    visible = visible_footprints(document, included)
     if not border.is_empty:
-        visible = [_repaired(geometry.difference(border)) for geometry in visible]
+        visible = [repaired(geometry.difference(border)) for geometry in visible]
     outline = _outline(visible, options)
     if not outline.is_empty:
-        visible = [_repaired(geometry.difference(outline)) for geometry in visible]
+        visible = [repaired(geometry.difference(outline)) for geometry in visible]
     if options.color_gap_mm > 0:
         visible = [_with_gap(geometry, options.color_gap_mm) for geometry in visible]
     if clip is not None:  # after the outlines and gaps, which follow the whole design
-        visible = [_repaired(geometry.intersection(clip)) for geometry in visible]
-        outline = _repaired(outline.intersection(clip))
+        visible = [repaired(geometry.intersection(clip)) for geometry in visible]
+        outline = repaired(outline.intersection(clip))
     if plate_top < base:
         bodies.extend(_inlay_bands(silhouette, included, visible, base, base_color, options))
     # An engraving leaves the cut colors empty.
@@ -309,53 +180,6 @@ def _copied(bodies: list[Body], copies: int, gap: float) -> list[Body]:
     ]
 
 
-def _check_options(options: StlOptions, base: float) -> None:
-    """Reject option combinations that cannot be built, naming the field to change."""
-    engrave = options.relief == "engrave"
-    if engrave and options.filaments:
-        raise InvalidParameters(
-            "An engraving is one filament: it cannot use mixed colors.", {"field": "filaments"}
-        )
-    if engrave and base <= 0:
-        raise InvalidParameters(
-            "An engraving needs a base plate to cut into (base_mm > 0).", {"field": "base_mm"}
-        )
-    if options.loop_hole_mm > 0 and base <= 0:
-        raise InvalidParameters(
-            "A hanging loop needs a base plate (base_mm > 0).", {"field": "loop_hole_mm"}
-        )
-    if options.screw_holes not in (0, 2, 4):
-        raise InvalidParameters("Screw holes come in 2 or 4.", {"field": "screw_holes"})
-    if options.screw_holes and base <= 0:
-        raise InvalidParameters(
-            "Screw holes need a base plate (base_mm > 0).", {"field": "screw_holes"}
-        )
-    if options.outline_mm > 0 and (options.relief != "raised" or options.filaments):
-        raise InvalidParameters(
-            "Outlines stand on the base plate: they need raised colors, not inlaid, "
-            "engraved or mixed ones.",
-            {"field": "outline_mm"},
-        )
-    if options.rim_mm > 0 and base <= 0:
-        raise InvalidParameters("A rim needs a base plate (base_mm > 0).", {"field": "rim_mm"})
-    if options.elephant_foot_mm > 0 and base <= 0:
-        raise InvalidParameters(
-            "Elephant's foot compensation needs a base plate (base_mm > 0).",
-            {"field": "elephant_foot_mm"},
-        )
-
-
-def _check_magnet(options: StlOptions, base: float, plate_top: float) -> None:
-    """The magnet pockets fit in the solid plate below the inlaid colors, with a roof."""
-    if options.magnet_mm > 0 and options.magnet_depth_mm > plate_top - MAGNET_ROOF_MM + 1e-9:
-        raise InvalidParameters(
-            f"A {options.magnet_depth_mm:g} mm deep magnet pocket needs a base plate of at "
-            f"least {options.magnet_depth_mm + MAGNET_ROOF_MM:g} mm"
-            + (" below the inlaid colors." if plate_top < base else "."),
-            {"field": "magnet_depth_mm"},
-        )
-
-
 @dataclass(frozen=True)
 class _BasePlate:
     """The base plate's outline (with loop, without screw holes), its rim and pockets."""
@@ -373,18 +197,18 @@ def _clipped_pockets(pocket: BaseGeometry | None, clip: BaseGeometry) -> BaseGeo
     return unary_union(inside) if inside else None
 
 
-def _base_plate(document: VectorDocument, parts: list[_Part], options: StlOptions) -> _BasePlate:
+def _base_plate(document: VectorDocument, parts: list[Part], options: StlOptions) -> _BasePlate:
     """Outline of the base plate under the design, with its rim, loop, holes and pockets."""
     engrave = options.relief == "engrave"
-    outline = _design_outline(document, options) if engrave else [p.geometry for p in parts]
+    outline = design_outline(document, options) if engrave else [p.geometry for p in parts]
     design = printable(unary_union(outline), options.min_feature_mm)
     silhouette = base_outline(design, options.base_shape, options.base_margin_mm)
     border = rim(silhouette, options.rim_mm)
     silhouette = with_loop(silhouette, options.loop_hole_mm, options.loop_position)
     holes = screw_holes(silhouette, design, options.screw_holes, options.screw_hole_mm)
     if holes is not None:
-        silhouette = _repaired(silhouette.difference(holes))
-        border = _repaired(border.difference(holes))
+        silhouette = repaired(silhouette.difference(holes))
+        border = repaired(border.difference(holes))
     pocket = magnet_pocket(silhouette, options.magnet_mm, options.magnet_count)
     return _BasePlate(silhouette, border, pocket)
 
@@ -399,13 +223,7 @@ def _placed(bodies: list[Body], origin: Origin) -> list[Body]:
     return [Body(body.name, body.color, body.triangles - shift) for body in bodies]
 
 
-def _design_outline(document: VectorDocument, options: StlOptions) -> list[BaseGeometry]:
-    """Every shape of the design, whatever its height: the area an engraving is cut into."""
-    shapes = [shape for layer in document.layers for shape in layer.shapes]
-    return [_in_millimetres(shapes_geometry(shapes), document, options)] if shapes else []
-
-
-def _plate_color(document: VectorDocument, parts: list[_Part], options: StlOptions) -> str:
+def _plate_color(document: VectorDocument, parts: list[Part], options: StlOptions) -> str:
     """The base plate's filament: the first loaded filament for mixed colors, the bottom
     color left solid for an engraving, else the bottom printed color."""
     if options.filaments:
@@ -421,37 +239,14 @@ def _plate_color(document: VectorDocument, parts: list[_Part], options: StlOptio
     return parts[0].layer.fill
 
 
-def _bottom(part: _Part, base: float, options: StlOptions) -> float:
+def _bottom(part: Part, base: float, options: StlOptions) -> float:
     """Where a part starts: on top of the base plate, or sunk its height into it."""
     return base - part.height if options.relief == "inlay" else base
 
 
-def _deepest_inlay(parts: list[_Part], base: float, options: StlOptions) -> float:
-    """How deep the inlaid or engraved colors reach into the base plate (0 for raised
-    colors). An engraving may go through the plate."""
-    if options.relief == "raised":
-        return 0.0
-    deepest = max(part.height for part in parts)
-    if options.relief == "engrave":
-        if deepest > base + 1e-9:
-            raise InvalidParameters(
-                f"Engraved colors cannot be deeper than the base plate ({base:g} mm); the "
-                f"deepest is {deepest:g} mm. As deep as the plate cuts through.",
-                {"field": "base_mm"},
-            )
-        return deepest
-    if deepest > base - 1e-9:
-        raise InvalidParameters(
-            f"Inlaid colors need a base plate thicker than the deepest color ({deepest:g} mm); "
-            f"it is {base:g} mm.",
-            {"field": "base_mm"},
-        )
-    return deepest
-
-
 def _inlay_bands(
     silhouette: BaseGeometry,
-    parts: list[_Part],
+    parts: list[Part],
     visible: list[BaseGeometry],
     base: float,
     color: str,
@@ -468,7 +263,7 @@ def _inlay_bands(
         bottom, top = round(base - depth, 6), round(base - upper, 6)
         prisms = [
             prism(polygon, bottom, top)
-            for polygon in without_pinches(_repaired(silhouette.difference(holes)))
+            for polygon in without_pinches(repaired(silhouette.difference(holes)))
         ]
         if prisms:
             bodies.append(Body(f"base-{bottom:g}-{top:g}mm", color, np.concatenate(prisms)))
@@ -489,7 +284,7 @@ def _plate(
     inset: list[Polygon] = []
     if options.elephant_foot_mm > 0:
         shrunk = polygon.buffer(-options.elephant_foot_mm, join_style="mitre")
-        inset = without_pinches(_repaired(shrunk))
+        inset = without_pinches(repaired(shrunk))
     if not inset:
         return prism(polygon, 0.0, base, pocket, depth)
     foot = min(options.print_layer_mm or FIRST_LAYER_MM, base)
@@ -501,11 +296,11 @@ def _plate(
 
 def _with_gap(geometry: BaseGeometry, gap_mm: float) -> BaseGeometry:
     """Shrink by half the gap, keeping corners sharp, so neighbours end `gap_mm` apart."""
-    return _repaired(geometry.buffer(-gap_mm / 2, join_style="mitre"))
+    return repaired(geometry.buffer(-gap_mm / 2, join_style="mitre"))
 
 
 def _color_bodies(
-    parts: list[_Part], visible: list[BaseGeometry], base: float, options: StlOptions
+    parts: list[Part], visible: list[BaseGeometry], base: float, options: StlOptions
 ) -> list[Body]:
     """One body per color and height."""
     bodies: list[Body] = []
@@ -522,7 +317,7 @@ def _color_bodies(
 
 
 def _rim_body(
-    border: BaseGeometry, parts: list[_Part], base: float, color: str, options: StlOptions
+    border: BaseGeometry, parts: list[Part], base: float, color: str, options: StlOptions
 ) -> list[Body]:
     """The rim, in the base plate's color, as high as asked or as the tallest color."""
     height = options.rim_height_mm or max(part.height for part in parts)
@@ -542,11 +337,11 @@ def _outline(visible: list[BaseGeometry], options: StlOptions) -> BaseGeometry:
     edges = unary_union([geometry.boundary for geometry in visible]).buffer(half, quad_segs=8)
     rim_band = design.difference(design.buffer(-options.outline_mm, quad_segs=8))
     band = edges.intersection(design).union(rim_band)
-    return _repaired(printable(band, options.min_feature_mm))
+    return repaired(printable(band, options.min_feature_mm))
 
 
 def _outline_body(
-    outline: BaseGeometry, parts: list[_Part], base: float, options: StlOptions
+    outline: BaseGeometry, parts: list[Part], base: float, options: StlOptions
 ) -> list[Body]:
     """The outlines in their own filament, as high as asked or as the tallest color."""
     height = options.outline_height_mm or max(part.height for part in parts)

@@ -12,8 +12,6 @@ from app.services.export_stl import (
     export_stl,
     export_stl_parts,
     model_size,
-    relative_luminance,
-    stack_layers,
 )
 from app.services.mixed_colors import stack_slabs
 from app.services.model_options import (
@@ -24,6 +22,7 @@ from app.services.model_options import (
     StlOptions,
     snap_to_layers,
 )
+from app.services.model_parts import relative_luminance, stack_layers
 from app.services.svg_geometry import VectorDocument, parse_svg
 from tests.vectors import contract_svg, is_balanced, is_closed, read_binary_stl, signed_volume
 

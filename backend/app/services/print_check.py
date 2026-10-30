@@ -10,8 +10,8 @@ before slicing. See docs/13-export-formats.md#print-check.
 from dataclasses import dataclass
 
 from app.services.base_plate import printable
-from app.services.export_stl import shape_footprints
 from app.services.model_options import StlOptions
+from app.services.model_parts import shape_footprints
 from app.services.svg_geometry import VectorDocument
 
 # A shape is reported when at least this share of its printed area is too thin.
