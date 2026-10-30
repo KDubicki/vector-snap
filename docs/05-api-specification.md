@@ -38,6 +38,7 @@ Responses are JSON unless stated otherwise. Errors use the format described in
 | `POST` | `/api/v1/svg/recolor` | Replace colors, snap them to the loaded filaments ([details](#svg)) |
 | `POST` | `/api/v1/svg/split` | Split shapes along a line, as the editor's knife ([details](#post-apiv1svgsplit)) |
 | `POST` | `/api/v1/svg/delete` | Delete shapes by id or the specks below an area ([details](#post-apiv1svgdelete)) |
+| `POST` | `/api/v1/svg/merge` | Unite shapes into the largest of them, as the editor's merge ([details](#post-apiv1svgmerge)) |
 
 ---
 
@@ -382,6 +383,26 @@ SVG comes back unchanged).
 Errors: `413 FILE_TOO_LARGE`, `422 INVALID_SVG`, `422 VALIDATION_ERROR` (`smaller_than`
 out of range), `422 INVALID_PARAMETERS` (bad `ids`, neither `ids` nor `smaller_than`,
 or every shape would go).
+
+### `POST /api/v1/svg/merge`
+
+The editor's merge ([08](08-svg-editor.md#merging-and-moving-shapes-)) on the server:
+
+- `ids` (required) — JSON array of the shapes to unite, at least two that exist,
+  `["p-1-0", "p-1-0.b"]`; unknown ids are ignored.
+
+Adjacent shapes fuse into one outline, apart ones become subpaths of one shape. The
+result keeps the **id, layer, own color and place of the largest** shape (by filled
+area), so merging slivers into a main shape keeps the main shape; the others are removed,
+and layers left empty with them. The merged shape's curves become straight segments.
+Response:
+
+```json
+{ "svg": "<svg ...>...</svg>", "colors": 2, "id": "p-1-0", "merged": ["p-1-0.b", "p-2-3"] }
+```
+
+Errors: `413 FILE_TOO_LARGE`, `422 INVALID_SVG`, `422 VALIDATION_ERROR` (no `ids`),
+`422 INVALID_PARAMETERS` (bad `ids`, fewer than two of them found, no area to merge).
 
 ---
 

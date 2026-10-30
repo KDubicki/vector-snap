@@ -152,3 +152,30 @@ def test_delete_parameters_are_validated(
     assert error["code"] == code
     if field is not None:
         assert error["details"]["field"] == field
+
+
+def test_merges_shapes(client: TestClient) -> None:
+    response = _post(client, "merge", {"ids": '["p-2-0", "p-0-0"]'})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert (body["id"], body["merged"], body["colors"]) == ("p-0-0", ["p-2-0"], 2)
+    assert 'id="p-2-0"' not in body["svg"]
+
+
+@pytest.mark.parametrize(
+    ("form", "code"),
+    [
+        ({}, "VALIDATION_ERROR"),
+        ({"ids": '["p-0-0"]'}, "INVALID_PARAMETERS"),
+        ({"ids": '["p-0-0", "missing"]'}, "INVALID_PARAMETERS"),
+        ({"ids": "{}"}, "INVALID_PARAMETERS"),
+    ],
+)
+def test_merge_parameters_are_validated(
+    client: TestClient, form: dict[str, str], code: str
+) -> None:
+    response = _post(client, "merge", form)
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == code

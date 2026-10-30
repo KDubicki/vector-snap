@@ -51,6 +51,13 @@ class SvgDeleteResponse(BaseModel):
     deleted: list[str] = Field(description="Ids of the removed shapes, in document order")
 
 
+class SvgMergeResponse(BaseModel):
+    svg: str
+    colors: int = Field(ge=0, description="Color layers of the edited SVG")
+    id: str = Field(description="The merged shape: the id of the largest one")
+    merged: list[str] = Field(description="Ids of the shapes united into it, in document order")
+
+
 # A knife line drawn in the editor has a few hundred points.
 MAX_LINE_POINTS = 10_000
 MAX_SHAPE_IDS = 10_000

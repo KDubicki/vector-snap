@@ -12,6 +12,7 @@ from app.schemas.svg import (
     ColorChangeModel,
     SvgDeleteResponse,
     SvgEditResponse,
+    SvgMergeResponse,
     SvgSplitResponse,
     parse_color_map,
     parse_line,
@@ -23,7 +24,7 @@ from app.services.svg_edit import (
     recolor,
     serialize_svg,
 )
-from app.services.svg_shapes import delete_shapes
+from app.services.svg_shapes import delete_shapes, merge_shapes
 from app.services.svg_split import split_along_line
 
 router = APIRouter(prefix="/svg", tags=["svg"])
@@ -142,4 +143,20 @@ async def delete_svg_shapes(
         svg=serialize_svg(edited.document),
         colors=len(edited.document.layers),
         deleted=edited.deleted,
+    )
+
+
+@router.post("/merge", response_model=SvgMergeResponse)
+async def merge_svg_shapes(
+    document: UploadedSvg,
+    ids: Annotated[str, Form(description='Shapes to unite (2+), e.g. ["p-1-0", "p-1-0.b"]')],
+) -> SvgMergeResponse:
+    """Unite shapes into one, as the editor's merge: it keeps the id, color and place of
+    the largest of them."""
+    edited = await run_in_threadpool(merge_shapes, document, parse_shape_ids(ids, "ids"))
+    return SvgMergeResponse(
+        svg=serialize_svg(edited.document),
+        colors=len(edited.document.layers),
+        id=edited.id,
+        merged=edited.merged,
     )

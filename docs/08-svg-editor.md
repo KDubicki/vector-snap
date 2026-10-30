@@ -142,7 +142,9 @@ shapes do not overlap and splitting never reveals hidden geometry underneath.
   contour, disjoint ones become subpaths of a single shape. The result keeps the **id,
   group, own color and z-position of the largest** selected shape — merging slivers into
   a main shape keeps the main shape's identity. Typical use: undo over-splitting or
-  clean up fragments after cutting.
+  clean up fragments after cutting. The same merge runs on the server:
+  `POST /api/v1/svg/merge` (Shapely `unary_union`; curves of the merged shape become
+  straight segments).
 - **Move to color group** (`moveSelectionToGroup()`) — inspector swatches move the
   selection on top of another group and drop own colors, so the shapes take that group's
   color (and later group recolors apply to them). Groups left empty disappear.
