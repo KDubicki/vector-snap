@@ -46,8 +46,8 @@
 
 - Asynchronous job API (`POST /jobs`, `GET /jobs/{id}`) with a Redis/RQ worker for
   large images and batch processing.
-- More server-side SVG operations (`/svg/merge-similar`, `/svg/recolor` and `/svg/split`
-  are done, see [05](05-api-specification.md#svg)): lasso cut, merge and delete shapes.
+- More server-side SVG operations (`/svg/merge-similar`, `/svg/recolor`, `/svg/split` and
+  `/svg/delete` are done, see [05](05-api-specification.md#svg)): lasso cut, merge shapes.
 - More export options. (EPS, per-layer STL heights and lithophanes are done, see
   [13-export-formats.md](13-export-formats.md).)
 - Generated TypeScript client from OpenAPI.

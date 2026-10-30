@@ -55,6 +55,7 @@ backend/
 │       ├── svg_postprocess.py  # sanitize, group per color, add ids / data attrs
 │       ├── svg_geometry.py     # parse contract SVG, flatten curves, polygons (exports)
 │       ├── svg_edit.py         # serialize contract SVG, merge similar, recolor (/svg/*)
+│       ├── svg_shapes.py       # delete shapes by id or size, as the editor (/svg/delete)
 │       ├── svg_split.py        # split shapes along a line, the editor's knife (/svg/split)
 │       ├── model_options.py    # StlOptions, Body, layer snapping (shared by 3D exports)
 │       ├── export_stl.py       # SVG → STL (heights, parts, 3D bodies)

@@ -37,6 +37,7 @@ Responses are JSON unless stated otherwise. Errors use the format described in
 | `POST` | `/api/v1/svg/merge-similar` | Join color layers that look the same ([details](#svg)) |
 | `POST` | `/api/v1/svg/recolor` | Replace colors, snap them to the loaded filaments ([details](#svg)) |
 | `POST` | `/api/v1/svg/split` | Split shapes along a line, as the editor's knife ([details](#post-apiv1svgsplit)) |
+| `POST` | `/api/v1/svg/delete` | Delete shapes by id or the specks below an area ([details](#post-apiv1svgdelete)) |
 
 ---
 
@@ -358,6 +359,29 @@ become straight segments. Response:
 
 Errors: `413 FILE_TOO_LARGE`, `422 INVALID_SVG`, `422 VALIDATION_ERROR` (no `line`),
 `422 INVALID_PARAMETERS` (bad `line` or `ids`).
+
+### `POST /api/v1/svg/delete`
+
+The editor's delete ([08](08-svg-editor.md#tools)) on the server, at least one of:
+
+- `ids` — JSON array of shape ids to delete, `["p-1-0", "p-2-3"]`; unknown ids are
+  ignored.
+- `smaller_than` — also delete every shape with a filled area (holes excluded) below this
+  many document px², 0–1 000 000, default 0 (off): the specks and slivers tracing leaves,
+  as the editor's *Select shapes smaller than* (25 = a 5 × 5 px speck).
+
+Color layers left without shapes are removed. Response:
+
+```json
+{ "svg": "<svg ...>...</svg>", "colors": 2, "deleted": ["p-1-0", "p-2-3"] }
+```
+
+`deleted` lists the removed shapes in document order; empty when nothing matched (the
+SVG comes back unchanged).
+
+Errors: `413 FILE_TOO_LARGE`, `422 INVALID_SVG`, `422 VALIDATION_ERROR` (`smaller_than`
+out of range), `422 INVALID_PARAMETERS` (bad `ids`, neither `ids` nor `smaller_than`,
+or every shape would go).
 
 ---
 

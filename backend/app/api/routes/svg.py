@@ -10,6 +10,7 @@ from app.core.errors import InvalidParameters
 from app.schemas.palette import parse_hex_colors, rgb_to_hex
 from app.schemas.svg import (
     ColorChangeModel,
+    SvgDeleteResponse,
     SvgEditResponse,
     SvgSplitResponse,
     parse_color_map,
@@ -22,6 +23,7 @@ from app.services.svg_edit import (
     recolor,
     serialize_svg,
 )
+from app.services.svg_shapes import delete_shapes
 from app.services.svg_split import split_along_line
 
 router = APIRouter(prefix="/svg", tags=["svg"])
@@ -111,4 +113,33 @@ async def split_svg(
     edited = await run_in_threadpool(split_along_line, document, points, selected)
     return SvgSplitResponse(
         svg=serialize_svg(edited.document), split=edited.split, created=edited.created
+    )
+
+
+@router.post("/delete", response_model=SvgDeleteResponse)
+async def delete_svg_shapes(
+    document: UploadedSvg,
+    ids: Annotated[str, Form(description='Shapes to delete, e.g. ["p-1-0", "p-2-3"]')] = "[]",
+    smaller_than: Annotated[
+        float,
+        Form(
+            ge=0,
+            le=1_000_000,
+            description="Also delete shapes with an area below this, in document px² "
+            "(25 = a 5 x 5 px speck); 0 = off",
+        ),
+    ] = 0.0,
+) -> SvgDeleteResponse:
+    """Delete shapes by id and/or the specks left by tracing, as the editor's delete:
+    layers left empty are removed, and at least one shape has to stay."""
+    selected = parse_shape_ids(ids, "ids")
+    if not selected and smaller_than == 0:
+        raise InvalidParameters(
+            "Send the shape `ids` to delete or a `smaller_than` area.", {"field": "ids"}
+        )
+    edited = await run_in_threadpool(delete_shapes, document, selected, smaller_than)
+    return SvgDeleteResponse(
+        svg=serialize_svg(edited.document),
+        colors=len(edited.document.layers),
+        deleted=edited.deleted,
     )

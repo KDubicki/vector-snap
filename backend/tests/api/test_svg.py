@@ -114,3 +114,41 @@ def test_split_parameters_are_validated(
         assert error["code"] == "VALIDATION_ERROR"
     else:
         assert error["details"]["field"] == field
+
+
+def test_deletes_shapes(client: TestClient) -> None:
+    response = _post(client, "delete", {"ids": '["p-1-0", "missing"]'})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["deleted"] == ["p-1-0"]
+    assert body["colors"] == 2
+    assert 'id="p-1-0"' not in body["svg"]
+
+
+def test_deletes_shapes_smaller_than_an_area(client: TestClient) -> None:
+    response = _post(client, "delete", {"smaller_than": "150"})
+
+    assert response.json()["deleted"] == ["p-1-0", "p-2-0"]
+
+
+@pytest.mark.parametrize(
+    ("form", "code", "field"),
+    [
+        ({}, "INVALID_PARAMETERS", "ids"),
+        ({"ids": "[]", "smaller_than": "0"}, "INVALID_PARAMETERS", "ids"),
+        ({"ids": "[1]"}, "INVALID_PARAMETERS", "ids"),
+        ({"smaller_than": "-1"}, "VALIDATION_ERROR", None),
+        ({"smaller_than": "1000"}, "INVALID_PARAMETERS", None),  # every shape
+    ],
+)
+def test_delete_parameters_are_validated(
+    client: TestClient, form: dict[str, str], code: str, field: str | None
+) -> None:
+    response = _post(client, "delete", form)
+
+    assert response.status_code == 422
+    error = response.json()["error"]
+    assert error["code"] == code
+    if field is not None:
+        assert error["details"]["field"] == field

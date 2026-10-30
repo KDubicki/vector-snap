@@ -45,6 +45,12 @@ class SvgSplitResponse(BaseModel):
     created: list[str] = Field(description="Ids of the pieces, in document order")
 
 
+class SvgDeleteResponse(BaseModel):
+    svg: str
+    colors: int = Field(ge=0, description="Color layers of the edited SVG")
+    deleted: list[str] = Field(description="Ids of the removed shapes, in document order")
+
+
 # A knife line drawn in the editor has a few hundred points.
 MAX_LINE_POINTS = 10_000
 MAX_SHAPE_IDS = 10_000

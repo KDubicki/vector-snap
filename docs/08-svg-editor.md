@@ -58,7 +58,7 @@ Status: ✅ implemented · 🔜 planned.
 | Recolor | inspector / color groups panel | Recolor the selection or a whole palette group (see [Recoloring](#recoloring)). | ✅ |
 | Eyedropper | `I` / toolbar | Select shapes, then click the shape whose color they take (see [Recoloring](#recoloring)). Drags do not draw a box; the color is picked where the click ends. | ✅ |
 | Merge | `M` / toolbar | Unite the selected shapes into one (see [Merging and moving](#merging-and-moving-shapes-)). | ✅ |
-| Delete | `Del` / `Backspace` / toolbar | Remove selected shapes; groups left empty disappear. | ✅ |
+| Delete | `Del` / `Backspace` / toolbar | Remove selected shapes; groups left empty disappear. On the server: `POST /api/v1/svg/delete`, by id or below an area. | ✅ |
 | Undo / Redo | `Ctrl/Cmd+Z` / `Ctrl/Cmd+Shift+Z`, `Ctrl+Y` / toolbar | History navigation (see [Undo / redo](#undo--redo-)). | ✅ |
 | Background | toolbar | Checkerboard (shows transparency), light or dark canvas background, so white or dark shapes stand out; remembered in this browser (`src/lib/backdrop.ts`). | ✅ |
 
