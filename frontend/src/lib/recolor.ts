@@ -87,3 +87,24 @@ export function clearBorderRegions(
   }
   return pixels;
 }
+
+/** Opacity left to the other colors while one is highlighted (of 255). */
+export const DIMMED_ALPHA = 48;
+
+/**
+ * Fade every pixel that is not of `hex` in the original colors, in place: the colors of
+ * the palette row under the pointer stand out in the preview. `original` holds the
+ * colors before recoloring, as merged or recolored colors may match others.
+ */
+export function dimExcept(
+  pixels: Uint8ClampedArray,
+  original: Uint8ClampedArray,
+  hex: string,
+): Uint8ClampedArray {
+  const [r, g, b] = hexToRgb(hex);
+  for (let i = 0; i < pixels.length; i += 4) {
+    const same = original[i] === r && original[i + 1] === g && original[i + 2] === b;
+    if (!same) pixels[i + 3] = Math.min(pixels[i + 3], DIMMED_ALPHA);
+  }
+  return pixels;
+}

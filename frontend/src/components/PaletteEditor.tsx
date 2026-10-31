@@ -23,6 +23,9 @@ interface PaletteEditorProps {
   onResetAll: () => void;
   /** Name of a color (e.g. the filament it matches), shown next to its hex. */
   colorName?: (hex: string) => string | null;
+  /** Palette index under the pointer or keyboard focus, shown on its own in the preview. */
+  highlighted?: number | null;
+  onHighlight?: (index: number | null) => void;
 }
 
 function RemoveIcon({ removed }: { removed: boolean }) {
@@ -55,7 +58,8 @@ function PaletteStrip({
   palette,
   overrides,
   transparent,
-}: Pick<PaletteEditorProps, 'palette' | 'overrides' | 'transparent'>) {
+  onHighlight,
+}: Pick<PaletteEditorProps, 'palette' | 'overrides' | 'transparent' | 'onHighlight'>) {
   const shown = palette.filter((color) => (color.coverage ?? 0) > 0);
   if (shown.length !== palette.length) return null;
   const label = shown
@@ -72,6 +76,8 @@ function PaletteStrip({
             className={removed ? 'removed' : undefined}
             style={{ flexGrow: color.coverage, background: removed ? undefined : hex }}
             title={`${hex}: ${(color.coverage! * 100).toFixed(1)}%${removed ? ' (removed)' : ''}`}
+            onMouseEnter={() => onHighlight?.(color.index)}
+            onMouseLeave={() => onHighlight?.(null)}
           />
         );
       })}
@@ -95,6 +101,8 @@ export function PaletteEditor({
   onReset,
   onResetAll,
   colorName,
+  highlighted = null,
+  onHighlight,
 }: PaletteEditorProps) {
   const changed = Object.keys(overrides).length > 0;
   const lastVisible = transparent.length + 1 >= palette.length;
@@ -140,7 +148,12 @@ export function PaletteEditor({
           edge; the same color inside the design stays.
         </p>
       )}
-      <PaletteStrip palette={palette} overrides={overrides} transparent={transparent} />
+      <PaletteStrip
+        palette={palette}
+        overrides={overrides}
+        transparent={transparent}
+        onHighlight={onHighlight}
+      />
       <ul className="palette">
         {palette.map((color) => {
           const hex = overrides[color.index] ?? color.hex;
@@ -148,7 +161,18 @@ export function PaletteEditor({
           const isLocked = locked.includes(color.hex.toLowerCase());
           const isRemoved = transparent.includes(color.index);
           return (
-            <li key={color.index} className={isRemoved ? 'removed' : undefined}>
+            <li
+              key={color.index}
+              className={
+                [isRemoved && 'removed', highlighted === color.index && 'highlighted']
+                  .filter(Boolean)
+                  .join(' ') || undefined
+              }
+              onMouseEnter={() => onHighlight?.(color.index)}
+              onMouseLeave={() => onHighlight?.(null)}
+              onFocus={() => onHighlight?.(color.index)}
+              onBlur={() => onHighlight?.(null)}
+            >
               <input
                 type="color"
                 value={hex}
@@ -213,7 +237,10 @@ export function PaletteEditor({
           );
         })}
       </ul>
-      <p className="hint">Tip: give two colors the same value to merge them.</p>
+      <p className="hint">
+        Point at a color to see where it is in the image. Tip: give two colors the same value to
+        merge them.
+      </p>
     </div>
   );
 }

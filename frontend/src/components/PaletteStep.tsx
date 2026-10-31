@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { finalPalette, SIMILAR_LEVELS } from '../lib/color';
 import { allFilaments, filamentName, ownedColors } from '../lib/filamentLibrary';
 import { useObjectUrl } from '../lib/useObjectUrl';
@@ -58,6 +58,8 @@ export function PaletteStep() {
   const status = useAppStore((s) => s.status);
   const filamentLibrary = useAppStore((s) => s.filamentLibrary);
   const actions = useAppStore.getState();
+  // The palette row under the pointer: the preview shows that color on its own.
+  const [highlighted, setHighlighted] = useState<number | null>(null);
   const { confirm, dialog } = useConfirm();
   const guard = useDiscardGuard(confirm);
 
@@ -133,6 +135,11 @@ export function PaletteStep() {
                   ? originalPalette[background]
                   : null
               }
+              highlight={
+                highlighted !== null && !transparent.includes(highlighted)
+                  ? (originalPalette[highlighted] ?? null)
+                  : null
+              }
             />
           ) : (
             <div className="preview__placeholder">Reducing colors…</div>
@@ -196,6 +203,8 @@ export function PaletteStep() {
             onChange={actions.setOverride}
             onReset={actions.resetOverride}
             onResetAll={actions.resetOverrides}
+            highlighted={highlighted}
+            onHighlight={setHighlighted}
             colorName={(hex) => filamentName(filamentLibrary, hex)}
           />
         )}

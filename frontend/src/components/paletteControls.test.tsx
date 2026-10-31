@@ -196,6 +196,23 @@ describe('PaletteEditor', () => {
     expect(blue).toHaveClass('removed');
   });
 
+  it('highlights the color under the pointer or keyboard focus', async () => {
+    const user = userEvent.setup();
+    const onHighlight = vi.fn();
+    renderEditor({ onHighlight, highlighted: 1 });
+
+    const rows = screen.getAllByRole('listitem');
+    expect(rows[1]).toHaveClass('highlighted');
+    await user.hover(rows[2]);
+    expect(onHighlight).toHaveBeenLastCalledWith(2);
+    await user.unhover(rows[2]);
+    expect(onHighlight).toHaveBeenLastCalledWith(null);
+    fireEvent.mouseEnter(screen.getByRole('img', { name: /Share of the image/ }).firstChild!);
+    expect(onHighlight).toHaveBeenLastCalledWith(0);
+    fireEvent.focus(screen.getByLabelText('Palette color 2: #ff0000'));
+    expect(onHighlight).toHaveBeenLastCalledWith(1);
+  });
+
   it('leaves the strip out when the shares are not known', () => {
     renderEditor({ palette: [{ index: 0, hex: '#ffffff' }] });
 

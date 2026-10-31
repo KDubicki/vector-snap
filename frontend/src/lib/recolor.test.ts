@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clearBorderRegions, recolorPixels } from './recolor';
+import { DIMMED_ALPHA, clearBorderRegions, dimExcept, recolorPixels } from './recolor';
 
 const pixels = (...values: number[]) => new Uint8ClampedArray(values);
 
@@ -77,5 +77,18 @@ describe('clearBorderRegions', () => {
       '.kwwk',
       '.kkkk',
     ]);
+  });
+});
+
+describe('dimExcept', () => {
+  it('fades the pixels of every other original color, in place', () => {
+    // Red recolored to green, a green pixel, and a transparent red one.
+    const original = pixels(255, 0, 0, 255, 0, 255, 0, 255, 255, 0, 0, 0);
+    const shown = pixels(0, 255, 0, 255, 0, 255, 0, 255, 0, 255, 0, 0);
+
+    const result = dimExcept(shown, original, '#ff0000');
+
+    expect(result).toBe(shown);
+    expect(Array.from(result)).toEqual([0, 255, 0, 255, 0, 255, 0, DIMMED_ALPHA, 0, 255, 0, 0]);
   });
 });

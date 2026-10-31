@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { dataUrl } from '../lib/base64';
-import { clearBorderRegions, recolorPixels } from '../lib/recolor';
+import { clearBorderRegions, dimExcept, recolorPixels } from '../lib/recolor';
 import type { EncodedImage } from '../types/api';
 
 interface QuantizedPreviewProps {
@@ -10,6 +10,8 @@ interface QuantizedPreviewProps {
   targetPalette: (string | null)[];
   /** Original color of the removed background: left out where it reaches the border. */
   background?: string | null;
+  /** Original color to make stand out (the palette row under the pointer): others fade. */
+  highlight?: string | null;
 }
 
 /** Shows the quantized image, recolored client-side whenever the palette changes. */
@@ -18,6 +20,7 @@ export function QuantizedPreview({
   originalPalette,
   targetPalette,
   background = null,
+  highlight = null,
 }: QuantizedPreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const baseRef = useRef<ImageData | null>(null);
@@ -57,8 +60,9 @@ export function QuantizedPreview({
       );
       for (let i = 3; i < pixels.length; i += 4) if (cleared[i] === 0) pixels[i] = 0;
     }
+    if (highlight) dimExcept(pixels, base.data, highlight);
     context.putImageData(new ImageData(pixels, base.width, base.height), 0, 0);
-  }, [version, originalPalette, targetPalette, background]);
+  }, [version, originalPalette, targetPalette, background, highlight]);
 
   return <canvas ref={canvasRef} className="preview__image checkerboard" />;
 }

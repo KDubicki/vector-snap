@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { render, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { DIMMED_ALPHA } from '../lib/recolor';
 import { QUANTIZED } from '../test/fixtures';
 import { QuantizedPreview } from './QuantizedPreview';
 
@@ -61,5 +62,16 @@ describe('QuantizedPreview', () => {
     );
     const pixels = context.putImageData.mock.lastCall![0].data as Uint8ClampedArray;
     expect([...pixels]).toEqual([0, 0, 255, 255, 0, 255, 0, 0]); // blue, removed (alpha 0)
+
+    rerender(
+      <QuantizedPreview
+        image={QUANTIZED.image}
+        originalPalette={palette}
+        targetPalette={palette}
+        highlight="#00ff00"
+      />,
+    );
+    const highlighted = context.putImageData.mock.lastCall![0].data as Uint8ClampedArray;
+    expect([...highlighted]).toEqual([255, 0, 0, DIMMED_ALPHA, 0, 255, 0, 255]); // red faded
   });
 });

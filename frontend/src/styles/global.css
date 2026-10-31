@@ -480,6 +480,13 @@ select {
   gap: 8px;
 }
 
+/* The row whose color the preview shows on its own. */
+.palette li.highlighted {
+  border-radius: 6px;
+  box-shadow: 0 0 0 4px var(--color-border);
+  background: var(--color-border);
+}
+
 .palette input[type='color'] {
   width: 36px;
   height: 28px;
