@@ -5,7 +5,7 @@
  */
 
 import type { ModelSize } from '../types/api';
-import { COPY_GAP_MM, copyGrid, type PrintSettings } from './printPlan';
+import { COPY_GAP_MM, copyGrid, type PrintSettings } from './printPlan/settings';
 
 /** Wall around the hanging loop hole (backend `LOOP_WALL_MM`). */
 const LOOP_WALL_MM = 2;

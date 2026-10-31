@@ -213,8 +213,9 @@ tracing and export options). Narrower windows stack everything and scroll normal
 
 ### Step 4 — 3D print ✅
 
-A dedicated step for printable objects (`PrintStep`, logic in `src/lib/printPlan.ts`,
-unit-tested), opened from the "3D print →" button next to Download SVG at the foot of the SVG step
+A dedicated step for printable objects (`PrintStep`, logic in `src/lib/printPlan/`:
+`settings`, `projects`, `heights`, `colorStyles` and `exportOptions` — validation and
+the form sent to the backend — unit-tested), opened from the "3D print →" button next to Download SVG at the foot of the SVG step
 (Back to colors and Start with a new image are links under them) or the header:
 
 - **Project presets** set size, base and extras; colors and raised elements are kept,
@@ -267,7 +268,7 @@ unit-tested), opened from the "3D print →" button next to Download SVG at the 
   height are whole layers (shown in mm too), so colors change exactly at a layer.
 - **Height per color**: the model starts flat; include/leave out a color and give it
   extra layers, e.g. a logo raised 3 layers above the rest. **Automatic relief** (dark
-  on top / light on top, `reliefRaise` in `src/lib/printPlan.ts`) ranks the printed
+  on top / light on top, `reliefRaise` in `src/lib/printPlan/heights.ts`) ranks the printed
   colors by brightness and raises each one layer above the previous one; the values can
   be adjusted afterwards, and **Make all colors flat again** clears them.
 - **Printed size**: the design view draws dimension lines under and beside the design
