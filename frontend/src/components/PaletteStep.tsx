@@ -135,11 +135,7 @@ export function PaletteStep() {
                   ? originalPalette[background]
                   : null
               }
-              highlight={
-                highlighted !== null && !transparent.includes(highlighted)
-                  ? (originalPalette[highlighted] ?? null)
-                  : null
-              }
+              highlight={highlighted !== null ? (targetPalette[highlighted] ?? null) : null}
             />
           ) : (
             <div className="preview__placeholder">Reducing colors…</div>

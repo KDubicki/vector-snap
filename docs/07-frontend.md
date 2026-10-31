@@ -156,13 +156,18 @@ tracing and export options). Narrower windows stack everything and scroll normal
   - Edits are previewed **instantly client-side**: the indexed PNG is decoded onto a
     `<canvas>` and every pixel is mapped from its original palette color to the edited
     color (`src/lib/recolor.ts`) — no server call.
-  - Merge: give two colors the same value; they become one region in the SVG.
+  - Merge: give two colors the same value, or drag one onto the other (below); they
+    become one region in the SVG.
   - ✅ Hover highlighting: pointing at a palette row (or its share in the strip) or
     tabbing into it shows that color on its own in the reduced preview — every other
-    color fades to 48/255 opacity (`dimExcept()` in `src/lib/recolor.ts`, matched on the
-    original colors, so recolored or merged colors still show their own pixels).
-    Removed colors are not highlighted.
-  - 🔜 Drag-to-merge.
+    color fades to 48/255 opacity (`dimExcept()` in `src/lib/recolor.ts`). It matches
+    the final colors, so colors merged into the row light up with it: they are one color
+    in the SVG. Removed colors are not highlighted.
+  - ✅ Drag-to-merge: drag a palette row onto another and the dragged color takes the
+    other's value (an override, as editing it by hand), so both become one region in the
+    SVG; **Reset** on the dragged row undoes it. The target is outlined while dragging;
+    removed colors cannot be dragged or dropped onto, and a color already equal to the
+    target is not dropped.
 - **Tracing options** (collapsible): curves (spline/polygon), shapes (cutout/stacked),
   speck filter, corner threshold and an **Advanced** subsection with minimum segment
   length, splice threshold (both spline only, disabled in polygon mode) and coordinate

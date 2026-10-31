@@ -213,6 +213,40 @@ describe('PaletteEditor', () => {
     expect(onHighlight).toHaveBeenLastCalledWith(1);
   });
 
+  it('merges a color dragged onto another', () => {
+    const handlers = renderEditor({ overrides: { 2: '#ff0000' }, transparent: [] });
+    const dataTransfer = { setData: vi.fn(), effectAllowed: '', dropEffect: '' };
+    const [white, red, blue] = screen.getAllByRole('listitem');
+
+    fireEvent.dragStart(white, { dataTransfer });
+    expect(white).toHaveClass('dragging');
+    fireEvent.dragOver(red, { dataTransfer });
+    expect(red).toHaveClass('drop-target');
+    fireEvent.drop(red, { dataTransfer });
+    expect(handlers.onChange).toHaveBeenCalledWith(0, '#ff0000');
+    expect(white).not.toHaveClass('dragging');
+
+    // Already the same color: no drop.
+    fireEvent.dragStart(blue, { dataTransfer });
+    fireEvent.dragOver(red, { dataTransfer });
+    expect(red).not.toHaveClass('drop-target');
+    fireEvent.drop(red, { dataTransfer });
+    expect(handlers.onChange).toHaveBeenCalledTimes(1);
+    fireEvent.dragEnd(blue, { dataTransfer });
+    expect(blue).not.toHaveClass('dragging');
+  });
+
+  it('does not drag removed colors or drop onto them', () => {
+    const handlers = renderEditor({ transparent: [2] });
+    const dataTransfer = { setData: vi.fn(), effectAllowed: '', dropEffect: '' };
+    const [white, , blue] = screen.getAllByRole('listitem');
+
+    expect(blue).toHaveAttribute('draggable', 'false');
+    fireEvent.dragStart(white, { dataTransfer });
+    fireEvent.drop(blue, { dataTransfer });
+    expect(handlers.onChange).not.toHaveBeenCalled();
+  });
+
   it('leaves the strip out when the shares are not known', () => {
     renderEditor({ palette: [{ index: 0, hex: '#ffffff' }] });
 

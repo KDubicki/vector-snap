@@ -487,6 +487,20 @@ select {
   background: var(--color-border);
 }
 
+.palette li[draggable='true'] {
+  cursor: grab;
+}
+
+.palette li.dragging {
+  opacity: 0.5;
+}
+
+/* Where a dragged color merges into. */
+.palette li.drop-target {
+  border-radius: 6px;
+  box-shadow: 0 0 0 2px var(--color-accent);
+}
+
 .palette input[type='color'] {
   width: 36px;
   height: 28px;

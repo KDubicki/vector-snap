@@ -92,18 +92,14 @@ export function clearBorderRegions(
 export const DIMMED_ALPHA = 48;
 
 /**
- * Fade every pixel that is not of `hex` in the original colors, in place: the colors of
- * the palette row under the pointer stand out in the preview. `original` holds the
- * colors before recoloring, as merged or recolored colors may match others.
+ * Fade every pixel that is not of `hex`, in place: the palette row under the pointer
+ * stands out in the recolored preview, together with the colors merged into it (they
+ * are one color in the SVG).
  */
-export function dimExcept(
-  pixels: Uint8ClampedArray,
-  original: Uint8ClampedArray,
-  hex: string,
-): Uint8ClampedArray {
+export function dimExcept(pixels: Uint8ClampedArray, hex: string): Uint8ClampedArray {
   const [r, g, b] = hexToRgb(hex);
   for (let i = 0; i < pixels.length; i += 4) {
-    const same = original[i] === r && original[i + 1] === g && original[i + 2] === b;
+    const same = pixels[i] === r && pixels[i + 1] === g && pixels[i + 2] === b;
     if (!same) pixels[i + 3] = Math.min(pixels[i + 3], DIMMED_ALPHA);
   }
   return pixels;

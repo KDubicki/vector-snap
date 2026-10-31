@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { PaletteColor } from '../types/api';
 import { LockIcon } from './LockedColors';
 
@@ -104,6 +105,20 @@ export function PaletteEditor({
   highlighted = null,
   onHighlight,
 }: PaletteEditorProps) {
+  // Drag a row onto another to merge: the dragged color takes the other's value.
+  const [dragged, setDragged] = useState<number | null>(null);
+  const [dropTarget, setDropTarget] = useState<number | null>(null);
+  const hexOf = (index: number) =>
+    overrides[index] ?? palette.find((color) => color.index === index)?.hex;
+  const canDropOn = (index: number) =>
+    dragged !== null &&
+    dragged !== index &&
+    !transparent.includes(index) &&
+    hexOf(dragged) !== hexOf(index);
+  const endDrag = () => {
+    setDragged(null);
+    setDropTarget(null);
+  };
   const changed = Object.keys(overrides).length > 0;
   const lastVisible = transparent.length + 1 >= palette.length;
   const canRemoveBackground =
@@ -164,10 +179,37 @@ export function PaletteEditor({
             <li
               key={color.index}
               className={
-                [isRemoved && 'removed', highlighted === color.index && 'highlighted']
+                [
+                  isRemoved && 'removed',
+                  highlighted === color.index && 'highlighted',
+                  dragged === color.index && 'dragging',
+                  dropTarget === color.index && 'drop-target',
+                ]
                   .filter(Boolean)
                   .join(' ') || undefined
               }
+              draggable={!isRemoved}
+              title={isRemoved ? undefined : 'Drag onto another color to merge them'}
+              onDragStart={(event) => {
+                event.dataTransfer.effectAllowed = 'move';
+                event.dataTransfer.setData('text/plain', hex);
+                setDragged(color.index);
+              }}
+              onDragOver={(event) => {
+                if (!canDropOn(color.index)) return;
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'move';
+                setDropTarget(color.index);
+              }}
+              onDragLeave={() =>
+                setDropTarget((target) => (target === color.index ? null : target))
+              }
+              onDrop={(event) => {
+                event.preventDefault();
+                if (dragged !== null && canDropOn(color.index)) onChange(dragged, hex);
+                endDrag();
+              }}
+              onDragEnd={endDrag}
               onMouseEnter={() => onHighlight?.(color.index)}
               onMouseLeave={() => onHighlight?.(null)}
               onFocus={() => onHighlight?.(color.index)}
@@ -238,8 +280,8 @@ export function PaletteEditor({
         })}
       </ul>
       <p className="hint">
-        Point at a color to see where it is in the image. Tip: give two colors the same value to
-        merge them.
+        Point at a color to see where it is in the image. Drag a color onto another (or give them
+        the same value) to merge them; Reset undoes it.
       </p>
     </div>
   );
