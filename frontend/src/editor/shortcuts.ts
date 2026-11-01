@@ -1,6 +1,6 @@
 /**
  * Keyboard shortcuts of the SVG editor, as the help dialog lists them (`?`). The keys
- * themselves are handled in `SvgEditor`; keep both in step. See
+ * themselves are handled in `useEditorKeyboard`; keep both in step. See
  * docs/08-svg-editor.md#keyboard-shortcuts.
  */
 

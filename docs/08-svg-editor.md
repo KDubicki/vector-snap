@@ -345,4 +345,6 @@ marked as saved, instead of the browser saving the page). **`?`** — or the **?
 at the end of the toolbar — opens *Keyboard shortcuts* (`ShortcutsDialog`), every
 shortcut grouped by tools, selection, view, and file and history, with the keys as this
 keyboard prints them (⌘ and ⇧ on a Mac, Ctrl elsewhere). The list is data,
-`src/editor/shortcuts.ts`; the keys are handled in `SvgEditor`.
+`src/editor/shortcuts.ts`; the keys are handled by the `useEditorKeyboard` hook
+(`src/components/useEditorKeyboard.ts`) and the tools are listed in
+`src/components/editorTools.ts`, which the toolbar shares.
