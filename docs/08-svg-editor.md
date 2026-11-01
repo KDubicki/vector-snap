@@ -133,6 +133,9 @@ changes nothing and shows a hint.
 3. `S` is replaced by the inside and outside pieces at its z-position (derived ids as for
    the knife); the **inside pieces become the selection**, ready to recolor or delete.
 
+The same cut runs on the server: `POST /api/v1/svg/lasso` (`cut_region()` in
+`app/services/svg_split.py`, Shapely; curves of a cut shape become straight segments).
+
 Because the backend emits shapes in `cutout` mode by default (see
 [pipeline](06-image-processing-pipeline.md#5-vectorization-servicesvectorizationpy)),
 shapes do not overlap and splitting never reveals hidden geometry underneath.

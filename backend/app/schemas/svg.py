@@ -82,15 +82,23 @@ MAX_LINE_POINTS = 10_000
 MAX_SHAPE_IDS = 10_000
 
 
-def parse_line(raw: str, field: str) -> list[tuple[float, float]]:
-    """Parse a JSON polyline `[[x, y], ...]` of at least two points (a multipart field)."""
+class SvgLassoResponse(BaseModel):
+    svg: str
+    cut: int = Field(ge=0, description="Shapes the region was cut out of")
+    inside: list[str] = Field(description="Ids of the pieces inside the region")
+    outside: list[str] = Field(description="Ids of the pieces outside it")
+
+
+def parse_line(raw: str, field: str, min_points: int = 2) -> list[tuple[float, float]]:
+    """Parse a JSON polyline `[[x, y], ...]` of at least `min_points` points (a multipart
+    field)."""
     try:
         values = json.loads(raw)
     except json.JSONDecodeError as exc:
         raise InvalidParameters(f"`{field}` must be a JSON array.", {"field": field}) from exc
     if (
         not isinstance(values, list)
-        or not 2 <= len(values) <= MAX_LINE_POINTS
+        or not min_points <= len(values) <= MAX_LINE_POINTS
         or not all(
             isinstance(point, list)
             and len(point) == 2
@@ -102,7 +110,7 @@ def parse_line(raw: str, field: str) -> list[tuple[float, float]]:
         )
     ):
         raise InvalidParameters(
-            f"`{field}` must be 2 to {MAX_LINE_POINTS} points like [[0, 5], [40, 5]].",
+            f"`{field}` must be {min_points} to {MAX_LINE_POINTS} points like [[0, 5], [40, 5]].",
             {"field": field},
         )
     points = [(float(x), float(y)) for x, y in values]

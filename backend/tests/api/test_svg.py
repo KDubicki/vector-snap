@@ -204,3 +204,28 @@ def test_stats_speck_area_is_validated(client: TestClient) -> None:
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_cuts_a_lasso_region(client: TestClient) -> None:
+    response = _post(client, "lasso", {"region": "[[25, 12], [35, 12], [35, 25], [25, 25]]"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert (body["cut"], body["inside"], body["outside"]) == (1, ["p-2-0.a"], ["p-2-0.b"])
+    assert 'id="p-2-0.a"' in body["svg"]
+
+
+@pytest.mark.parametrize(
+    "form",
+    [
+        {"region": "[[0, 0], [5, 5]]"},
+        {"region": "[[0, 0], [5, 5], [9, 9]]"},  # no area
+        {"region": "nope"},
+        {"region": "[[0, 0], [5, 0], [0, 5]]", "ids": "[1]"},
+    ],
+)
+def test_lasso_parameters_are_validated(client: TestClient, form: dict[str, str]) -> None:
+    response = _post(client, "lasso", form)
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "INVALID_PARAMETERS"

@@ -37,6 +37,7 @@ Responses are JSON unless stated otherwise. Errors use the format described in
 | `POST` | `/api/v1/svg/merge-similar` | Join color layers that look the same ([details](#svg)) |
 | `POST` | `/api/v1/svg/recolor` | Replace colors, snap them to the loaded filaments ([details](#svg)) |
 | `POST` | `/api/v1/svg/split` | Split shapes along a line, as the editor's knife ([details](#post-apiv1svgsplit)) |
+| `POST` | `/api/v1/svg/lasso` | Cut a region out of shapes, as the editor's lasso ([details](#post-apiv1svglasso)) |
 | `POST` | `/api/v1/svg/delete` | Delete shapes by id or the specks below an area ([details](#post-apiv1svgdelete)) |
 | `POST` | `/api/v1/svg/stats` | Colors, shapes, coverage and specks of a document ([details](#post-apiv1svgstats)) |
 | `POST` | `/api/v1/svg/merge` | Unite shapes into the largest of them, as the editor's merge ([details](#post-apiv1svgmerge)) |
@@ -361,6 +362,30 @@ become straight segments. Response:
 
 Errors: `413 FILE_TOO_LARGE`, `422 INVALID_SVG`, `422 VALIDATION_ERROR` (no `line`),
 `422 INVALID_PARAMETERS` (bad `line` or `ids`).
+
+### `POST /api/v1/svg/lasso`
+
+The editor's lasso ([08](08-svg-editor.md#lasso-region-cut-)) on the server:
+
+- `region` (required) — JSON array of 3 to 10 000 points in document px, the closed
+  lasso outline, `[[10, 10], [60, 10], [35, 50]]`.
+- `ids` — JSON array of shape ids to cut, `["p-1-0"]`; without it, the topmost shape
+  under the region's first point (as the editor with nothing selected).
+
+A shape is cut only when the region covers **part** of it: a region beside a shape or
+around all of it leaves it whole. Each cut shape is replaced, at its place and with its
+own color, by its pieces inside the region and then outside it (holes stay with their
+piece; slivers under 0.5 px² are dropped), with ids derived from it (`p-1-0.a`, …). Its
+curves become straight segments. Response:
+
+```json
+{ "svg": "<svg ...>...</svg>", "cut": 1, "inside": ["p-1-0.a"], "outside": ["p-1-0.b"] }
+```
+
+`cut` 0 means no shape was partly covered; the SVG comes back unchanged.
+
+Errors: `413 FILE_TOO_LARGE`, `422 INVALID_SVG`, `422 VALIDATION_ERROR` (no `region`),
+`422 INVALID_PARAMETERS` (bad `region` or `ids`, a region without area).
 
 ### `POST /api/v1/svg/delete`
 

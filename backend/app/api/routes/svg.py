@@ -12,6 +12,7 @@ from app.schemas.svg import (
     ColorChangeModel,
     SvgDeleteResponse,
     SvgEditResponse,
+    SvgLassoResponse,
     SvgLayerStatsModel,
     SvgMergeResponse,
     SvgSplitResponse,
@@ -27,7 +28,7 @@ from app.services.svg_edit import (
     serialize_svg,
 )
 from app.services.svg_shapes import delete_shapes, merge_shapes
-from app.services.svg_split import split_along_line
+from app.services.svg_split import cut_region, split_along_line
 from app.services.svg_stats import svg_stats
 
 router = APIRouter(prefix="/svg", tags=["svg"])
@@ -117,6 +118,34 @@ async def split_svg(
     edited = await run_in_threadpool(split_along_line, document, points, selected)
     return SvgSplitResponse(
         svg=serialize_svg(edited.document), split=edited.split, created=edited.created
+    )
+
+
+@router.post("/lasso", response_model=SvgLassoResponse)
+async def lasso_svg(
+    document: UploadedSvg,
+    region: Annotated[
+        str,
+        Form(description="Closed lasso region in document px, e.g. [[0, 0], [50, 0], [0, 50]]"),
+    ],
+    ids: Annotated[
+        str,
+        Form(
+            description='Shapes to cut, e.g. ["p-1-0"]; without them the topmost shape under '
+            "the region's first point"
+        ),
+    ] = "[]",
+) -> SvgLassoResponse:
+    """Cut a region out of shapes, as the editor's lasso: each shape it partly covers is
+    replaced by its pieces inside and outside the region."""
+    points = parse_line(region, "region", min_points=3)
+    selected = parse_shape_ids(ids, "ids")
+    edited = await run_in_threadpool(cut_region, document, points, selected)
+    return SvgLassoResponse(
+        svg=serialize_svg(edited.document),
+        cut=edited.cut,
+        inside=edited.inside,
+        outside=edited.outside,
     )
 
 

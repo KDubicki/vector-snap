@@ -1,8 +1,9 @@
 import pytest
 from shapely import LineString
 
+from app.core.errors import InvalidParameters
 from app.services.svg_geometry import VectorDocument, VectorShape, flatten, parse_svg, to_polygon
-from app.services.svg_split import pieces, split_along_line
+from app.services.svg_split import cut_region, pieces, split_along_line
 from tests.vectors import contract_svg
 
 # White background, two red squares side by side; the second has its own blue color.
@@ -76,3 +77,33 @@ def test_holes_stay_with_their_piece_and_parts_the_line_misses_stay_whole() -> N
     assert halves is not None
     assert sorted(piece.area for piece in halves) == [50, 50, 100]
     assert pieces(VectorShape("empty", "#000000", ""), LineString([(0, 0), (1, 1)])) is None
+
+
+SQUARE_REGION = [(12, 0), (40, 0), (40, 20), (12, 20)]  # x >= 12: the right of p-1-0
+
+
+def test_lasso_cuts_a_region_out_of_the_shape_under_its_first_point() -> None:
+    result = cut_region(DOC, [(15, 7), (30, 7), (30, 13), (15, 13)])
+
+    # The first point lies on the red square p-1-0 (above the background).
+    assert (result.cut, result.inside, result.outside) == (1, ["p-1-0.a"], ["p-1-0.b"])
+    shapes = _shapes(result.document)
+    assert _area(shapes["p-1-0.a"]) == pytest.approx(30)
+    assert _area(shapes["p-1-0.b"]) == pytest.approx(70)
+    assert shapes["p-0-0"] == _shapes(DOC)["p-0-0"]
+
+
+def test_lasso_cuts_the_given_shapes_and_skips_those_it_holds_or_misses() -> None:
+    result = cut_region(DOC, SQUARE_REGION, ["p-1-0", "p-1-1", "p-0-0"])
+
+    # p-1-1 lies wholly inside: nothing to cut out of it.
+    assert result.cut == 2
+    assert result.inside == ["p-0-0.a", "p-1-0.a"]
+    assert result.outside == ["p-0-0.b", "p-1-0.b"]
+    assert _shapes(result.document)["p-1-1"] == _shapes(DOC)["p-1-1"]
+    assert cut_region(DOC, [(50, 50), (60, 50), (60, 60)]).cut == 0  # beside the design
+
+
+def test_lasso_needs_an_area() -> None:
+    with pytest.raises(InvalidParameters):
+        cut_region(DOC, [(0, 0), (10, 10), (20, 20)])

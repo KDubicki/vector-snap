@@ -1,21 +1,26 @@
-"""Split shapes along a line on the server: the SVG editor's knife for services and
-scripts without a browser.
+"""Split shapes along a line or cut a region out of them on the server: the SVG editor's
+knife and lasso for services and scripts without a browser.
 
 As in the editor, only shapes the line fully crosses are split (both of its ends lie
 outside the shape), so the shape a line starts and ends on, usually the background,
 stays whole. With `ids`, only those shapes are split when the line crosses any of them.
+The lasso cuts a closed region out of the shapes it partly covers: the given `ids`, or
+the topmost shape under the region's first point, as the editor without a selection.
 Pieces take the shape's place and color, with ids derived from it (`p-3-12.a`,
-`p-3-12.b`, ...). Curves of a split shape become polylines. See
-docs/05-api-specification.md#post-apiv1svgsplit and docs/08-svg-editor.md#knife-line-cut-.
+`p-3-12.b`, ...), inside pieces first. Curves of a cut shape become polylines. See
+docs/05-api-specification.md#post-apiv1svgsplit and #post-apiv1svglasso, and
+docs/08-svg-editor.md#knife-line-cut-.
 """
 
 from collections.abc import Collection, Sequence
 from dataclasses import dataclass, replace
 from string import ascii_lowercase
 
-from shapely import LineString, MultiPolygon, Point, Polygon
+from shapely import LineString, MultiPolygon, Point, Polygon, make_valid
+from shapely.geometry.base import BaseGeometry
 from shapely.ops import split
 
+from app.core.errors import InvalidParameters
 from app.services.svg_geometry import (
     VectorDocument,
     VectorShape,
@@ -104,3 +109,77 @@ def split_along_line(
         if restricted.split:
             return restricted
     return _split_shapes(document, knife, None)
+
+
+@dataclass(frozen=True)
+class LassoCut:
+    document: VectorDocument
+    inside: list[str]  # ids of the pieces inside the region, in document order
+    outside: list[str]  # ids of the pieces outside it
+    cut: int  # shapes that were cut
+
+
+def _geometry(shape: VectorShape) -> MultiPolygon:
+    return MultiPolygon(polygons(to_polygon(flatten(shape.d))))
+
+
+def _pieces_of(geometry: BaseGeometry) -> list[Polygon]:
+    return [piece for piece in polygons(geometry) if piece.area >= MIN_PIECE_AREA]
+
+
+def region_pieces(
+    shape: VectorShape, region: BaseGeometry
+) -> tuple[list[Polygon], list[Polygon]] | None:
+    """The pieces of a shape inside and outside the region, or None when the region does
+    not cover part of it (it misses the shape or holds all of it)."""
+    geometry = _geometry(shape)
+    inside = _pieces_of(geometry.intersection(region))
+    outside = _pieces_of(geometry.difference(region))
+    return (inside, outside) if inside and outside else None
+
+
+def _shape_under(document: VectorDocument, point: tuple[float, float]) -> str | None:
+    """The topmost shape covering a point, as a click in the editor finds it."""
+    for layer in reversed(document.layers):
+        for shape in reversed(layer.shapes):
+            if _geometry(shape).covers(Point(point)):
+                return shape.id
+    return None
+
+
+def cut_region(
+    document: VectorDocument, region: Sequence[tuple[float, float]], ids: Collection[str] = ()
+) -> LassoCut:
+    """Cut the closed `region` (document px, at least three points) out of the shapes in
+    `ids`, or out of the topmost shape under its first point without `ids`."""
+    area = make_valid(Polygon(region))
+    if area.area < MIN_PIECE_AREA:
+        raise InvalidParameters("The region encloses no area.", {"field": "region"})
+    targets = set(ids)
+    if not targets:
+        under = _shape_under(document, region[0])
+        targets = {under} if under is not None else set()
+
+    taken = {shape.id for layer in document.layers for shape in layer.shapes}
+    inside: list[str] = []
+    outside: list[str] = []
+    cut = 0
+    layers = []
+    for layer in document.layers:
+        shapes: list[VectorShape] = []
+        for shape in layer.shapes:
+            pieces = region_pieces(shape, area) if shape.id in targets else None
+            if pieces is None:
+                shapes.append(shape)
+                continue
+            parts = [*pieces[0], *pieces[1]]
+            piece_ids = _piece_ids(shape.id, len(parts), taken)
+            shapes.extend(
+                replace(shape, id=piece_id, d=path_data(piece))
+                for piece_id, piece in zip(piece_ids, parts, strict=True)
+            )
+            inside.extend(piece_ids[: len(pieces[0])])
+            outside.extend(piece_ids[len(pieces[0]) :])
+            cut += 1
+        layers.append(replace(layer, shapes=shapes))
+    return LassoCut(replace(document, layers=layers), inside, outside, cut)
