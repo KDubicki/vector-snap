@@ -40,6 +40,7 @@ Responses are JSON unless stated otherwise. Errors use the format described in
 | `POST` | `/api/v1/svg/lasso` | Cut a region out of shapes, as the editor's lasso ([details](#post-apiv1svglasso)) |
 | `POST` | `/api/v1/svg/transform` | Move, scale, flip and rotate shapes, curves kept ([details](#post-apiv1svgtransform)) |
 | `POST` | `/api/v1/svg/delete` | Delete shapes by id or the specks below an area ([details](#post-apiv1svgdelete)) |
+| `POST` | `/api/v1/svg/simplify` | Fewer outline points within a tolerance ([details](#post-apiv1svgsimplify)) |
 | `POST` | `/api/v1/svg/stats` | Colors, shapes, coverage and specks of a document ([details](#post-apiv1svgstats)) |
 | `POST` | `/api/v1/svg/merge` | Unite shapes into the largest of them, as the editor's merge ([details](#post-apiv1svgmerge)) |
 
@@ -436,6 +437,30 @@ SVG comes back unchanged).
 Errors: `413 FILE_TOO_LARGE`, `422 INVALID_SVG`, `422 VALIDATION_ERROR` (`smaller_than`
 out of range), `422 INVALID_PARAMETERS` (bad `ids`, neither `ids` nor `smaller_than`,
 or every shape would go).
+
+### `POST /api/v1/svg/simplify`
+
+Fewer outline points for cutting plotters, laser software and slicers that struggle with
+traced detail, and smaller files:
+
+- `tolerance` — how far an outline may move, document px, 0 < … ≤ 50, default 0.5.
+- `ids` — JSON array of the shapes to simplify, `["p-1-0"]`; without it, every shape.
+
+Each outline is flattened and simplified with Douglas-Peucker, keeping its topology:
+holes stay holes and parts do not cross; a sliver keeps an area rather than vanishing.
+Shapes that would not lose a point are left as they were (curves included); simplified
+ones become straight segments. Response:
+
+```json
+{ "svg": "<svg ...>...</svg>", "simplified": ["p-1-0", "p-2-3"],
+  "points_before": 12840, "points_after": 3122 }
+```
+
+`points_before` and `points_after` count the corners of the outlines asked for, curves
+flattened to 0.25 px as every export flattens them.
+
+Errors: `413 FILE_TOO_LARGE`, `422 INVALID_SVG`, `422 VALIDATION_ERROR` (`tolerance` out
+of range), `422 INVALID_PARAMETERS` (bad `ids`).
 
 ### `POST /api/v1/svg/stats`
 

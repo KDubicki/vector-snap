@@ -257,3 +257,30 @@ def test_transform_parameters_are_validated(
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == code
+
+
+def test_simplifies_outlines(client: TestClient) -> None:
+    response = _post(client, "simplify", {"tolerance": "1"})
+
+    assert response.status_code == 200
+    body = response.json()
+    # Straight squares have nothing to drop.
+    assert body["simplified"] == []
+    assert body["points_before"] == body["points_after"] == 12
+
+
+@pytest.mark.parametrize(
+    ("form", "code"),
+    [
+        ({"tolerance": "0"}, "VALIDATION_ERROR"),
+        ({"tolerance": "51"}, "VALIDATION_ERROR"),
+        ({"ids": "{}"}, "INVALID_PARAMETERS"),
+    ],
+)
+def test_simplify_parameters_are_validated(
+    client: TestClient, form: dict[str, str], code: str
+) -> None:
+    response = _post(client, "simplify", form)
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == code

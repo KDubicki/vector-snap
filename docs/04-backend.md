@@ -61,6 +61,7 @@ backend/
 │       ├── svg_shapes.py       # delete and merge shapes, as the editor (/svg/delete, /svg/merge)
 │       ├── svg_split.py        # knife and lasso cuts, as the editor (/svg/split, /svg/lasso)
 │       ├── svg_transform.py    # move, scale, flip, rotate shapes, curves kept (/svg/transform)
+│       ├── svg_simplify.py     # fewer outline points within a tolerance (/svg/simplify)
 │       ├── svg_stats.py        # colors, shapes, coverage and specks of a document (/svg/stats)
 │       ├── model_options.py    # StlOptions, Body, layer snapping (shared by 3D exports)
 │       ├── model_parts.py      # color order, heights, parts per color and height, footprints

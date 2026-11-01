@@ -82,6 +82,13 @@ class SvgTransformResponse(BaseModel):
     transformed: list[str] = Field(description="Ids of the transformed shapes")
 
 
+class SvgSimplifyResponse(BaseModel):
+    svg: str
+    simplified: list[str] = Field(description="Ids of the shapes that lost points")
+    points_before: int = Field(ge=0, description="Outline points of the shapes, flattened")
+    points_after: int = Field(ge=0)
+
+
 # A knife line drawn in the editor has a few hundred points.
 MAX_LINE_POINTS = 10_000
 MAX_SHAPE_IDS = 10_000

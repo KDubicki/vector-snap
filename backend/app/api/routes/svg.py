@@ -15,6 +15,7 @@ from app.schemas.svg import (
     SvgLassoResponse,
     SvgLayerStatsModel,
     SvgMergeResponse,
+    SvgSimplifyResponse,
     SvgSplitResponse,
     SvgStatsResponse,
     SvgTransformResponse,
@@ -29,6 +30,7 @@ from app.services.svg_edit import (
     serialize_svg,
 )
 from app.services.svg_shapes import delete_shapes, merge_shapes
+from app.services.svg_simplify import simplify_shapes
 from app.services.svg_split import cut_region, split_along_line
 from app.services.svg_stats import svg_stats
 from app.services.svg_transform import Flip, transform_shapes
@@ -263,3 +265,26 @@ async def transform_svg(
         )
     )
     return SvgTransformResponse(svg=serialize_svg(edited.document), transformed=edited.transformed)
+
+
+@router.post("/simplify", response_model=SvgSimplifyResponse)
+async def simplify_svg(
+    document: UploadedSvg,
+    tolerance: Annotated[
+        float,
+        Form(gt=0, le=50, description="Largest distance an outline may move, document px"),
+    ] = 0.5,
+    ids: Annotated[
+        str, Form(description='Shapes to simplify, e.g. ["p-1-0"]; without them every shape')
+    ] = "[]",
+) -> SvgSimplifyResponse:
+    """Fewer outline points for cutters, laser software and slicers: Douglas-Peucker within
+    `tolerance`, holes kept. Curves become polylines."""
+    selected = parse_shape_ids(ids, "ids")
+    edited = await run_in_threadpool(simplify_shapes, document, tolerance, selected)
+    return SvgSimplifyResponse(
+        svg=serialize_svg(edited.document),
+        simplified=edited.simplified,
+        points_before=edited.points_before,
+        points_after=edited.points_after,
+    )
