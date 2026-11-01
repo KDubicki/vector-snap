@@ -1,34 +1,28 @@
-import { Suspense, lazy, useMemo, useState } from 'react';
-import { errorMessage, exportFile, getFilamentPlan } from '../api/client';
+import { useMemo, useState } from 'react';
+import { exportFile } from '../api/client';
 import { serializeSvg } from '../editor/export';
-import { exportFileName, modelTitle } from '../lib/exportFormats';
+import { modelTitle } from '../lib/exportFormats';
 import {
   filamentsNeeded,
-  outlined,
   heightPlan,
-  nextSelection,
   COPY_GAP_MM,
   MAX_COPIES,
   layersToMm,
   mixPlan,
   cutoutChange,
-  designHeightMm,
   filamentMatches,
   mixedChange,
   printOptions,
   printedGroups,
   suggestFilaments,
-  testCard,
   validatePrint,
   type PrintSettings,
 } from '../lib/printPlan';
 import { availableFilaments } from '../lib/filamentLibrary';
 import { printerById } from '../lib/printers';
-import { useExport } from '../lib/useExport';
 import { usePrintCheck } from '../lib/useBackendResult';
 import { usePrintStats } from '../lib/usePrintStats';
 import { useAppStore } from '../state/store';
-import type { FilamentPlan } from '../types/api';
 import { ApiCommand } from './ApiCommand';
 import { BasePlateFields } from './BasePlateFields';
 import { BuildVolumeCheck } from './BuildVolumeCheck';
@@ -36,7 +30,6 @@ import { ColorChangesSummary } from './ColorChangesSummary';
 import { ThinShapesCheck } from './ThinShapesCheck';
 import { FilamentSlotsCheck } from './FilamentSlotsCheck';
 import { ColorStylePicker } from './ColorStylePicker';
-import { ElementMap } from './ElementMap';
 import { FilamentCost } from './FilamentCost';
 import { FilamentPlanView } from './FilamentPlanView';
 import { FilamentSlots } from './FilamentSlots';
@@ -47,7 +40,8 @@ import { LayerFields } from './LayerFields';
 import { LayerProfile } from './LayerProfile';
 import type { PreviewRequest } from './ModelPreview';
 import { PrintColorsTable } from './PrintColorsTable';
-import { PrintDownloads, type PrintFormat } from './PrintDownloads';
+import { PrintDownloads } from './PrintDownloads';
+import { PrintPreviewPane, type PrintView } from './PrintPreviewPane';
 import { PrintSettingsFile } from './PrintSettingsFile';
 import { NumberField } from './NumberField';
 import { PrintSummary } from './PrintSummary';
@@ -56,9 +50,7 @@ import { PrinterPicker } from './PrinterPicker';
 import { PrinterTuningFields } from './PrinterTuningFields';
 import { ProjectPicker } from './ProjectPicker';
 import { RaisedElementsPanel } from './RaisedElementsPanel';
-
-// three.js is only downloaded when a 3D preview is opened.
-const ModelPreview = lazy(() => import('./ModelPreview'));
+import { usePrintJobs } from './usePrintJobs';
 
 /**
  * 3D print step: project presets (magnet, keychain, ornament, sign), flat (AMS) or stepped
@@ -82,14 +74,9 @@ export function PrintStep() {
     goTo,
     setColors,
   } = useAppStore.getState();
-  const [view, setView] = useState<'design' | 'model'>('design');
+  const [view, setView] = useState<PrintView>('design');
   const [preview, setPreview] = useState<{ request: PreviewRequest; key: string } | null>(null);
-  const job = useExport();
-  const [plan, setPlan] = useState<{ plan: FilamentPlan; key: string } | null>(null);
-
   const [selected, setSelected] = useState<string[]>([]);
-
-  const [showPredicted, setShowPredicted] = useState(true);
 
   const svg = useMemo(() => (editor ? serializeSvg(editor) : null), [editor]);
   const mixed = print.style === 'mixed';
@@ -109,15 +96,25 @@ export function PrintStep() {
     Boolean(svg && !invalid),
   );
   const thin = usePrintCheck(svg ?? '', options, Boolean(svg && !invalid));
+  // The 3MF also names the model in the slicer after the image.
+  const model = { ...options, title: modelTitle(file?.name) };
+  // Previews and plans remember what they were built from, so stale ones are marked.
+  const key = JSON.stringify([svg, options]);
+  const { job, run, runTiles, runTestCard, plan, showPlan } = usePrintJobs({
+    doc: editor,
+    settings: print,
+    svg: svg ?? '',
+    options,
+    model,
+    printer,
+    fileName: file?.name,
+    key,
+  });
 
   if (!editor || !svg) return null;
 
   const heights = heightPlan(editor, print);
   const nearest = filamentMatches(editor, print, availableFilaments(filamentLibrary));
-  // The 3MF also names the model in the slicer after the image.
-  const model = { ...options, title: modelTitle(file?.name) };
-  // Previews and plans remember what they were built from, so stale ones are marked.
-  const key = JSON.stringify([svg, options]);
   const mm = (layers: number) => layersToMm(layers, print.layerMm);
   const update = (change: Partial<PrintSettings>) => setPrint(change);
   const showPreview = () => {
@@ -128,126 +125,22 @@ export function PrintStep() {
     setView('model');
   };
 
-  const run = (format: PrintFormat) =>
-    job.run(
-      (signal) => exportFile(format, svg, format === '3mf' ? model : options, signal),
-      exportFileName(file?.name, format === 'stl-parts' ? 'parts.zip' : format),
-    );
-
-  /** The model cut into tiles of the printer's bed, for models larger than it. */
-  const runTiles = () => {
-    const [x, y] = printer.buildMm ?? [0, 0];
-    void job.run(
-      (signal) => exportFile('tiles', svg, { ...model, tile_x_mm: x, tile_y_mm: y }, signal),
-      exportFileName(file?.name, 'tiles.zip'),
-    );
-  };
-
-  /** A small print of every mixed color, to check the predictions with real filaments. */
-  const runTestCard = () => {
-    const card = testCard(editor, print);
-    const cardSvg = serializeSvg(card.doc);
-    const cardOptions = printOptions(card.doc, card.settings);
-    void job.run(
-      (signal) => exportFile('3mf', cardSvg, cardOptions, signal),
-      exportFileName(file?.name, 'test-card.3mf'),
-    );
-  };
-
-  const showPlan = async () => {
-    job.setError(null);
-    try {
-      setPlan({ plan: await getFilamentPlan(svg, options), key });
-    } catch (caught) {
-      job.setError(errorMessage(caught, 'Planning failed'));
-    }
-  };
-
   return (
     <section className="workspace">
-      <div className="print-main">
-        <div className="segmented result-view" role="radiogroup" aria-label="View">
-          {(['design', 'model'] as const).map((value) => (
-            <button
-              key={value}
-              type="button"
-              role="radio"
-              aria-checked={view === value}
-              className={view === value ? 'active' : ''}
-              onClick={() => setView(value)}
-            >
-              {value === 'design' ? 'Design' : '3D preview'}
-            </button>
-          ))}
-        </div>
-        {view === 'design' ? (
-          <figure className="preview print-design">
-            <ElementMap
-              doc={editor}
-              mirror={print.mirror}
-              size={
-                editor.width > 0
-                  ? {
-                      widthMm: print.widthMm,
-                      heightMm: designHeightMm(print.widthMm, editor.height / editor.width),
-                    }
-                  : undefined
-              }
-              selected={selected}
-              raised={print.shapeRaise}
-              excluded={print.excluded}
-              outline={
-                outlined(print)
-                  ? {
-                      color: print.outlineColor,
-                      width: (print.outlineMm * editor.width) / print.widthMm,
-                    }
-                  : undefined
-              }
-              fills={
-                mixed && showPredicted
-                  ? new Map([...mix].map(([index, match]) => [index, match.predicted]))
-                  : undefined
-              }
-              onSelect={(id, additive) => setSelected(nextSelection(selected, id, additive))}
-            />
-            <figcaption className="hint">
-              Click an element to select it, Shift+click to add more — then raise it in the panel.
-              Dashed outlines mark raised elements.
-              {print.mirror && ' Shown mirrored, as it will print.'}
-              {mixed && (
-                <label className="print-predicted">
-                  <input
-                    type="checkbox"
-                    checked={showPredicted}
-                    onChange={(event) => setShowPredicted(event.target.checked)}
-                  />
-                  Show predicted print colors
-                </label>
-              )}
-            </figcaption>
-          </figure>
-        ) : preview ? (
-          <Suspense fallback={<p className="hint">Loading 3D viewer…</p>}>
-            {preview.key !== key && (
-              <p className="hint print-stale" role="status">
-                Settings changed —{' '}
-                <button type="button" className="link" disabled={invalid} onClick={showPreview}>
-                  update the preview
-                </button>
-              </p>
-            )}
-            <ModelPreview request={preview.request} onCancel={() => setPreview(null)} />
-          </Suspense>
-        ) : (
-          <div className="preview print-empty">
-            <p className="hint">The 3D model appears here.</p>
-            <button type="button" className="secondary" disabled={invalid} onClick={showPreview}>
-              Preview 3D
-            </button>
-          </div>
-        )}
-      </div>
+      <PrintPreviewPane
+        doc={editor}
+        settings={print}
+        view={view}
+        onView={setView}
+        selected={selected}
+        onSelect={setSelected}
+        mix={mix}
+        preview={preview}
+        previewKey={key}
+        invalid={invalid}
+        onShowPreview={showPreview}
+        onCancelPreview={() => setPreview(null)}
+      />
 
       <aside className="panel print-panel">
         <PrinterPicker settings={print} onChange={update} />
