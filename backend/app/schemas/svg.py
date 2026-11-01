@@ -58,6 +58,25 @@ class SvgMergeResponse(BaseModel):
     merged: list[str] = Field(description="Ids of the shapes united into it, in document order")
 
 
+class SvgLayerStatsModel(BaseModel):
+    palette_index: int
+    color: str = Field(pattern=HEX_COLOR_PATTERN)
+    shapes: int = Field(ge=0)
+    own_colors: int = Field(ge=0, description="Shapes with a color of their own")
+    area_px2: float = Field(ge=0, description="Area the layer covers (overlaps counted once)")
+    share: float = Field(ge=0, le=1, description="Share of the document area")
+    specks: int = Field(ge=0, description="Shapes smaller than `speck_area`")
+
+
+class SvgStatsResponse(BaseModel):
+    width: float
+    height: float
+    colors: int = Field(ge=0, description="Color layers")
+    shapes: int = Field(ge=0)
+    specks: int = Field(ge=0, description="Shapes smaller than `speck_area`, every layer")
+    layers: list[SvgLayerStatsModel] = Field(description="Bottom to top")
+
+
 # A knife line drawn in the editor has a few hundred points.
 MAX_LINE_POINTS = 10_000
 MAX_SHAPE_IDS = 10_000

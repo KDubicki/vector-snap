@@ -38,6 +38,7 @@ Responses are JSON unless stated otherwise. Errors use the format described in
 | `POST` | `/api/v1/svg/recolor` | Replace colors, snap them to the loaded filaments ([details](#svg)) |
 | `POST` | `/api/v1/svg/split` | Split shapes along a line, as the editor's knife ([details](#post-apiv1svgsplit)) |
 | `POST` | `/api/v1/svg/delete` | Delete shapes by id or the specks below an area ([details](#post-apiv1svgdelete)) |
+| `POST` | `/api/v1/svg/stats` | Colors, shapes, coverage and specks of a document ([details](#post-apiv1svgstats)) |
 | `POST` | `/api/v1/svg/merge` | Unite shapes into the largest of them, as the editor's merge ([details](#post-apiv1svgmerge)) |
 
 ---
@@ -383,6 +384,37 @@ SVG comes back unchanged).
 Errors: `413 FILE_TOO_LARGE`, `422 INVALID_SVG`, `422 VALIDATION_ERROR` (`smaller_than`
 out of range), `422 INVALID_PARAMETERS` (bad `ids`, neither `ids` nor `smaller_than`,
 or every shape would go).
+
+### `POST /api/v1/svg/stats`
+
+What a document holds, for scripts that choose filaments or plan a clean-up before
+editing (read only; the SVG is not changed):
+
+- `speck_area` — shapes with a filled area (holes excluded) below this many document px²
+  count as specks, 0 < … ≤ 1 000 000, default 25 (a 5 × 5 px speck, as the editor's
+  *Select shapes smaller than*).
+
+Response, layers bottom to top:
+
+```json
+{
+  "width": 400, "height": 300, "colors": 2, "shapes": 14, "specks": 9,
+  "layers": [
+    { "palette_index": 0, "color": "#ffffff", "shapes": 1, "own_colors": 0,
+      "area_px2": 120000.0, "share": 1.0, "specks": 0 },
+    { "palette_index": 3, "color": "#1d2b53", "shapes": 13, "own_colors": 2,
+      "area_px2": 30512.4, "share": 0.2543, "specks": 9 }
+  ]
+}
+```
+
+`area_px2` is the layer's shapes united, so overlapping shapes count once, and `share`
+divides it by the document area — what the layer covers *including* parts hidden under
+layers above it. `own_colors` counts shapes with a color of their own. Delete the specks
+with [`/svg/delete`](#post-apiv1svgdelete) and `smaller_than` set to the same area.
+
+Errors: `413 FILE_TOO_LARGE`, `422 INVALID_SVG`, `422 VALIDATION_ERROR` (`speck_area`
+out of range).
 
 ### `POST /api/v1/svg/merge`
 

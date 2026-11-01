@@ -57,6 +57,7 @@ backend/
 │       ├── svg_edit.py         # serialize contract SVG, merge similar, recolor (/svg/*)
 │       ├── svg_shapes.py       # delete and merge shapes, as the editor (/svg/delete, /svg/merge)
 │       ├── svg_split.py        # split shapes along a line, the editor's knife (/svg/split)
+│       ├── svg_stats.py        # colors, shapes, coverage and specks of a document (/svg/stats)
 │       ├── model_options.py    # StlOptions, Body, layer snapping (shared by 3D exports)
 │       ├── model_parts.py      # color order, heights, parts per color and height, footprints
 │       ├── model_checks.py     # option combinations a 3D model cannot be built with

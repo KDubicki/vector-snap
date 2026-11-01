@@ -179,3 +179,28 @@ def test_merge_parameters_are_validated(
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == code
+
+
+def test_reports_document_statistics(client: TestClient) -> None:
+    response = _post(client, "stats", {"speck_area": "150"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert (body["width"], body["height"], body["colors"], body["shapes"]) == (40, 20, 3, 3)
+    assert body["specks"] == 2
+    assert body["layers"][0] == {
+        "palette_index": 0,
+        "color": "#ffffff",
+        "shapes": 1,
+        "own_colors": 0,
+        "area_px2": 400.0,
+        "share": 0.5,
+        "specks": 0,
+    }
+
+
+def test_stats_speck_area_is_validated(client: TestClient) -> None:
+    response = _post(client, "stats", {"speck_area": "0"})
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
