@@ -17,6 +17,7 @@ export function ShapeInspector() {
   const {
     recolorSelection,
     resetSelectionColor,
+    selectSameColor,
     moveSelectionToGroup,
     moveSelectionToNewGroup,
     transformSelection,
@@ -55,6 +56,14 @@ export function ShapeInspector() {
           disabled={!hasOwnColor}
         >
           Use group color
+        </button>
+        <button
+          type="button"
+          className="link"
+          title="Add every shape of the selected colors to the selection"
+          onClick={selectSameColor}
+        >
+          Select same color
         </button>
       </div>
       <div className="move-to-group">

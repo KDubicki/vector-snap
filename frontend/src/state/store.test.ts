@@ -670,6 +670,28 @@ describe('app store', () => {
     expect(store().selection).toEqual(['p-0-0']);
   });
 
+  it('selects every shape of the selected colors', async () => {
+    useAppStore.setState({ quantized });
+    const svg = vectorized.svg.replace(
+      '</svg>',
+      '<g data-palette-index="1" fill="#0000ff"><path id="p-1-0" d="M0,0 L1,1 Z"/></g></svg>',
+    );
+    vi.stubGlobal('fetch', respond({ ...vectorized, svg }));
+    await store().runVectorize();
+
+    store().selectSameColor();
+    expect(store().notice).toMatch(/Select a shape first/);
+
+    store().select('p-0-1');
+    store().selectSameColor();
+    expect(store().selection).toEqual(['p-0-1', 'p-0-0']);
+    expect(store().notice).toBeNull();
+
+    store().selectSameColor();
+    expect(store().notice).toBe('Every shape of this color is already selected.');
+    expect(store().history.past).toHaveLength(0);
+  });
+
   it('gives the selection the color of a clicked shape (eyedropper)', async () => {
     useAppStore.setState({ quantized });
     const svg = vectorized.svg.replace(

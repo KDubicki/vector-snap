@@ -1,5 +1,5 @@
 import type { StateCreator } from 'zustand';
-import { findShape, parseSvg, shapeFill, type EditorDoc } from '../editor/model';
+import { findShape, parseSvg, sameColorShapes, shapeFill, type EditorDoc } from '../editor/model';
 import { pathArea, shapesSmallerThan, uniteShapes, type Point } from '../editor/geometry';
 import { emptyHistory, record, redo, undo, type History } from '../editor/history';
 import {
@@ -45,6 +45,8 @@ export interface EditorActions {
   /** Select several shapes at once (box selection); `additive` adds to the selection. */
   selectMany: (ids: string[], additive?: boolean) => void;
   selectAll: () => void;
+  /** Select every shape of the selected shapes' colors (own colors included). */
+  selectSameColor: () => void;
   /** Select every shape smaller than `maxArea` (document px²), e.g. specks to delete. */
   selectSmallerThan: (maxArea: number) => void;
   recolorSelection: (fill: string) => void;
@@ -159,6 +161,19 @@ export const createEditorSlice: StateCreator<AppState, [], [], EditorSlice> = (s
         : [],
       notice: null,
     })),
+
+  selectSameColor: () =>
+    set((state) => {
+      if (!state.editor) return {};
+      if (!state.selection.length) {
+        return { notice: 'Select a shape first: every shape of its color gets selected.' };
+      }
+      const same = sameColorShapes(state.editor, state.selection);
+      const selection = [...new Set([...state.selection, ...same])];
+      return selection.length === state.selection.length
+        ? { notice: 'Every shape of this color is already selected.' }
+        : { selection, notice: null };
+    }),
 
   selectSmallerThan: (maxArea) =>
     set((state) => {

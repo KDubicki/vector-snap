@@ -46,6 +46,15 @@ describe('ShapeInspector', () => {
     expect(fillOf('p-1-1')).toBe('#ff0000');
   });
 
+  it('selects every shape of the selected color', async () => {
+    store().recolorGroup(0, '#0000ff'); // the background takes p-1-1's own color
+    store().select('p-1-1');
+    render(<ShapeInspector />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Select same color' }));
+    expect(store().selection).toEqual(['p-1-1', 'p-0-0']);
+  });
+
   it('moves the selection to another group', async () => {
     store().select('p-1-0');
     render(<ShapeInspector />);

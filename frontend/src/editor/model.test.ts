@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { findShape, parseSvg, shapeCount, shapeFill } from './model';
+import { findShape, parseSvg, sameColorShapes, shapeCount, shapeFill } from './model';
 
 const SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 20" width="40" height="20">
   <g id="color-0" data-palette-index="0" fill="#FF0000">
@@ -37,6 +37,16 @@ describe('editor model', () => {
 
     expect([doc.width, doc.height]).toEqual([8, 6]);
     expect(doc.groups[0].shapes[0].id).toBe('p-1-0');
+  });
+
+  it('finds every shape of the same colors, own colors included', () => {
+    const doc = parseSvg(
+      SVG.replace('<path d=""/>', '<path id="p-2-1" d="M0,0 L1,1 Z" fill="#ff0000"/>'),
+    );
+
+    expect(sameColorShapes(doc, ['p-0-0'])).toEqual(['p-0-0', 'p-2-1']);
+    expect(sameColorShapes(doc, ['p-0-1', 'p-2-0'])).toEqual(['p-0-1', 'p-2-0']);
+    expect(sameColorShapes(doc, ['missing'])).toEqual([]);
   });
 
   it('rejects documents that are not SVG', () => {

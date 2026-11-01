@@ -12,7 +12,7 @@ const DEFAULT_LEVEL = 2;
 export function EditorPalettePanel() {
   const editor = useAppStore((s) => s.editor);
   const recolorGroup = useAppStore((s) => s.recolorGroup);
-  const select = useAppStore((s) => s.select);
+  const selectMany = useAppStore((s) => s.selectMany);
   const mergeSimilarColors = useAppStore((s) => s.mergeSimilarColors);
   const snapToFilaments = useAppStore((s) => s.snapToFilaments);
   const library = useAppStore((s) => s.filamentLibrary);
@@ -48,10 +48,7 @@ export function EditorPalettePanel() {
                 type="button"
                 className="link"
                 aria-label={`Select all shapes of group ${group.paletteIndex + 1}`}
-                onClick={() => {
-                  select(null);
-                  group.shapes.forEach((shape) => select(shape.id, true));
-                }}
+                onClick={() => selectMany(group.shapes.map((shape) => shape.id))}
               >
                 Select
               </button>

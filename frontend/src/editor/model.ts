@@ -82,3 +82,19 @@ export function findShape(doc: EditorDoc, id: string): { group: ColorGroup; shap
 export function shapeCount(doc: EditorDoc): number {
   return doc.groups.reduce((total, group) => total + group.shapes.length, 0);
 }
+
+/**
+ * Every shape (in document order) whose effective color is one of the colors of `ids`,
+ * own colors included: "select same color".
+ */
+export function sameColorShapes(doc: EditorDoc, ids: string[]): string[] {
+  const colors = new Set(
+    ids
+      .map((id) => findShape(doc, id))
+      .filter((found) => found !== null)
+      .map(({ group, shape }) => shapeFill(group, shape)),
+  );
+  return doc.groups.flatMap((group) =>
+    group.shapes.filter((shape) => colors.has(shapeFill(group, shape))).map((shape) => shape.id),
+  );
+}
