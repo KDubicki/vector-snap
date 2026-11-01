@@ -77,6 +77,11 @@ class SvgStatsResponse(BaseModel):
     layers: list[SvgLayerStatsModel] = Field(description="Bottom to top")
 
 
+class SvgTransformResponse(BaseModel):
+    svg: str
+    transformed: list[str] = Field(description="Ids of the transformed shapes")
+
+
 # A knife line drawn in the editor has a few hundred points.
 MAX_LINE_POINTS = 10_000
 MAX_SHAPE_IDS = 10_000

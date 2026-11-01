@@ -17,6 +17,7 @@ from app.schemas.svg import (
     SvgMergeResponse,
     SvgSplitResponse,
     SvgStatsResponse,
+    SvgTransformResponse,
     parse_color_map,
     parse_line,
     parse_shape_ids,
@@ -30,6 +31,7 @@ from app.services.svg_edit import (
 from app.services.svg_shapes import delete_shapes, merge_shapes
 from app.services.svg_split import cut_region, split_along_line
 from app.services.svg_stats import svg_stats
+from app.services.svg_transform import Flip, transform_shapes
 
 router = APIRouter(prefix="/svg", tags=["svg"])
 
@@ -224,3 +226,40 @@ async def svg_statistics(
             for layer in stats.layers
         ],
     )
+
+
+@router.post("/transform", response_model=SvgTransformResponse)
+async def transform_svg(
+    document: UploadedSvg,
+    ids: Annotated[
+        str, Form(description='Shapes to transform, e.g. ["p-1-0"]; without them every shape')
+    ] = "[]",
+    dx: Annotated[float, Form(ge=-1_000_000, le=1_000_000, description="Move right (px)")] = 0.0,
+    dy: Annotated[float, Form(ge=-1_000_000, le=1_000_000, description="Move down (px)")] = 0.0,
+    scale: Annotated[
+        float, Form(gt=0, le=100, description="Size factor around the shapes' center")
+    ] = 1.0,
+    rotate: Annotated[
+        float, Form(ge=-360, le=360, description="Degrees clockwise around the shapes' center")
+    ] = 0.0,
+    flip: Annotated[
+        Flip, Form(description="Mirror around the center: x (left to right) or y (upside down)")
+    ] = "none",
+) -> SvgTransformResponse:
+    """Move, scale, flip and rotate shapes, as the editor's transforms: around the center
+    of their bounding box, then moved. Curves stay curves."""
+    if dx == dy == rotate == 0 and scale == 1 and flip == "none":
+        raise InvalidParameters("Send a move (dx, dy), scale, rotate or flip.", {"field": "scale"})
+    selected = parse_shape_ids(ids, "ids")
+    edited = await run_in_threadpool(
+        lambda: transform_shapes(
+            document,
+            selected,
+            dx=dx,
+            dy=dy,
+            scale=scale,
+            rotate=rotate,
+            flip=flip,
+        )
+    )
+    return SvgTransformResponse(svg=serialize_svg(edited.document), transformed=edited.transformed)

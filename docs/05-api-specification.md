@@ -38,6 +38,7 @@ Responses are JSON unless stated otherwise. Errors use the format described in
 | `POST` | `/api/v1/svg/recolor` | Replace colors, snap them to the loaded filaments ([details](#svg)) |
 | `POST` | `/api/v1/svg/split` | Split shapes along a line, as the editor's knife ([details](#post-apiv1svgsplit)) |
 | `POST` | `/api/v1/svg/lasso` | Cut a region out of shapes, as the editor's lasso ([details](#post-apiv1svglasso)) |
+| `POST` | `/api/v1/svg/transform` | Move, scale, flip and rotate shapes, curves kept ([details](#post-apiv1svgtransform)) |
 | `POST` | `/api/v1/svg/delete` | Delete shapes by id or the specks below an area ([details](#post-apiv1svgdelete)) |
 | `POST` | `/api/v1/svg/stats` | Colors, shapes, coverage and specks of a document ([details](#post-apiv1svgstats)) |
 | `POST` | `/api/v1/svg/merge` | Unite shapes into the largest of them, as the editor's merge ([details](#post-apiv1svgmerge)) |
@@ -386,6 +387,32 @@ curves become straight segments. Response:
 
 Errors: `413 FILE_TOO_LARGE`, `422 INVALID_SVG`, `422 VALIDATION_ERROR` (no `region`),
 `422 INVALID_PARAMETERS` (bad `region` or `ids`, a region without area).
+
+### `POST /api/v1/svg/transform`
+
+The editor's transforms ([08](08-svg-editor.md#transforming-shapes-)) on the server, at
+least one of:
+
+- `dx`, `dy` — move right and down, document px (±1 000 000), default 0.
+- `scale` — size factor, 0 < … ≤ 100, default 1.
+- `rotate` — degrees clockwise on screen, −360 … 360, default 0.
+- `flip` — `none` (default), `x` (mirror left to right) or `y` (upside down).
+
+and `ids` — JSON array of the shapes to transform, `["p-1-0"]` (unknown ids are ignored);
+without it, every shape (the whole design).
+
+Scale, flip and rotation turn around the center of the shapes' bounding box, as in the
+editor, and the move comes last. The transform is applied to the path's control points,
+so **curves stay curves** (quadratic curves become exact cubic ones, arcs close cubic
+approximations); the viewBox is not changed. Response:
+
+```json
+{ "svg": "<svg ...>...</svg>", "transformed": ["p-1-0"] }
+```
+
+Errors: `413 FILE_TOO_LARGE`, `422 INVALID_SVG`, `422 VALIDATION_ERROR` (a value out of
+range, unknown `flip`), `422 INVALID_PARAMETERS` (no transform asked, bad `ids`, none of
+them found, shapes without area).
 
 ### `POST /api/v1/svg/delete`
 

@@ -229,3 +229,31 @@ def test_lasso_parameters_are_validated(client: TestClient, form: dict[str, str]
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "INVALID_PARAMETERS"
+
+
+def test_transforms_shapes(client: TestClient) -> None:
+    response = _post(client, "transform", {"ids": '["p-2-0"]', "dx": "-20", "dy": "-10"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["transformed"] == ["p-2-0"]
+    assert 'd="M0,0 L10,0 L10,10 L0,10 Z"' in body["svg"]
+
+
+@pytest.mark.parametrize(
+    ("form", "code"),
+    [
+        ({}, "INVALID_PARAMETERS"),  # nothing to do
+        ({"scale": "0"}, "VALIDATION_ERROR"),
+        ({"rotate": "400"}, "VALIDATION_ERROR"),
+        ({"flip": "z"}, "VALIDATION_ERROR"),
+        ({"dx": "1", "ids": '["missing"]'}, "INVALID_PARAMETERS"),
+    ],
+)
+def test_transform_parameters_are_validated(
+    client: TestClient, form: dict[str, str], code: str
+) -> None:
+    response = _post(client, "transform", form)
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == code

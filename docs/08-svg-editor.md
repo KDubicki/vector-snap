@@ -159,7 +159,8 @@ shapes do not overlap and splitting never reveals hidden geometry underneath.
 Placing fragments and adjusting parts needs shapes to move. Transforms are affine
 matrices applied to the path data (`transformPath()` in `geometry.ts`,
 `transformShapes()` in `transform.ts`), so the document stays plain SVG paths and
-every transform is one undoable edit.
+every transform is one undoable edit. The same transforms run on the server: `POST /api/v1/svg/transform`
+(`app/services/svg_transform.py`).
 
 - **Move** (`moveSelection(dx, dy)`) — in the Select tool, pressing on a shape that is
   already selected drags the selection instead of drawing a box (the cursor turns into a
