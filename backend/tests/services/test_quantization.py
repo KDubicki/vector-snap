@@ -4,20 +4,15 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from app.services.image_io import DecodedImage, decode_image
+from app.services.color_science import delta_e_2000, srgb_to_lab
+from app.services.color_suggestion import SUGGEST_TARGET_DELTA_E, suggest_color_count
+from app.services.image_io import TRANSPARENT_LABEL, DecodedImage, decode_image
+from app.services.palette_cleanup import merge_similar_colors, merge_small_colors, smooth_regions
 from app.services.quantization import (
-    SUGGEST_TARGET_DELTA_E,
-    TRANSPARENT_LABEL,
     QuantizationResult,
-    delta_e_2000,
-    merge_similar_colors,
-    merge_small_colors,
     quantize_filaments,
     quantize_kmeans,
     quantize_median_cut,
-    smooth_regions,
-    srgb_to_lab,
-    suggest_color_count,
 )
 from tests.images import (
     BLUE,

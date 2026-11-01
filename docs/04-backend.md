@@ -50,7 +50,10 @@ backend/
 │   └── services/
 │       ├── pipeline.py         # orchestration reused by routes (decode → quantize → encode)
 │       ├── image_io.py         # decode, validate, normalize, encode indexed PNG
-│       ├── quantization.py     # kmeans / median-cut → (label_map, palette)
+│       ├── quantization.py     # kmeans / median-cut / filaments → (label_map, palette)
+│       ├── palette_cleanup.py  # smoothing, merging similar and small colors
+│       ├── color_suggestion.py # how many colors an image needs (/suggest-colors)
+│       ├── color_science.py    # sRGB → Lab, CIEDE2000, nearest color
 │       ├── vectorization.py    # label_map + palette → raw SVG (vtracer)
 │       ├── svg_postprocess.py  # sanitize, group per color, add ids / data attrs
 │       ├── svg_geometry.py     # parse contract SVG, flatten curves, polygons (exports)

@@ -15,7 +15,7 @@ from lxml import etree
 
 from app import __version__
 from app.schemas.palette import hex_to_rgb
-from app.services.quantization import delta_e_2000, srgb_to_lab
+from app.services.color_science import delta_e_2000, srgb_to_lab
 from app.services.svg_geometry import (
     SVG_NS,
     VectorDocument,

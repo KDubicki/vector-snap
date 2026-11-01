@@ -13,25 +13,26 @@ from numpy.typing import NDArray
 from scipy import ndimage
 
 from app.core.errors import InvalidParameters, NotIndexedImage
+from app.services.color_suggestion import ColorSuggestion, suggest_color_count
 from app.services.image_io import (
+    TRANSPARENT_LABEL,
     DecodedImage,
     decode_image,
     decode_indexed_png,
     encode_indexed_png,
 )
-from app.services.quantization import (
-    TRANSPARENT_LABEL,
-    ColorSuggestion,
+from app.services.palette_cleanup import (
     MergedColor,
-    QuantizationResult,
     merge_similar_colors,
     merge_small_colors,
+    resolve_merges,
+    smooth_regions,
+)
+from app.services.quantization import (
+    QuantizationResult,
     quantize_filaments,
     quantize_kmeans,
     quantize_median_cut,
-    resolve_merges,
-    smooth_regions,
-    suggest_color_count,
 )
 from app.services.svg_postprocess import build_svg
 from app.services.vectorization import TracingOptions, trace

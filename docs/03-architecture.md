@@ -73,7 +73,7 @@ flowchart TB
     end
     subgraph services [services — pure domain logic]
         s1[image_io.py<br/>decode / validate / normalize]
-        s2[quantization.py]
+        s2[quantization.py<br/>palette_cleanup / color_science]
         s3[vectorization.py]
         s4[svg_postprocess.py<br/>sanitize / group / annotate]
     end

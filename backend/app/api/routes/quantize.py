@@ -16,13 +16,14 @@ from app.schemas.quantize import (
     QuantizeAlgorithm,
     QuantizeResponse,
 )
+from app.services.color_suggestion import SUGGEST_TARGET_DELTA_E
+from app.services.palette_cleanup import MAX_SMOOTH
 from app.services.pipeline import (
     background_index,
     quantize_image,
     suggest_colors,
     to_indexed_png,
 )
-from app.services.quantization import MAX_SMOOTH, SUGGEST_TARGET_DELTA_E
 
 router = APIRouter(tags=["processing"])
 

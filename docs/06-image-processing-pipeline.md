@@ -37,6 +37,11 @@ flowchart LR
 
 ## 3. Quantization (`services/quantization.py`)
 
+The algorithms are in `quantization.py`; the clean-up after it (smoothing, merging
+similar and small colors) in `palette_cleanup.py`, the color count suggestion in
+`color_suggestion.py`, and Lab conversion, CIEDE2000 and nearest-color search, which
+the SVG color edits share, in `color_science.py`.
+
 Output: `labels: H×W uint8` (palette index per pixel, 255 = transparent) and
 `palette: N×3 uint8`.
 
