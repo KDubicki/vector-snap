@@ -516,16 +516,18 @@ App                         header with step indicator, error banner
 ## State
 
 A single Zustand store (`useAppStore`) holds UI state, server results and the async
-actions. It is composed of three slices: the conversion workflow (`src/state/store.ts`),
-the SVG editor (`src/state/editorSlice.ts` — document, selection, undo/redo history and
-the editing actions, see [08-svg-editor.md](08-svg-editor.md)) and the fragment library
+actions. It is composed of five slices: the conversion workflow (`src/state/store.ts`),
+the palette edits (`src/state/paletteSlice.ts`), the 3D print settings
+(`src/state/printSlice.ts`), the SVG editor (`src/state/editorSlice.ts` — document,
+selection, undo/redo history and the editing actions, see
+[08-svg-editor.md](08-svg-editor.md)) and the fragment library
 (`src/state/fragmentsSlice.ts`):
 
 ```ts
-type AppState = WorkflowSlice & EditorSlice & FragmentsSlice;
+type AppState = WorkflowSlice & PaletteSlice & PrintSlice & EditorSlice & FragmentsSlice;
 
 interface WorkflowSlice {
-  step: 'upload' | 'palette' | 'result';
+  step: 'upload' | 'palette' | 'result' | 'print';
   limits: { min_colors: number; max_colors: number; max_upload_mb: number };
   file: File | null;
   colors: number;
@@ -534,15 +536,28 @@ interface WorkflowSlice {
   quantizedFor: { file; colors; algorithm; locked } | null; // params that produced `quantized`
   suggestedColors: number | null;            // from POST /suggest-colors, per file
   suggesting: boolean;
-  locked: string[];                          // colors kept exactly in the palette (FR-16)
-  overrides: Record<number, string>;         // palette index → edited hex
   tracing: TracingOptions;                   // defaults: DEFAULT_TRACING (lib/tracing.ts)
   vectorized: VectorizeResponse | null;
   status: 'idle' | 'quantizing' | 'vectorizing';
   error: string | null;
-  // actions: loadLimits, selectFile, setColors, setAlgorithm, suggestColors, lockColor,
-  // unlockColor, setOverride, resetOverride, resetOverrides, setTracing, resetTracing,
-  // runQuantize, runVectorize, goTo, reset
+  // actions: loadLimits, selectFile, setColors, setAlgorithm, suggestColors, setTracing,
+  // resetTracing, runQuantize, runVectorize, goTo, reset
+}
+
+interface PaletteSlice {
+  locked: string[];                          // colors kept exactly in the palette (FR-16)
+  overrides: Record<number, string>;         // palette index → edited hex
+  transparent: number[];                     // palette indices left out everywhere
+  background: number | null;                 // left out where it reaches the border
+  // actions: lockColor, unlockColor, setOverride, resetOverride, resetOverrides,
+  // toggleTransparent, setBackground
+}
+
+interface PrintSlice {
+  print: PrintSettings;                      // lib/printPlan; colors and raises reset per SVG
+  printUndo: { settings; what } | null;      // before the last project or settings file
+  myProjects: MyProject[];                   // saved in this browser, kept by reset()
+  // actions: setPrint, chooseProject, loadPrintSettings, undoPrintChange, setMyProjects
 }
 
 interface EditorSlice {
@@ -550,7 +565,8 @@ interface EditorSlice {
   selection: string[];                       // selected shape ids
   history: History;                          // undo/redo snapshots of `editor`
   notice: string | null;                     // why an edit did nothing
-  // actions: select, selectMany, selectAll, recolorSelection, resetSelectionColor, matchSelectionColor,
+  // actions: select, selectMany, selectAll, invertSelection, selectSameColor, hoverGroup,
+  // recolorSelection, resetSelectionColor, matchSelectionColor,
   // recolorGroup, mergeSimilarColors, splitWithLine, cutWithLasso, deleteSelection,
   // mergeSelection, moveSelectionToGroup, moveSelectionToNewGroup, moveSelection, transformSelection,
   // placeFragment, undo, redo

@@ -8,17 +8,6 @@ import {
   saveFilamentLibrary,
   type FilamentLibrary,
 } from '../lib/filamentLibrary';
-import {
-  DEFAULT_PRINT,
-  KEPT_BY_PROJECTS,
-  PROJECTS,
-  applyProject,
-  type PrintSettings,
-  type ProjectId,
-} from '../lib/printPlan';
-import { readMyProjects, saveMyProjects, type MyProject } from '../lib/myProjects';
-import { PRINTER_FIELDS, printerOf, readPrinter, savePrinter } from '../lib/printerProfile';
-import { fitToPrinter, printerById } from '../lib/printers';
 import { browserStorage } from '../lib/theme';
 import { DEFAULT_TRACING } from '../lib/tracing';
 import type {
@@ -35,6 +24,8 @@ import {
   type EditorSlice,
 } from './editorSlice';
 import { createFragmentsSlice, type FragmentsSlice } from './fragmentsSlice';
+import { createPaletteSlice, initialPaletteState, type PaletteSlice } from './paletteSlice';
+import { createPrintSlice, startPrint, type PrintSlice } from './printSlice';
 
 export type Step = 'upload' | 'palette' | 'result' | 'print';
 export type Status = 'idle' | 'quantizing' | 'vectorizing';
@@ -96,30 +87,11 @@ export interface WorkflowSlice {
   } | null;
   /** Filaments to choose the palette from (`filaments` algorithm); kept across images. */
   filamentLibrary: FilamentLibrary;
-  /** Print settings saved under a name in this browser; kept across images. */
-  myProjects: MyProject[];
   /** Color count suggested for `file` by the backend, once requested. */
   suggestedColors: number | null;
   suggesting: boolean;
-  /** Colors that must appear exactly in the palette (FR-16); at most `colors` of them. */
-  locked: string[];
-  overrides: Record<number, string>;
-  /** Palette indices left out of the SVG everywhere. */
-  transparent: number[];
-  /**
-   * Removed background: palette index left out only where it reaches the image border,
-   * so the same color inside the motif stays; null = kept.
-   */
-  background: number | null;
   tracing: TracingOptions;
   vectorized: VectorizeResponse | null;
-  /** 3D print step settings (docs/07-frontend.md); colors and raises reset per SVG. */
-  print: PrintSettings;
-  /**
-   * The print settings before the last project or settings file, which change many at
-   * once; gone after the next change, which it would undo too.
-   */
-  printUndo: { settings: PrintSettings; what: string } | null;
   status: Status;
   error: string | null;
 
@@ -133,36 +105,18 @@ export interface WorkflowSlice {
   setUpscale: (upscale: boolean) => void;
   /** Replace the filament library (stored in the browser). */
   setFilamentLibrary: (library: FilamentLibrary) => void;
-  /** Replace the saved print projects (stored in the browser). */
-  setMyProjects: (projects: MyProject[]) => void;
   /** Ask the backend for a good color count for the current file and apply it. */
   suggestColors: () => Promise<void>;
-  /** Lock a color into the palette; ignored when it is locked already or no slot is free. */
-  lockColor: (hex: string) => void;
-  unlockColor: (hex: string) => void;
-  setOverride: (index: number, hex: string) => void;
-  resetOverride: (index: number) => void;
-  resetOverrides: () => void;
-  /** Toggle whether a palette color is left out; at least one color always stays. */
-  toggleTransparent: (index: number) => void;
-  setBackground: (index: number | null) => void;
   setTracing: (options: Partial<TracingOptions>) => void;
   resetTracing: () => void;
   runQuantize: () => Promise<void>;
   runVectorize: () => Promise<void>;
   /** Open a step; ignored when it is not reachable yet (see `reachableSteps`). */
   goTo: (step: Step) => void;
-  setPrint: (change: Partial<PrintSettings>) => void;
-  /** Apply a project preset (magnet, keychain, …); colors and raised elements stay. */
-  chooseProject: (id: ProjectId) => void;
-  /** Apply print settings loaded from a file (lib/printPreset.ts), project included. */
-  loadPrintSettings: (settings: Partial<PrintSettings>, what: string) => void;
-  /** Restore the settings from before the last project or settings file. */
-  undoPrintChange: () => void;
   reset: () => void;
 }
 
-export type AppState = WorkflowSlice & EditorSlice & FragmentsSlice;
+export type AppState = WorkflowSlice & PaletteSlice & PrintSlice & EditorSlice & FragmentsSlice;
 
 const initialState = {
   step: 'upload' as Step,
@@ -178,13 +132,9 @@ const initialState = {
   quantizedFor: null,
   suggestedColors: null as number | null,
   suggesting: false,
-  locked: [] as string[],
-  overrides: {},
-  transparent: [] as number[],
-  background: null,
+  ...initialPaletteState,
   tracing: DEFAULT_TRACING,
   vectorized: null,
-  print: DEFAULT_PRINT,
   printUndo: null,
   ...initialEditorState,
   status: 'idle' as Status,
@@ -193,19 +143,6 @@ const initialState = {
 
 function isAbort(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'AbortError';
-}
-
-/** Print settings that are not part of a project preset. */
-const KEPT_SETTINGS = new Set<string>(KEPT_BY_PROJECTS);
-
-/** The settings with a nozzle and layer height the chosen printer has. */
-function fitted(print: PrintSettings): PrintSettings {
-  return { ...print, ...fitToPrinter(print, printerById(print.printer)) };
-}
-
-/** New designs start with the printer remembered in this browser. */
-function startPrint(): PrintSettings {
-  return fitted({ ...DEFAULT_PRINT, ...readPrinter(browserStorage()) });
 }
 
 let pending: AbortController | null = null;
@@ -223,10 +160,10 @@ function nextSignal(): AbortSignal {
 export const useAppStore = create<AppState>()((set, get, api) => ({
   ...createEditorSlice(set, get, api),
   ...createFragmentsSlice(set, get, api),
+  ...createPaletteSlice(set, get, api),
+  ...createPrintSlice(set, get, api),
   filamentLibrary: readFilamentLibrary(browserStorage()),
-  myProjects: readMyProjects(browserStorage()),
   ...initialState,
-  print: startPrint(),
 
   loadLimits: async () => {
     try {
@@ -272,10 +209,6 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
     saveFilamentLibrary(browserStorage(), filamentLibrary);
     set({ filamentLibrary });
   },
-  setMyProjects: (myProjects) => {
-    saveMyProjects(browserStorage(), myProjects);
-    set({ myProjects });
-  },
 
   suggestColors: async () => {
     const { file } = get();
@@ -301,42 +234,6 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
       if (pendingSuggestion === controller) pendingSuggestion = null;
     }
   },
-
-  lockColor: (hex) =>
-    set((state) => {
-      const color = hex.toLowerCase();
-      if (state.locked.includes(color) || state.locked.length >= state.colors) return {};
-      return { locked: [...state.locked, color] };
-    }),
-  unlockColor: (hex) =>
-    set((state) => {
-      const color = hex.toLowerCase();
-      return state.locked.includes(color)
-        ? { locked: state.locked.filter((locked) => locked !== color) }
-        : {};
-    }),
-
-  setOverride: (index, hex) =>
-    set((state) => ({ overrides: { ...state.overrides, [index]: hex.toLowerCase() } })),
-  resetOverride: (index) =>
-    set((state) => {
-      const overrides = { ...state.overrides };
-      delete overrides[index];
-      return { overrides };
-    }),
-  resetOverrides: () => set({ overrides: {} }),
-
-  toggleTransparent: (index) =>
-    set((state) => {
-      if (state.transparent.includes(index)) {
-        return { transparent: state.transparent.filter((value) => value !== index) };
-      }
-      const colors = state.quantized?.palette.length ?? 0;
-      if (state.transparent.length + 1 >= colors) return {};
-      return { transparent: [...state.transparent, index].sort((a, b) => a - b) };
-    }),
-
-  setBackground: (background) => set({ background }),
 
   setTracing: (options) => set((state) => ({ tracing: { ...state.tracing, ...options } })),
   resetTracing: () => set({ tracing: DEFAULT_TRACING }),
@@ -439,43 +336,6 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
   goTo: (step) => {
     if (reachableSteps(get()).includes(step)) set({ step, error: null });
   },
-
-  setPrint: (change) =>
-    set((state) => {
-      // Editing what a project sets (sizes, base, loop, …) makes the settings custom.
-      const custom = Object.keys(change).some((key) => !KEPT_SETTINGS.has(key));
-      let print = { ...state.print, ...change, ...(custom && { project: 'custom' as const }) };
-      if ('printer' in change || 'nozzleMm' in change) print = fitted(print);
-      if (Object.keys(change).some((key) => PRINTER_FIELDS.includes(key))) {
-        savePrinter(browserStorage(), printerOf(print));
-      }
-      return { print, printUndo: null };
-    }),
-  chooseProject: (id) =>
-    set((state) => ({
-      print: fitted(applyProject(state.print, id)),
-      // Custom changes nothing, so there is nothing to undo.
-      printUndo:
-        id === 'custom'
-          ? null
-          : {
-              settings: state.print,
-              what: PROJECTS.find((project) => project.id === id)?.label ?? id,
-            },
-    })),
-  loadPrintSettings: (settings, what) =>
-    set((state) => {
-      const print = fitted({ ...state.print, ...settings });
-      savePrinter(browserStorage(), printerOf(print));
-      return { print, printUndo: { settings: state.print, what } };
-    }),
-  undoPrintChange: () =>
-    set((state) => {
-      if (!state.printUndo) return {};
-      const print = state.printUndo.settings;
-      savePrinter(browserStorage(), printerOf(print));
-      return { print, printUndo: null };
-    }),
 
   reset: () => {
     pending?.abort();
