@@ -35,6 +35,17 @@ describe('EditorPalettePanel', () => {
     expect(store().selection).toEqual(['p-1-0', 'p-1-1']);
   });
 
+  it('marks the group under the pointer, for the canvas to outline', async () => {
+    const user = userEvent.setup();
+    render(<EditorPalettePanel />);
+    const [, red] = screen.getAllByRole('listitem');
+
+    await user.hover(red);
+    expect(store().hoveredGroup).toBe(1);
+    await user.unhover(red);
+    expect(store().hoveredGroup).toBeNull();
+  });
+
   it('merges colors that look the same, undoably', async () => {
     const user = userEvent.setup();
     store().recolorGroup(1, '#fefefe');

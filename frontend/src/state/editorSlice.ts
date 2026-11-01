@@ -32,6 +32,8 @@ export interface EditorState {
   editor: EditorDoc | null;
   /** Ids of selected shapes. */
   selection: string[];
+  /** Palette index of the color group pointed at in the groups panel: outlined on the canvas. */
+  hoveredGroup: number | null;
   /** Undo/redo snapshots of `editor`. */
   history: History;
   /** Neutral, non-error hint for the user (e.g. why an edit did nothing). */
@@ -45,6 +47,7 @@ export interface EditorActions {
   /** Select several shapes at once (box selection); `additive` adds to the selection. */
   selectMany: (ids: string[], additive?: boolean) => void;
   selectAll: () => void;
+  hoverGroup: (paletteIndex: number | null) => void;
   /** Select every shape that is not selected, and nothing that is. */
   invertSelection: () => void;
   /** Select every shape of the selected shapes' colors (own colors included). */
@@ -94,6 +97,7 @@ export type EditorSlice = EditorState & EditorActions;
 export const initialEditorState: EditorState = {
   editor: null,
   selection: [],
+  hoveredGroup: null,
   history: emptyHistory,
   notice: null,
   savedDoc: null,
@@ -155,6 +159,8 @@ export const createEditorSlice: StateCreator<AppState, [], [], EditorSlice> = (s
       const base = additive ? state.selection : [];
       return { selection: [...new Set([...base, ...known])], notice: null };
     }),
+
+  hoverGroup: (paletteIndex) => set({ hoveredGroup: paletteIndex }),
 
   selectAll: () =>
     set((state) => ({

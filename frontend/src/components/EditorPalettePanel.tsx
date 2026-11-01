@@ -13,6 +13,7 @@ export function EditorPalettePanel() {
   const editor = useAppStore((s) => s.editor);
   const recolorGroup = useAppStore((s) => s.recolorGroup);
   const selectMany = useAppStore((s) => s.selectMany);
+  const hoverGroup = useAppStore((s) => s.hoverGroup);
   const mergeSimilarColors = useAppStore((s) => s.mergeSimilarColors);
   const snapToFilaments = useAppStore((s) => s.snapToFilaments);
   const library = useAppStore((s) => s.filamentLibrary);
@@ -33,7 +34,13 @@ export function EditorPalettePanel() {
         <span>Color groups</span>
         <ul className="palette">
           {editor.groups.map((group) => (
-            <li key={group.paletteIndex}>
+            <li
+              key={group.paletteIndex}
+              onMouseEnter={() => hoverGroup(group.paletteIndex)}
+              onMouseLeave={() => hoverGroup(null)}
+              onFocus={() => hoverGroup(group.paletteIndex)}
+              onBlur={() => hoverGroup(null)}
+            >
               <input
                 type="color"
                 value={group.fill}

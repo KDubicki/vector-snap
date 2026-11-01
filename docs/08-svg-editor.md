@@ -240,7 +240,10 @@ Implemented in `src/editor/operations.ts` (pure functions, unit-tested).
 - ✅ **Palette group** (FR-34) — "Color groups" panel → `recolorGroup()` changes
   `group.fill`; shapes without their own color follow, shapes with their own color keep
   it. Overrides that become equal to the new group color are dropped. **Select** selects
-  all shapes of a group.
+  all shapes of a group. Pointing at a group's row (or tabbing into it) outlines its
+  shapes on the canvas in the hover blue (`hoveredGroup` in the store,
+  `EditorScene.hoverShapes()`), so it is clear which shapes a color is before recoloring
+  it.
 - ✅ Moving shapes to another palette group (see [Merging and moving](#merging-and-moving-shapes-)).
 - ✅ **Eyedropper** (`I`) — `matchColor()`, store action `matchSelectionColor(id)`: the
   selection takes the clicked shape's color. A shape with its own color passes that color

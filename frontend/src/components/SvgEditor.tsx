@@ -107,6 +107,7 @@ export function SvgEditor() {
   const editor = useAppStore((s) => s.editor);
   const vectorized = useAppStore((s) => s.vectorized);
   const selection = useAppStore((s) => s.selection);
+  const hoveredGroup = useAppStore((s) => s.hoveredGroup);
   const select = useAppStore((s) => s.select);
   const notice = useAppStore((s) => s.notice);
   const canUndo = useAppStore((s) => s.history.past.length > 0);
@@ -186,6 +187,12 @@ export function SvgEditor() {
   useEffect(() => {
     sceneRef.current?.highlight(selection);
   }, [selection, editor]);
+
+  // A color group pointed at in the groups panel: its shapes are outlined.
+  useEffect(() => {
+    const group = editor?.groups.find((candidate) => candidate.paletteIndex === hoveredGroup);
+    sceneRef.current?.hoverShapes(group ? group.shapes.map((shape) => shape.id) : []);
+  }, [hoveredGroup, editor]);
 
   /** Redraw the document, e.g. after shapes were moved on screen only. */
   const redraw = useCallback(() => {

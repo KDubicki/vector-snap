@@ -25,7 +25,7 @@ export class EditorScene {
   private readonly hoverLayer: paper.Layer;
   private readonly overlay: paper.Layer;
   private readonly guide: paper.Layer;
-  private hovered: string | null = null;
+  private hovered = '';
   private fitZoom = 1;
 
   constructor(target: HTMLCanvasElement | { width: number; height: number }) {
@@ -94,17 +94,25 @@ export class EditorScene {
 
   /** Thin outline of the shape under the cursor (preview of what a click selects). */
   hover(id: string | null): void {
-    if (id === this.hovered) return;
-    this.hovered = id;
+    this.hoverShapes(id === null ? [] : [id]);
+  }
+
+  /** Thin outline of several shapes: a color group pointed at in the groups panel. */
+  hoverShapes(ids: string[]): void {
+    const key = ids.join('\n');
+    if (key === this.hovered) return;
+    this.hovered = key;
     this.hoverLayer.removeChildren();
-    const item = id ? this.findItem(id) : null;
-    if (!item) return;
-    const outline = item.clone({ insert: false });
-    outline.fillColor = null;
-    outline.strokeColor = new this.scope.Color(HOVER_COLOR);
-    outline.strokeWidth = 1.5;
-    outline.strokeScaling = false;
-    this.hoverLayer.addChild(outline);
+    for (const id of ids) {
+      const item = this.findItem(id);
+      if (!item) continue;
+      const outline = item.clone({ insert: false });
+      outline.fillColor = null;
+      outline.strokeColor = new this.scope.Color(HOVER_COLOR);
+      outline.strokeWidth = 1.5;
+      outline.strokeScaling = false;
+      this.hoverLayer.addChild(outline);
+    }
   }
 
   /** Draw (or clear with `null`) a selection rectangle given by two document points. */

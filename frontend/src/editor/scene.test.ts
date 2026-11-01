@@ -95,6 +95,18 @@ describe('EditorScene', () => {
     expect(hoverLayer.children).toHaveLength(0);
   });
 
+  it('outlines several shapes for a color group', () => {
+    const instance = scene();
+    const hoverLayer = instance.scope.project.layers[1];
+
+    instance.hoverShapes(['p-0-0', 'missing', 'p-1-0']);
+    expect(hoverLayer.children).toHaveLength(2);
+    instance.hover('p-0-0');
+    expect(hoverLayer.children).toHaveLength(1);
+    instance.hoverShapes([]);
+    expect(hoverLayer.children).toHaveLength(0);
+  });
+
   it('finds shapes fully inside a rectangle and draws the marquee', () => {
     const instance = scene();
 
