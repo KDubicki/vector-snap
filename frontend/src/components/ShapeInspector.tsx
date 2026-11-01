@@ -1,5 +1,5 @@
 import { findShape, shapeFill } from '../editor/model';
-import { shapesBounds, type SelectionTransform } from '../editor/transform';
+import { shapesBounds, type AlignEdge, type SelectionTransform } from '../editor/transform';
 import { useAppStore } from '../state/store';
 
 const TRANSFORMS: { kind: SelectionTransform; label: string; title: string }[] = [
@@ -8,6 +8,15 @@ const TRANSFORMS: { kind: SelectionTransform; label: string; title: string }[] =
   { kind: 'flip-x', label: 'Flip ↔', title: 'Mirror the selection horizontally' },
   { kind: 'flip-y', label: 'Flip ↕', title: 'Mirror the selection vertically' },
   { kind: 'rotate', label: 'Rotate 90°', title: 'Rotate the selection 90° clockwise' },
+];
+
+const ALIGN_EDGES: { edge: AlignEdge; label: string }[] = [
+  { edge: 'left', label: 'Left' },
+  { edge: 'center', label: 'Center' },
+  { edge: 'right', label: 'Right' },
+  { edge: 'top', label: 'Top' },
+  { edge: 'middle', label: 'Middle' },
+  { edge: 'bottom', label: 'Bottom' },
 ];
 
 /** Details, color and placement of the current selection (FR-33). */
@@ -23,6 +32,7 @@ export function ShapeInspector() {
     moveSelectionToGroup,
     moveSelectionToNewGroup,
     transformSelection,
+    alignSelection,
   } = useAppStore.getState();
 
   if (!editor) return null;
@@ -136,6 +146,24 @@ export function ShapeInspector() {
           >
             Duplicate
           </button>
+        </div>
+      </div>
+      <div className="transform">
+        <span className="hint">
+          Align {selection.length === 1 ? 'to the design' : 'to each other'}
+        </span>
+        <div className="transform__buttons" role="group" aria-label="Align selection">
+          {ALIGN_EDGES.map(({ edge, label }) => (
+            <button
+              key={edge}
+              type="button"
+              className="secondary"
+              title={`Align ${selection.length === 1 ? 'the shape to the design' : 'the shapes to each other'}: ${edge}`}
+              onClick={() => alignSelection(edge)}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       </div>
       <ul className="inspector">

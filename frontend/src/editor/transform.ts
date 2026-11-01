@@ -63,3 +63,44 @@ export function shapesBounds(doc: EditorDoc, ids: string[]): Bounds | null {
       .map((shape) => shape.d),
   );
 }
+
+export type AlignEdge = 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom';
+
+/** Offset that puts `bounds` on the `edge` of `target`. */
+function alignOffset(edge: AlignEdge, bounds: Bounds, target: Bounds): [number, number] {
+  switch (edge) {
+    case 'left':
+      return [target.x - bounds.x, 0];
+    case 'center':
+      return [target.x + (target.width - bounds.width) / 2 - bounds.x, 0];
+    case 'right':
+      return [target.x + target.width - (bounds.x + bounds.width), 0];
+    case 'top':
+      return [0, target.y - bounds.y];
+    case 'middle':
+      return [0, target.y + (target.height - bounds.height) / 2 - bounds.y];
+    case 'bottom':
+      return [0, target.y + target.height - (bounds.y + bounds.height)];
+  }
+}
+
+/**
+ * Line shapes up along an edge or center: several shapes each against the box around all
+ * of them, a single shape against the design. Shapes already in place are shared
+ * unchanged; returns `doc` itself when none moves.
+ */
+export function alignShapes(doc: EditorDoc, ids: string[], edge: AlignEdge): EditorDoc {
+  const known = ids.filter((id) => shapesBounds(doc, [id]) !== null);
+  const target =
+    known.length > 1
+      ? shapesBounds(doc, known)!
+      : { x: 0, y: 0, width: doc.width, height: doc.height };
+  let next = doc;
+  for (const id of known) {
+    const [dx, dy] = alignOffset(edge, shapesBounds(doc, [id])!, target);
+    if (Math.abs(dx) > 1e-6 || Math.abs(dy) > 1e-6) {
+      next = transformShapes(next, [id], translation(dx, dy));
+    }
+  }
+  return next;
+}

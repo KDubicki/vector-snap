@@ -4,6 +4,7 @@ import { pathArea, pathsBounds } from './geometry';
 import type { EditorDoc } from './model';
 import {
   SCALE_STEP,
+  alignShapes,
   shapesBounds,
   transformMatrix,
   transformShapes,
@@ -64,5 +65,27 @@ describe('transforming shapes', () => {
   it('has no bounds for unknown shapes', () => {
     expect(shapesBounds(doc, ['missing'])).toBeNull();
     expect(shapesBounds(doc, ['a', 'b'])).toEqual({ x: 10, y: 0, width: 50, height: 60 });
+  });
+});
+
+describe('aligning shapes', () => {
+  it('lines several shapes up within the box around them', () => {
+    const left = alignShapes(doc, ['a', 'b'], 'left');
+    expect(boundsOf(left, 'b')).toMatchObject({ x: 10, y: 50 });
+    expect(left.groups[0].shapes[0]).toBe(doc.groups[0].shapes[0]); // already there
+
+    const middle = alignShapes(doc, ['a', 'b'], 'middle');
+    expect(boundsOf(middle, 'a')).toMatchObject({ x: 10, y: 20 });
+    expect(boundsOf(middle, 'b')).toMatchObject({ x: 50, y: 25 });
+
+    expect(boundsOf(alignShapes(doc, ['a', 'b'], 'right'), 'a')).toMatchObject({ x: 50 });
+    expect(boundsOf(alignShapes(doc, ['a', 'b'], 'bottom'), 'a')).toMatchObject({ y: 40 });
+  });
+
+  it('aligns a single shape to the design', () => {
+    expect(boundsOf(alignShapes(doc, ['b'], 'center'), 'b')).toMatchObject({ x: 45, y: 50 });
+    expect(boundsOf(alignShapes(doc, ['a'], 'top'), 'a')).toMatchObject({ x: 10, y: 0 });
+    expect(alignShapes(doc, ['a'], 'top')).toBe(doc);
+    expect(alignShapes(doc, ['missing'], 'left')).toBe(doc);
   });
 });

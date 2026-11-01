@@ -56,6 +56,7 @@ Status: ✅ implemented · 🔜 planned.
 | Clear selection | `Esc` | | ✅ |
 | Knife (line split) | `K` / toolbar | Draw a freehand or straight (`Shift`) line; fully crossed shapes are split (see [Knife](#knife-line-cut-)). `Space`+drag pans, `Esc` cancels the line. | ✅ |
 | Lasso | `L` / toolbar | Draw a freehand region; the part of the target shape inside it becomes a separate shape and gets selected (see [Lasso](#lasso-region-cut-)). | ✅ |
+| Align | inspector | **Left, Center, Right, Top, Middle, Bottom** line the selected shapes up against the box around all of them, each shape moved on its own; a single selected shape aligns to the design (`alignShapes()` in `transform.ts`). One undo step; a notice says when everything is already in place. | ✅ |
 | Scale / flip / rotate | inspector | Smaller, Larger (10 % steps), mirror horizontally or vertically, rotate 90° around the selection center. | ✅ |
 | Recolor | inspector / color groups panel | Recolor the selection or a whole palette group (see [Recoloring](#recoloring)). | ✅ |
 | Eyedropper | `I` / toolbar | Select shapes, then click the shape whose color they take (see [Recoloring](#recoloring)). Drags do not draw a box; the color is picked where the click ends. | ✅ |

@@ -46,6 +46,21 @@ describe('ShapeInspector', () => {
     expect(fillOf('p-1-1')).toBe('#ff0000');
   });
 
+  it('aligns one shape to the design and several to each other', async () => {
+    store().select('p-1-1');
+    const { rerender } = render(<ShapeInspector />);
+    expect(screen.getByText('Align to the design')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Left' }));
+    expect(shapesBounds(store().editor!, ['p-1-1'])).toMatchObject({ x: 0, y: 10 });
+
+    store().selectMany(['p-1-0', 'p-1-1']);
+    rerender(<ShapeInspector />);
+    await userEvent.click(screen.getByRole('button', { name: 'Bottom' }));
+    expect(shapesBounds(store().editor!, ['p-1-1'])).toMatchObject({ x: 0, y: 20 });
+    await userEvent.click(screen.getByRole('button', { name: 'Bottom' }));
+    expect(store().notice).toBe('Already aligned.');
+  });
+
   it('selects every shape of the selected color', async () => {
     store().recolorGroup(0, '#0000ff'); // the background takes p-1-1's own color
     store().select('p-1-1');

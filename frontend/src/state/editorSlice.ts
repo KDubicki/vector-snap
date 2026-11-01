@@ -17,10 +17,12 @@ import { snapToFilaments } from '../editor/filamentSnap';
 import { findSimilarColors, mergeSimilarColors } from '../editor/similarColors';
 import { cutWithRegion, splitAlongLine } from '../editor/split';
 import {
+  alignShapes,
   shapesBounds,
   transformMatrix,
   transformShapes,
   translation,
+  type AlignEdge,
   type SelectionTransform,
 } from '../editor/transform';
 import type { LibraryFilament } from '../lib/filamentLibrary';
@@ -87,6 +89,8 @@ export interface EditorActions {
   moveSelection: (dx: number, dy: number) => void;
   /** Scale, flip or rotate the selected shapes around their center. */
   transformSelection: (kind: SelectionTransform) => void;
+  /** Align the selected shapes to each other, or a single shape to the design. */
+  alignSelection: (edge: AlignEdge) => void;
   /** Place a saved fragment on top of the design; the placed shapes become the selection. */
   placeFragment: (fragment: Fragment, options: PlaceOptions) => void;
   undo: () => void;
@@ -378,6 +382,13 @@ export const createEditorSlice: StateCreator<AppState, [], [], EditorSlice> = (s
       if (!state.editor || !bounds) return {};
       const matrix = transformMatrix(kind, bounds);
       return commit(state, transformShapes(state.editor, state.selection, matrix));
+    }),
+
+  alignSelection: (edge) =>
+    set((state) => {
+      if (!state.editor || !state.selection.length) return {};
+      const next = alignShapes(state.editor, state.selection, edge);
+      return next === state.editor ? { notice: 'Already aligned.' } : commit(state, next);
     }),
 
   placeFragment: (fragment, options) =>
