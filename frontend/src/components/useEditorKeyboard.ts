@@ -1,6 +1,7 @@
 import { useEffect, type Dispatch, type RefObject, type SetStateAction } from 'react';
 import { serializeSvg } from '../editor/export';
 import type { EditorScene } from '../editor/scene';
+import { shapesBounds } from '../editor/transform';
 import { download } from '../lib/download';
 import { exportFileName } from '../lib/exportFormats';
 import { useAppStore } from '../state/store';
@@ -44,7 +45,7 @@ interface EditorKeyboard {
  * Keyboard shortcuts of the SVG editor: Ctrl/Cmd+Z undo, Ctrl/Cmd+Shift+Z or Ctrl+Y redo,
  * Ctrl/Cmd+A select all, Ctrl/Cmd+D duplicate, Ctrl/Cmd+S download, Delete removes, M merges, V/H/K/L/I tools,
  * Shift+I inverts the selection, arrows nudge, Esc cancels/clears, Space pans, 0 fits,
- * +/- zoom, ? lists them (keep src/editor/shortcuts.ts in step). Keys typed into text
+ * F zooms to the selection, +/- zoom, ? lists them (keep src/editor/shortcuts.ts in step). Keys typed into text
  * fields are left alone.
  */
 export function useEditorKeyboard({
@@ -137,6 +138,14 @@ export function useEditorKeyboard({
         case '0':
           scene.fit(doc);
           break;
+        case 'f':
+        case 'F': {
+          // Zoom to the selection; without one, to the whole design.
+          const bounds = shapesBounds(doc, store.selection);
+          if (bounds) scene.zoomTo(bounds);
+          else scene.fit(doc);
+          break;
+        }
         case '+':
         case '=':
           scene.zoomAt(WHEEL_ZOOM_STEP, center);

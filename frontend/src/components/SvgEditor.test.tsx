@@ -304,6 +304,15 @@ describe('SvgEditor', () => {
     await user.click(screen.getByRole('button', { name: 'Zoom in' }));
     await user.click(screen.getByRole('button', { name: 'Fit' }));
     expect(zoom()).toBe('100%');
+
+    const toSelection = screen.getByRole('button', { name: 'Selection' });
+    expect(toSelection).toBeDisabled();
+    store().select('p-1-1'); // 10 x 10 of the 100 x 50 design
+    await user.click(toSelection);
+    expect(Number.parseInt(zoom()!)).toBeGreaterThan(300);
+    await user.keyboard('0');
+    await user.keyboard('f');
+    expect(Number.parseInt(zoom()!)).toBeGreaterThan(300);
   });
 
   it('shows notices for edits that did nothing', async () => {

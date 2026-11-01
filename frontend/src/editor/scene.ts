@@ -1,4 +1,5 @@
 import paper from 'paper';
+import type { Bounds } from './geometry';
 import { shapeFill, type EditorDoc } from './model';
 
 export interface ViewPoint {
@@ -8,6 +9,8 @@ export interface ViewPoint {
 
 const MIN_ZOOM_FACTOR = 0.1; // relative to the "fit" zoom
 const MAX_ZOOM_FACTOR = 64;
+/** Share of the viewport the selection fills after "zoom to selection". */
+const ZOOM_TO_MARGIN = 0.8;
 const HOVER_COLOR = '#2f80ff';
 // Dark outline + white dashes stay visible on any fill color.
 const OUTLINE_STYLES = [
@@ -180,6 +183,25 @@ export class EditorScene {
     this.fitZoom = Math.min(width / doc.width, height / doc.height) * 0.95;
     view.zoom = this.fitZoom;
     view.center = new this.scope.Point(doc.width / 2, doc.height / 2);
+  }
+
+  /**
+   * Zoom so `bounds` (document coordinates) fill most of the viewport, centered: the
+   * selection up close. Stays within the zoom limits, so a speck does not fill the screen.
+   */
+  zoomTo(bounds: Bounds): void {
+    const view = this.scope.view;
+    const { width, height } = view.viewSize;
+    if (!width || !height) return;
+    const wanted = Math.min(
+      width / Math.max(bounds.width, 1e-6),
+      height / Math.max(bounds.height, 1e-6),
+    );
+    view.zoom = Math.min(
+      Math.max(wanted * ZOOM_TO_MARGIN, this.fitZoom * MIN_ZOOM_FACTOR),
+      this.fitZoom * MAX_ZOOM_FACTOR,
+    );
+    view.center = new this.scope.Point(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
   }
 
   /** Zoom by `factor`, keeping the document point under `around` fixed on screen. */

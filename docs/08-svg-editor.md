@@ -53,6 +53,7 @@ Status: ✅ implemented · 🔜 planned.
 | Select same color | inspector | **Select same color** adds every shape of the selected shapes' colors — own colors and other groups of that color included (`sameColorShapes()` in `model.ts`); the group panel's **Select** picks one group. | ✅ |
 | Hand / pan | `H`, `Space`+drag, middle button | Drag to move the viewport (works in every tool with `Space` or the middle button). | ✅ |
 | Zoom | wheel / `+` / `-` / `0` (fit) / toolbar | Zoom around the cursor, 10 %–6400 % of "fit". | ✅ |
+| Zoom to selection | `F` / toolbar **Selection** | The selection fills 80 % of the canvas, centered (`EditorScene.zoomTo()`), within the zoom limits — a speck does not fill the screen. Without a selection `F` fits the design; the button is disabled. | ✅ |
 | Clear selection | `Esc` | | ✅ |
 | Knife (line split) | `K` / toolbar | Draw a freehand or straight (`Shift`) line; fully crossed shapes are split (see [Knife](#knife-line-cut-)). `Space`+drag pans, `Esc` cancels the line. | ✅ |
 | Lasso | `L` / toolbar | Draw a freehand region; the part of the target shape inside it becomes a separate shape and gets selected (see [Lasso](#lasso-region-cut-)). | ✅ |

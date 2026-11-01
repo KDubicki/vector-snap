@@ -46,6 +46,7 @@ export const SHORTCUTS: ShortcutGroup[] = [
     shortcuts: [
       { keys: [['+'], ['−']], action: 'Zoom in, out' },
       { keys: [['0']], action: 'Fit the design' },
+      { keys: [['F']], action: 'Zoom to the selection' },
     ],
   },
   {

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'react';
 import { EditorScene, type ViewPoint } from '../editor/scene';
+import { shapesBounds } from '../editor/transform';
 import { BACKDROPS, readBackdrop, saveBackdrop, type Backdrop } from '../lib/backdrop';
 import { browserStorage } from '../lib/theme';
 import { useAppStore } from '../state/store';
@@ -295,6 +296,14 @@ export function SvgEditor() {
     setZoom(scene.relativeZoom);
   };
 
+  const zoomToSelection = () => {
+    const scene = sceneRef.current;
+    const bounds = editor && shapesBounds(editor, selection);
+    if (!scene || !bounds) return;
+    scene.zoomTo(bounds);
+    setZoom(scene.relativeZoom);
+  };
+
   return (
     <div className="editor">
       <div className="editor__toolbar" role="toolbar" aria-label="Editor tools">
@@ -356,6 +365,14 @@ export function SvgEditor() {
           </button>
           <button type="button" onClick={fit}>
             Fit
+          </button>
+          <button
+            type="button"
+            onClick={zoomToSelection}
+            disabled={selection.length === 0}
+            title="Zoom to the selection (F)"
+          >
+            Selection
           </button>
         </div>
         <div className="editor__group" role="group" aria-label="Background">

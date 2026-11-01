@@ -41,6 +41,20 @@ describe('EditorScene', () => {
     expect(instance.relativeZoom).toBeCloseTo(1);
   });
 
+  it('zooms to a box of the document, within the zoom limits', () => {
+    const instance = scene();
+
+    instance.zoomTo({ x: 10, y: 10, width: 20, height: 10 });
+    // 200x100 viewport: 10 px per document px, 80% of it.
+    expect(instance.scope.view.zoom).toBeCloseTo(8);
+    const center = instance.toDocument({ x: 100, y: 50 });
+    expect(center.x).toBeCloseTo(20);
+    expect(center.y).toBeCloseTo(15);
+
+    instance.zoomTo({ x: 5, y: 5, width: 0, height: 0 }); // a point: the closest zoom
+    expect(instance.relativeZoom).toBeCloseTo(64);
+  });
+
   it('hit-tests the topmost shape and respects holes', () => {
     const instance = scene();
     const at = (x: number, y: number) => {
