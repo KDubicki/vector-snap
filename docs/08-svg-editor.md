@@ -49,6 +49,7 @@ Status: ✅ implemented · 🔜 planned.
 | Select | `V` | Click selects the topmost shape under the cursor (hit-test on fill; holes are not hits); the shape under the cursor is outlined in blue before clicking. **Drag a box** to select every shape lying completely inside it (the background is never caught). `Shift` adds (click toggles). Click on empty canvas clears. | ✅ |
 | Move | drag a selected shape / arrow keys | Dragging a selected shape (Select tool) moves the whole selection; arrows nudge it by 1 px, `Shift`+arrow by 10 px (see [Transforming shapes](#transforming-shapes-)). | ✅ |
 | Select all | `Ctrl/Cmd+A` | Select every shape. | ✅ |
+| Invert selection | `Shift+I` / inspector | Select every shape that is not selected, and nothing that is — e.g. select the motif, invert, and the background is left. Not `Ctrl+Shift+I`: browsers keep that for their developer tools. | ✅ |
 | Select same color | inspector | **Select same color** adds every shape of the selected shapes' colors — own colors and other groups of that color included (`sameColorShapes()` in `model.ts`); the group panel's **Select** picks one group. | ✅ |
 | Hand / pan | `H`, `Space`+drag, middle button | Drag to move the viewport (works in every tool with `Space` or the middle button). | ✅ |
 | Zoom | wheel / `+` / `-` / `0` (fit) / toolbar | Zoom around the cursor, 10 %–6400 % of "fit". | ✅ |

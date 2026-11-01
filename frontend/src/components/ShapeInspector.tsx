@@ -18,6 +18,7 @@ export function ShapeInspector() {
     recolorSelection,
     resetSelectionColor,
     selectSameColor,
+    invertSelection,
     moveSelectionToGroup,
     moveSelectionToNewGroup,
     transformSelection,
@@ -64,6 +65,14 @@ export function ShapeInspector() {
           onClick={selectSameColor}
         >
           Select same color
+        </button>
+        <button
+          type="button"
+          className="link"
+          title="Select every other shape instead (Shift+I)"
+          onClick={invertSelection}
+        >
+          Invert selection
         </button>
       </div>
       <div className="move-to-group">

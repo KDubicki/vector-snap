@@ -32,6 +32,7 @@ export const SHORTCUTS: ShortcutGroup[] = [
     shortcuts: [
       { keys: [['Shift', 'Click']], action: 'Add to the selection' },
       { keys: [['Mod', 'A']], action: 'Select every shape' },
+      { keys: [['Shift', 'I']], action: 'Invert the selection' },
       { keys: [['↑'], ['↓'], ['←'], ['→']], action: 'Nudge by 1 px' },
       { keys: [['Shift', '↑']], action: 'Nudge by 10 px' },
       { keys: [['M']], action: 'Merge the selected shapes' },

@@ -251,6 +251,11 @@ describe('SvgEditor', () => {
     expect(store().selection).toHaveLength(3);
     await user.keyboard('{Escape}');
     expect(store().selection).toEqual([]);
+    store().select('p-0-0');
+    await user.keyboard('{Shift>}i{/Shift}'); // inverts; not the eyedropper
+    expect(store().selection).toEqual(['p-1-0', 'p-1-1']);
+    expect(screen.getByRole('button', { name: 'Select' })).toHaveAttribute('aria-pressed', 'true');
+    await user.keyboard('{Escape}');
 
     store().select('p-1-1');
     await user.keyboard('{ArrowRight}{Shift>}{ArrowDown}{/Shift}');

@@ -204,7 +204,8 @@ export function SvgEditor() {
   }, [redraw]);
 
   // Keyboard shortcuts: Ctrl/Cmd+Z undo, Ctrl/Cmd+Shift+Z or Ctrl+Y redo, Delete removes,
-  // V/H/K/L/I tools, Esc cancels/clears, Space pans, 0 fits, +/- zoom.
+  // V/H/K/L/I tools, Shift+I inverts the selection, Esc cancels/clears, Space pans, 0 fits,
+  // +/- zoom.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const scene = sceneRef.current;
@@ -238,6 +239,11 @@ export function SvgEditor() {
         return;
       }
       if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.shiftKey && key === 'i') {
+        // Not Ctrl+Shift+I: browsers keep that for their developer tools.
+        store.invertSelection();
+        return;
+      }
       const shortcut = TOOLS.find((item) => item.key === key);
       if (shortcut) {
         setTool(shortcut.id);

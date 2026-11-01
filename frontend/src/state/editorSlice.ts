@@ -45,6 +45,8 @@ export interface EditorActions {
   /** Select several shapes at once (box selection); `additive` adds to the selection. */
   selectMany: (ids: string[], additive?: boolean) => void;
   selectAll: () => void;
+  /** Select every shape that is not selected, and nothing that is. */
+  invertSelection: () => void;
   /** Select every shape of the selected shapes' colors (own colors included). */
   selectSameColor: () => void;
   /** Select every shape smaller than `maxArea` (document px²), e.g. specks to delete. */
@@ -161,6 +163,16 @@ export const createEditorSlice: StateCreator<AppState, [], [], EditorSlice> = (s
         : [],
       notice: null,
     })),
+
+  invertSelection: () =>
+    set((state) => {
+      if (!state.editor) return {};
+      const selected = new Set(state.selection);
+      const selection = state.editor.groups.flatMap((group) =>
+        group.shapes.filter((shape) => !selected.has(shape.id)).map((shape) => shape.id),
+      );
+      return { selection, notice: null };
+    }),
 
   selectSameColor: () =>
     set((state) => {

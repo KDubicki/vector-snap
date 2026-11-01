@@ -670,6 +670,21 @@ describe('app store', () => {
     expect(store().selection).toEqual(['p-0-0']);
   });
 
+  it('inverts the selection', async () => {
+    useAppStore.setState({ quantized });
+    vi.stubGlobal('fetch', respond(vectorized));
+    await store().runVectorize();
+
+    store().invertSelection();
+    expect(store().selection).toEqual(['p-0-0', 'p-0-1']);
+    store().select('p-0-1');
+    store().invertSelection();
+    expect(store().selection).toEqual(['p-0-0']);
+    store().selectAll();
+    store().invertSelection();
+    expect(store().selection).toEqual([]);
+  });
+
   it('selects every shape of the selected colors', async () => {
     useAppStore.setState({ quantized });
     const svg = vectorized.svg.replace(
