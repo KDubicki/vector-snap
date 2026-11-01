@@ -69,6 +69,19 @@ describe('EditorScene', () => {
     expect(instance.hitTest({ x: 1, y: 1 })).toBeNull();
   });
 
+  it('leaves hidden groups out of drawing, clicks and boxes', () => {
+    const instance = scene();
+    instance.render(doc, [1]);
+    const at = (x: number, y: number) => {
+      const zoom = instance.scope.view.zoom;
+      return { x: 100 + (x - 50) * zoom, y: 50 + (y - 25) * zoom };
+    };
+
+    expect(instance.hitTest(at(75, 25))).toBeNull();
+    expect(instance.hitTest(at(25, 25))).toBe('p-0-0');
+    expect(instance.shapesInside({ x: 101, y: 51 }, { x: -1, y: -1 })).toEqual(['p-0-0']);
+  });
+
   it('renders shape colors with per-shape overrides', () => {
     const instance = scene();
     const fill = (id: string) =>

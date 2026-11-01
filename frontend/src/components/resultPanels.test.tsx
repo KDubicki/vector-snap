@@ -35,6 +35,15 @@ describe('EditorPalettePanel', () => {
     expect(store().selection).toEqual(['p-1-0', 'p-1-1']);
   });
 
+  it('hides and shows a group on the canvas', async () => {
+    render(<EditorPalettePanel />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Hide group 2' }));
+    expect(store().hiddenGroups).toEqual([1]);
+    await userEvent.click(screen.getByRole('button', { name: 'Show group 2' }));
+    expect(store().hiddenGroups).toEqual([]);
+  });
+
   it('marks the group under the pointer, for the canvas to outline', async () => {
     const user = userEvent.setup();
     render(<EditorPalettePanel />);

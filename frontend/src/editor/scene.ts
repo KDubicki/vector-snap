@@ -44,8 +44,11 @@ export class EditorScene {
     this.guide = new this.scope.Layer();
   }
 
-  /** Rebuild the scene from the document (bottom group first). */
-  render(doc: EditorDoc): void {
+  /**
+   * Rebuild the scene from the document (bottom group first). Groups in `hidden` are not
+   * drawn, and clicks and boxes pass through to the shapes below them.
+   */
+  render(doc: EditorDoc, hidden: readonly number[] = []): void {
     this.content.removeChildren();
     this.hover(null);
     this.content.addChild(
@@ -59,6 +62,7 @@ export class EditorScene {
     );
     for (const group of doc.groups) {
       const layer = new this.scope.Group({ name: `color-${group.paletteIndex}` });
+      layer.visible = !hidden.includes(group.paletteIndex);
       for (const shape of group.shapes) {
         const item = new this.scope.CompoundPath(shape.d);
         item.fillColor = new this.scope.Color(shapeFill(group, shape));
@@ -142,7 +146,7 @@ export class EditorScene {
     const rect = new this.scope.Rectangle(this.point(from), this.point(to));
     return this.content
       .getItems({ match: (item: paper.Item) => Boolean(item.data?.shapeId) })
-      .filter((item) => rect.contains(item.bounds))
+      .filter((item) => item.parent?.visible !== false && rect.contains(item.bounds))
       .map((item) => item.data.shapeId as string);
   }
 

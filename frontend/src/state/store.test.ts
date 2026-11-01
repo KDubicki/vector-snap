@@ -6,7 +6,7 @@ import { DEFAULT_PRINT } from '../lib/printPlan';
 import { presetJson } from '../lib/printPreset';
 import { DEFAULT_TRACING } from '../lib/tracing';
 import type { QuantizeResponse, VectorizeResponse } from '../types/api';
-import { DUPLICATE_OFFSET, hasUnsavedEdits } from './editorSlice';
+import { DUPLICATE_OFFSET, hasUnsavedEdits, openDocument } from './editorSlice';
 import {
   DEFAULT_COLORS,
   DEFAULT_MERGE_DELTA_E,
@@ -687,6 +687,36 @@ describe('app store', () => {
     expect([copy.x - before.x, copy.y - before.y]).toEqual([DUPLICATE_OFFSET, DUPLICATE_OFFSET]);
     store().undo();
     expect(findShape(store().editor!, 'p-0-1-copy')).toBeNull();
+  });
+
+  it('hides color groups on the canvas only, keeping them out of the selection', async () => {
+    useAppStore.setState({ quantized });
+    const svg = vectorized.svg.replace(
+      '</svg>',
+      '<g data-palette-index="1" fill="#0000ff"><path id="p-1-0" d="M0,0 L1,1 Z"/></g></svg>',
+    );
+    vi.stubGlobal('fetch', respond({ ...vectorized, svg }));
+    await store().runVectorize();
+    const doc = store().editor;
+
+    store().selectMany(['p-0-0', 'p-1-0']);
+    store().toggleGroupVisibility(1);
+    expect(store().hiddenGroups).toEqual([1]);
+    expect(store().selection).toEqual(['p-0-0']);
+    expect(store().editor).toBe(doc); // the document keeps the group
+    store().selectAll();
+    expect(store().selection).toEqual(['p-0-0', 'p-0-1']);
+    store().invertSelection();
+    expect(store().selection).toEqual([]);
+
+    store().toggleGroupVisibility(1);
+    expect(store().hiddenGroups).toEqual([]);
+    store().toggleGroupVisibility(0);
+    store().showAllGroups();
+    expect(store().hiddenGroups).toEqual([]);
+    store().toggleGroupVisibility(0);
+    useAppStore.setState(openDocument(svg)); // a new document shows everything
+    expect(store().hiddenGroups).toEqual([]);
   });
 
   it('inverts the selection', async () => {

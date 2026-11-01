@@ -46,6 +46,7 @@ export function SvgEditor() {
   const vectorized = useAppStore((s) => s.vectorized);
   const selection = useAppStore((s) => s.selection);
   const hoveredGroup = useAppStore((s) => s.hoveredGroup);
+  const hiddenGroups = useAppStore((s) => s.hiddenGroups);
   const select = useAppStore((s) => s.select);
   const notice = useAppStore((s) => s.notice);
   const canUndo = useAppStore((s) => s.history.past.length > 0);
@@ -110,9 +111,9 @@ export function SvgEditor() {
   useEffect(() => {
     const scene = sceneRef.current;
     if (!scene || !editor) return;
-    scene.render(editor);
+    scene.render(editor, hiddenGroups);
     scene.highlight(useAppStore.getState().selection);
-  }, [editor]);
+  }, [editor, hiddenGroups]);
 
   useEffect(() => {
     const scene = sceneRef.current;
@@ -130,13 +131,13 @@ export function SvgEditor() {
   useEffect(() => {
     const group = editor?.groups.find((candidate) => candidate.paletteIndex === hoveredGroup);
     sceneRef.current?.hoverShapes(group ? group.shapes.map((shape) => shape.id) : []);
-  }, [hoveredGroup, editor]);
+  }, [hoveredGroup, editor, hiddenGroups]);
 
   /** Redraw the document, e.g. after shapes were moved on screen only. */
   const redraw = useCallback(() => {
-    const { editor: doc, selection: ids } = useAppStore.getState();
+    const { editor: doc, selection: ids, hiddenGroups: hidden } = useAppStore.getState();
     if (!sceneRef.current || !doc) return;
-    sceneRef.current.render(doc);
+    sceneRef.current.render(doc, hidden);
     sceneRef.current.highlight(ids);
   }, []);
 
@@ -405,6 +406,16 @@ export function SvgEditor() {
       {notice && (
         <p className="editor__notice" role="status">
           {notice}
+        </p>
+      )}
+      {hiddenGroups.length > 0 && (
+        <p className="editor__notice" role="status">
+          {hiddenGroups.length === 1
+            ? '1 color group is hidden here; downloads still include it.'
+            : `${hiddenGroups.length} color groups are hidden here; downloads still include them.`}{' '}
+          <button type="button" className="link" onClick={useAppStore.getState().showAllGroups}>
+            Show all
+          </button>
         </p>
       )}
       <div

@@ -250,7 +250,12 @@ Implemented in `src/editor/operations.ts` (pure functions, unit-tested).
   all shapes of a group. Pointing at a group's row (or tabbing into it) outlines its
   shapes on the canvas in the hover blue (`hoveredGroup` in the store,
   `EditorScene.hoverShapes()`), so it is clear which shapes a color is before recoloring
-  it.
+  it. The eye on a row **hides the group on the canvas** (`hiddenGroups`,
+  `toggleGroupVisibility()`), to reach shapes under it: hidden shapes are not drawn,
+  clicks and boxes pass through them, they leave the selection, and *Select all* and
+  *Invert selection* skip them. Only the view changes — downloads, exports and the 3D
+  print keep every group; a note above the canvas counts the hidden groups and has
+  **Show all**. A new SVG shows everything again.
 - ✅ Moving shapes to another palette group (see [Merging and moving](#merging-and-moving-shapes-)).
 - ✅ **Eyedropper** (`I`) — `matchColor()`, store action `matchSelectionColor(id)`: the
   selection takes the clicked shape's color. A shape with its own color passes that color

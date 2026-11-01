@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { PaletteColor } from '../types/api';
+import { EyeIcon } from './EyeIcon';
 import { LockIcon } from './LockedColors';
 
 interface PaletteEditorProps {
@@ -27,28 +28,6 @@ interface PaletteEditorProps {
   /** Palette index under the pointer or keyboard focus, shown on its own in the preview. */
   highlighted?: number | null;
   onHighlight?: (index: number | null) => void;
-}
-
-function RemoveIcon({ removed }: { removed: boolean }) {
-  return (
-    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-      <path
-        d="M1.5 8s2.5-4.5 6.5-4.5S14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8Z"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.4"
-      />
-      <circle cx="8" cy="8" r="2" fill="currentColor" />
-      {removed && (
-        <path
-          d="M2.5 13.5 13.5 2.5"
-          stroke="currentColor"
-          strokeWidth="1.6"
-          strokeLinecap="round"
-        />
-      )}
-    </svg>
-  );
 }
 
 /**
@@ -246,7 +225,7 @@ export function PaletteEditor({
                 disabled={!isRemoved && lastVisible}
                 onClick={() => onToggleTransparent(color.index)}
               >
-                <RemoveIcon removed={isRemoved} />
+                <EyeIcon crossed={isRemoved} />
               </button>
               <button
                 type="button"

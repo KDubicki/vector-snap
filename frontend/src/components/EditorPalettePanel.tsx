@@ -4,6 +4,7 @@ import { findSimilarColors } from '../editor/similarColors';
 import { SIMILAR_LEVELS } from '../lib/color';
 import { availableFilaments } from '../lib/filamentLibrary';
 import { useAppStore } from '../state/store';
+import { EyeIcon } from './EyeIcon';
 
 const LEVELS = SIMILAR_LEVELS.filter((level) => level.value > 0);
 const DEFAULT_LEVEL = 2;
@@ -14,6 +15,8 @@ export function EditorPalettePanel() {
   const recolorGroup = useAppStore((s) => s.recolorGroup);
   const selectMany = useAppStore((s) => s.selectMany);
   const hoverGroup = useAppStore((s) => s.hoverGroup);
+  const hiddenGroups = useAppStore((s) => s.hiddenGroups);
+  const toggleGroupVisibility = useAppStore((s) => s.toggleGroupVisibility);
   const mergeSimilarColors = useAppStore((s) => s.mergeSimilarColors);
   const snapToFilaments = useAppStore((s) => s.snapToFilaments);
   const library = useAppStore((s) => s.filamentLibrary);
@@ -51,6 +54,16 @@ export function EditorPalettePanel() {
               <span className="hint">
                 {group.shapes.length} {group.shapes.length === 1 ? 'shape' : 'shapes'}
               </span>
+              <button
+                type="button"
+                className={`icon-toggle${hiddenGroups.includes(group.paletteIndex) ? ' active' : ''}`}
+                aria-pressed={hiddenGroups.includes(group.paletteIndex)}
+                aria-label={`${hiddenGroups.includes(group.paletteIndex) ? 'Show' : 'Hide'} group ${group.paletteIndex + 1}`}
+                title="Hide on the canvas to reach the shapes under it; downloads keep it"
+                onClick={() => toggleGroupVisibility(group.paletteIndex)}
+              >
+                <EyeIcon crossed={hiddenGroups.includes(group.paletteIndex)} />
+              </button>
               <button
                 type="button"
                 className="link"

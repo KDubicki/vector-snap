@@ -37,6 +37,11 @@ export interface EditorState {
   selection: string[];
   /** Palette index of the color group pointed at in the groups panel: outlined on the canvas. */
   hoveredGroup: number | null;
+  /**
+   * Palette indices of color groups hidden on the canvas, to reach the shapes under them.
+   * View only: downloads, exports and the 3D print keep them.
+   */
+  hiddenGroups: number[];
   /** Undo/redo snapshots of `editor`. */
   history: History;
   /** Neutral, non-error hint for the user (e.g. why an edit did nothing). */
@@ -51,7 +56,10 @@ export interface EditorActions {
   selectMany: (ids: string[], additive?: boolean) => void;
   selectAll: () => void;
   hoverGroup: (paletteIndex: number | null) => void;
-  /** Select every shape that is not selected, and nothing that is. */
+  /** Hide a color group on the canvas (its shapes leave the selection), or show it again. */
+  toggleGroupVisibility: (paletteIndex: number) => void;
+  showAllGroups: () => void;
+  /** Select every shown shape that is not selected, and nothing that is. */
   invertSelection: () => void;
   /** Select every shape of the selected shapes' colors (own colors included). */
   selectSameColor: () => void;
@@ -108,6 +116,7 @@ export const initialEditorState: EditorState = {
   editor: null,
   selection: [],
   hoveredGroup: null,
+  hiddenGroups: [],
   history: emptyHistory,
   notice: null,
   savedDoc: null,
@@ -121,8 +130,21 @@ export function hasUnsavedEdits(state: Pick<EditorState, 'editor' | 'history' | 
 /** Editor state for a newly vectorized SVG: nothing selected, no history. */
 export function openDocument(
   svg: string,
-): Pick<EditorState, 'editor' | 'selection' | 'history' | 'savedDoc'> {
-  return { editor: parseSvg(svg), selection: [], history: emptyHistory, savedDoc: null };
+): Pick<EditorState, 'editor' | 'selection' | 'hiddenGroups' | 'history' | 'savedDoc'> {
+  return {
+    editor: parseSvg(svg),
+    selection: [],
+    hiddenGroups: [],
+    history: emptyHistory,
+    savedDoc: null,
+  };
+}
+
+/** Ids of the shapes in groups shown on the canvas. */
+function visibleShapes(state: EditorState): string[] {
+  return (state.editor?.groups ?? [])
+    .filter((group) => !state.hiddenGroups.includes(group.paletteIndex))
+    .flatMap((group) => group.shapes.map((shape) => shape.id));
 }
 
 /** Replace the editor document, recording the previous one for undo. */
@@ -172,21 +194,27 @@ export const createEditorSlice: StateCreator<AppState, [], [], EditorSlice> = (s
 
   hoverGroup: (paletteIndex) => set({ hoveredGroup: paletteIndex }),
 
-  selectAll: () =>
-    set((state) => ({
-      selection: state.editor
-        ? state.editor.groups.flatMap((group) => group.shapes.map((shape) => shape.id))
-        : [],
-      notice: null,
-    })),
+  toggleGroupVisibility: (paletteIndex) =>
+    set((state) => {
+      if (state.hiddenGroups.includes(paletteIndex)) {
+        return { hiddenGroups: state.hiddenGroups.filter((index) => index !== paletteIndex) };
+      }
+      const group = state.editor?.groups.find((item) => item.paletteIndex === paletteIndex);
+      const hidden = new Set(group?.shapes.map((shape) => shape.id));
+      return {
+        hiddenGroups: [...state.hiddenGroups, paletteIndex],
+        selection: state.selection.filter((id) => !hidden.has(id)),
+      };
+    }),
+  showAllGroups: () => set({ hiddenGroups: [] }),
+
+  selectAll: () => set((state) => ({ selection: visibleShapes(state), notice: null })),
 
   invertSelection: () =>
     set((state) => {
       if (!state.editor) return {};
       const selected = new Set(state.selection);
-      const selection = state.editor.groups.flatMap((group) =>
-        group.shapes.filter((shape) => !selected.has(shape.id)).map((shape) => shape.id),
-      );
+      const selection = visibleShapes(state).filter((id) => !selected.has(id));
       return { selection, notice: null };
     }),
 
