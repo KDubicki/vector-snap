@@ -35,6 +35,7 @@ export const SHORTCUTS: ShortcutGroup[] = [
       { keys: [['Shift', 'I']], action: 'Invert the selection' },
       { keys: [['↑'], ['↓'], ['←'], ['→']], action: 'Nudge by 1 px' },
       { keys: [['Shift', '↑']], action: 'Nudge by 10 px' },
+      { keys: [['Mod', 'D']], action: 'Duplicate the selected shapes' },
       { keys: [['M']], action: 'Merge the selected shapes' },
       { keys: [['Delete'], ['Backspace']], action: 'Delete the selected shapes' },
       { keys: [['Esc']], action: 'Cancel the action, then clear the selection' },

@@ -42,7 +42,7 @@ interface EditorKeyboard {
 
 /**
  * Keyboard shortcuts of the SVG editor: Ctrl/Cmd+Z undo, Ctrl/Cmd+Shift+Z or Ctrl+Y redo,
- * Ctrl/Cmd+A select all, Ctrl/Cmd+S download, Delete removes, M merges, V/H/K/L/I tools,
+ * Ctrl/Cmd+A select all, Ctrl/Cmd+D duplicate, Ctrl/Cmd+S download, Delete removes, M merges, V/H/K/L/I tools,
  * Shift+I inverts the selection, arrows nudge, Esc cancels/clears, Space pans, 0 fits,
  * +/- zoom, ? lists them (keep src/editor/shortcuts.ts in step). Keys typed into text
  * fields are left alone.
@@ -74,6 +74,11 @@ export function useEditorKeyboard({
       if ((event.metaKey || event.ctrlKey) && key === 'a') {
         event.preventDefault();
         store.selectAll();
+        return;
+      }
+      if ((event.metaKey || event.ctrlKey) && key === 'd') {
+        event.preventDefault(); // not the browser's bookmark
+        store.duplicateSelection();
         return;
       }
       if ((event.metaKey || event.ctrlKey) && key === 's') {

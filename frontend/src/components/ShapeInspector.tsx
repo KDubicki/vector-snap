@@ -19,6 +19,7 @@ export function ShapeInspector() {
     resetSelectionColor,
     selectSameColor,
     invertSelection,
+    duplicateSelection,
     moveSelectionToGroup,
     moveSelectionToNewGroup,
     transformSelection,
@@ -127,6 +128,14 @@ export function ShapeInspector() {
               {label}
             </button>
           ))}
+          <button
+            type="button"
+            className="secondary"
+            title="Copy the selection, moved aside (Ctrl/Cmd+D)"
+            onClick={duplicateSelection}
+          >
+            Duplicate
+          </button>
         </div>
       </div>
       <ul className="inspector">

@@ -234,3 +234,40 @@ export function moveShapesToNewGroup(doc: EditorDoc, ids: string[], fill: string
       .filter((candidate) => candidate.shapes.length > 0),
   };
 }
+
+/**
+ * Copy shapes (with their own colors) into their groups, just above the last of them in
+ * each group, so the copies cover what the originals covered. Copies get ids derived from
+ * the originals ("p-3-12-copy", "p-3-12-copy2", …), returned in document order; the caller
+ * moves them aside. Unknown ids are ignored.
+ */
+export function duplicateShapes(doc: EditorDoc, ids: string[]): { doc: EditorDoc; ids: string[] } {
+  const wanted = new Set(ids);
+  const taken = new Set(doc.groups.flatMap((group) => group.shapes.map((shape) => shape.id)));
+  const copyId = (id: string) => {
+    for (let n = 1; ; n += 1) {
+      const candidate = n === 1 ? `${id}-copy` : `${id}-copy${n}`;
+      if (!taken.has(candidate)) {
+        taken.add(candidate);
+        return candidate;
+      }
+    }
+  };
+  const created: string[] = [];
+  const groups = doc.groups.map((group) => {
+    const last = group.shapes.reduce(
+      (found, shape, index) => (wanted.has(shape.id) ? index : found),
+      -1,
+    );
+    if (last < 0) return group;
+    const copies = group.shapes
+      .filter((shape) => wanted.has(shape.id))
+      .map((shape) => ({ ...shape, id: copyId(shape.id) }));
+    created.push(...copies.map((copy) => copy.id));
+    return {
+      ...group,
+      shapes: [...group.shapes.slice(0, last + 1), ...copies, ...group.shapes.slice(last + 1)],
+    };
+  });
+  return created.length ? { doc: { ...doc, groups }, ids: created } : { doc, ids: [] };
+}

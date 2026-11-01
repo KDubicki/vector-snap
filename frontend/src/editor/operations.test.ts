@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { EditorDoc } from './model';
 import {
   deleteShapes,
+  duplicateShapes,
   matchColor,
   mergeShapes,
   moveShapesToGroup,
@@ -229,5 +230,29 @@ describe('moveShapesToNewGroup', () => {
     expect(moveShapesToNewGroup(doc, ['c'], '#0000ff')).toBe(doc);
     expect(moveShapesToNewGroup(doc, ['missing'], '#0000ff')).toBe(doc);
     expect(moveShapesToNewGroup(doc, ['c'], '#00ff00')).not.toBe(doc); // a new color
+  });
+});
+
+describe('duplicateShapes', () => {
+  it('copies shapes above the last of them in each group, with own colors', () => {
+    const { doc: next, ids } = duplicateShapes(doc, ['b', 'a', 'c', 'missing']);
+
+    expect(ids).toEqual(['a-copy', 'b-copy', 'c-copy']);
+    expect(next.groups[0].shapes.map((shape) => [shape.id, shape.fill])).toEqual([
+      ['a', undefined],
+      ['b', '#00ff00'],
+      ['a-copy', undefined],
+      ['b-copy', '#00ff00'],
+    ]);
+    expect(next.groups[1].shapes.map((shape) => shape.id)).toEqual(['c', 'c-copy']);
+  });
+
+  it('numbers further copies and leaves untouched groups shared', () => {
+    const once = duplicateShapes(doc, ['a']).doc;
+
+    const twice = duplicateShapes(once, ['a']);
+    expect(twice.ids).toEqual(['a-copy2']);
+    expect(twice.doc.groups[1]).toBe(doc.groups[1]);
+    expect(duplicateShapes(doc, ['missing']).doc).toBe(doc);
   });
 });

@@ -251,6 +251,10 @@ describe('SvgEditor', () => {
     expect(store().selection).toHaveLength(3);
     await user.keyboard('{Escape}');
     expect(store().selection).toEqual([]);
+    store().select('p-1-0');
+    await user.keyboard('{Control>}d{/Control}');
+    expect(store().selection).toEqual(['p-1-0-copy']);
+    await user.keyboard('{Control>}z{/Control}');
     store().select('p-0-0');
     await user.keyboard('{Shift>}i{/Shift}'); // inverts; not the eyedropper
     expect(store().selection).toEqual(['p-1-0', 'p-1-1']);

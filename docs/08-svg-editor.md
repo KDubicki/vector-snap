@@ -59,6 +59,7 @@ Status: ✅ implemented · 🔜 planned.
 | Scale / flip / rotate | inspector | Smaller, Larger (10 % steps), mirror horizontally or vertically, rotate 90° around the selection center. | ✅ |
 | Recolor | inspector / color groups panel | Recolor the selection or a whole palette group (see [Recoloring](#recoloring)). | ✅ |
 | Eyedropper | `I` / toolbar | Select shapes, then click the shape whose color they take (see [Recoloring](#recoloring)). Drags do not draw a box; the color is picked where the click ends. | ✅ |
+| Duplicate | `Ctrl/Cmd+D` / inspector | Copy the selection 10 px down and right (`duplicateShapes()` in `operations.ts`); the copies keep their group and own colors, sit just above the last original in each group, get ids like `p-1-0-copy` (`-copy2`, … when taken) and become the selection, ready to move. One undo step. | ✅ |
 | Merge | `M` / toolbar | Unite the selected shapes into one (see [Merging and moving](#merging-and-moving-shapes-)). | ✅ |
 | Delete | `Del` / `Backspace` / toolbar | Remove selected shapes; groups left empty disappear. On the server: `POST /api/v1/svg/delete`, by id or below an area. | ✅ |
 | Undo / Redo | `Ctrl/Cmd+Z` / `Ctrl/Cmd+Shift+Z`, `Ctrl+Y` / toolbar | History navigation (see [Undo / redo](#undo--redo-)). | ✅ |

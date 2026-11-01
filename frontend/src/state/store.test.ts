@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { findShape } from '../editor/model';
+import { shapesBounds } from '../editor/transform';
 import { DEFAULT_PRINT } from '../lib/printPlan';
 import { presetJson } from '../lib/printPreset';
 import { DEFAULT_TRACING } from '../lib/tracing';
 import type { QuantizeResponse, VectorizeResponse } from '../types/api';
-import { hasUnsavedEdits } from './editorSlice';
+import { DUPLICATE_OFFSET, hasUnsavedEdits } from './editorSlice';
 import {
   DEFAULT_COLORS,
   DEFAULT_MERGE_DELTA_E,
@@ -668,6 +669,24 @@ describe('app store', () => {
       ['p-0-0', undefined],
     ]);
     expect(store().selection).toEqual(['p-0-0']);
+  });
+
+  it('duplicates the selection aside and selects the copies, undoably', async () => {
+    useAppStore.setState({ quantized });
+    vi.stubGlobal('fetch', respond(vectorized));
+    await store().runVectorize();
+
+    store().duplicateSelection();
+    expect(store().notice).toBe('Select the shapes to duplicate first.');
+
+    store().select('p-0-1');
+    const before = shapesBounds(store().editor!, ['p-0-1'])!;
+    store().duplicateSelection();
+    expect(store().selection).toEqual(['p-0-1-copy']);
+    const copy = shapesBounds(store().editor!, ['p-0-1-copy'])!;
+    expect([copy.x - before.x, copy.y - before.y]).toEqual([DUPLICATE_OFFSET, DUPLICATE_OFFSET]);
+    store().undo();
+    expect(findShape(store().editor!, 'p-0-1-copy')).toBeNull();
   });
 
   it('inverts the selection', async () => {

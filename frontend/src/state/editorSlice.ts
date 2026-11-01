@@ -4,6 +4,7 @@ import { pathArea, shapesSmallerThan, uniteShapes, type Point } from '../editor/
 import { emptyHistory, record, redo, undo, type History } from '../editor/history';
 import {
   deleteShapes,
+  duplicateShapes,
   matchColor,
   mergeShapes,
   moveShapesToGroup,
@@ -71,6 +72,8 @@ export interface EditorActions {
    */
   cutWithLasso: (region: Point[], startId: string | null) => void;
   deleteSelection: () => void;
+  /** Copy the selected shapes, moved aside by `DUPLICATE_OFFSET`; the copies get selected. */
+  duplicateSelection: () => void;
   /** Merge the selected shapes into one taking the color/group of the largest (FR-35). */
   mergeSelection: () => void;
   /** Move the selected shapes into another color group. */
@@ -93,6 +96,9 @@ export interface EditorActions {
 }
 
 export type EditorSlice = EditorState & EditorActions;
+
+/** How far (document px) duplicated shapes are moved from the originals, down and right. */
+export const DUPLICATE_OFFSET = 10;
 
 export const initialEditorState: EditorState = {
   editor: null,
@@ -341,6 +347,18 @@ export const createEditorSlice: StateCreator<AppState, [], [], EditorSlice> = (s
       return next === state.editor
         ? { notice: 'These shapes already are a color group of their own.' }
         : commit(state, next);
+    }),
+
+  duplicateSelection: () =>
+    set((state) => {
+      if (!state.editor) return {};
+      if (!state.selection.length) return { notice: 'Select the shapes to duplicate first.' };
+      const copied = duplicateShapes(state.editor, state.selection);
+      const offset = translation(DUPLICATE_OFFSET, DUPLICATE_OFFSET);
+      return {
+        ...commit(state, transformShapes(copied.doc, copied.ids, offset)),
+        selection: copied.ids,
+      };
     }),
 
   moveSelection: (dx, dy) =>
