@@ -10,6 +10,7 @@ from app.core.errors import InvalidParameters
 from app.schemas.svg import (
     SvgDeleteResponse,
     SvgMergeResponse,
+    SvgOffsetResponse,
     SvgSimplifyResponse,
     SvgTransformResponse,
     parse_shape_ids,
@@ -17,6 +18,7 @@ from app.schemas.svg import (
 from app.services.svg_edit import (
     serialize_svg,
 )
+from app.services.svg_offset import Corners, offset_shapes
 from app.services.svg_shapes import delete_shapes, merge_shapes
 from app.services.svg_simplify import simplify_shapes
 from app.services.svg_transform import Flip, transform_shapes
@@ -126,4 +128,32 @@ async def simplify_svg(
         simplified=edited.simplified,
         points_before=edited.points_before,
         points_after=edited.points_after,
+    )
+
+
+@router.post("/offset", response_model=SvgOffsetResponse)
+async def offset_svg(
+    document: UploadedSvg,
+    distance: Annotated[
+        float,
+        Form(
+            ge=-100,
+            le=100,
+            description="Move outlines outwards (positive: grow) or inwards (negative: "
+            "shrink), document px",
+        ),
+    ],
+    ids: Annotated[
+        str, Form(description='Shapes to grow or shrink, e.g. ["p-1-0"]; without them every shape')
+    ] = "[]",
+    corners: Annotated[Corners, Form(description="round or sharp (mitred) corners")] = "round",
+) -> SvgOffsetResponse:
+    """Grow or shrink shapes: bleed for stickers, kerf compensation for lasers. Shapes
+    shrunk to nothing are removed; curves become polylines."""
+    if distance == 0:
+        raise InvalidParameters("A `distance` of 0 changes nothing.", {"field": "distance"})
+    selected = parse_shape_ids(ids, "ids")
+    edited = await run_in_threadpool(offset_shapes, document, distance, selected, corners)
+    return SvgOffsetResponse(
+        svg=serialize_svg(edited.document), offset=edited.offset, removed=edited.removed
     )

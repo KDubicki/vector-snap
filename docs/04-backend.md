@@ -41,7 +41,7 @@ backend/
 │   │       ├── svg/            # /svg/*, the editor's tools on the server, one router per topic
 │   │       │   ├── colors.py     # merge similar, recolor
 │   │       │   ├── cuts.py       # split (knife), lasso
-│   │       │   ├── shapes.py     # delete, merge, transform, simplify
+│   │       │   ├── shapes.py     # delete, merge, transform, simplify, offset
 │   │       │   └── info.py       # stats
 │   │       └── vectorize.py
 │   ├── schemas/
@@ -65,6 +65,7 @@ backend/
 │       ├── svg_shapes.py       # delete and merge shapes, as the editor (/svg/delete, /svg/merge)
 │       ├── svg_split.py        # knife and lasso cuts, as the editor (/svg/split, /svg/lasso)
 │       ├── svg_transform.py    # move, scale, flip, rotate shapes, curves kept (/svg/transform)
+│       ├── svg_offset.py       # grow or shrink shapes: bleed, kerf (/svg/offset)
 │       ├── svg_simplify.py     # fewer outline points within a tolerance (/svg/simplify)
 │       ├── svg_stats.py        # colors, shapes, coverage and specks of a document (/svg/stats)
 │       ├── model_options.py    # StlOptions, Body, layer snapping (shared by 3D exports)

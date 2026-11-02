@@ -89,6 +89,12 @@ class SvgSimplifyResponse(BaseModel):
     points_after: int = Field(ge=0)
 
 
+class SvgOffsetResponse(BaseModel):
+    svg: str
+    offset: list[str] = Field(description="Ids of the grown or shrunk shapes")
+    removed: list[str] = Field(description="Ids of the shapes shrunk to nothing")
+
+
 # A knife line drawn in the editor has a few hundred points.
 MAX_LINE_POINTS = 10_000
 MAX_SHAPE_IDS = 10_000

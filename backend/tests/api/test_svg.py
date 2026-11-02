@@ -284,3 +284,31 @@ def test_simplify_parameters_are_validated(
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == code
+
+
+def test_offsets_shapes(client: TestClient) -> None:
+    response = _post(client, "offset", {"distance": "-6", "ids": '["p-1-0", "p-2-0"]'})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert (body["offset"], body["removed"]) == ([], ["p-1-0", "p-2-0"])
+    assert body["svg"].count("<path") == 1
+
+
+@pytest.mark.parametrize(
+    ("form", "code"),
+    [
+        ({}, "VALIDATION_ERROR"),
+        ({"distance": "0"}, "INVALID_PARAMETERS"),
+        ({"distance": "101"}, "VALIDATION_ERROR"),
+        ({"distance": "1", "corners": "bevel"}, "VALIDATION_ERROR"),
+        ({"distance": "-50"}, "INVALID_PARAMETERS"),
+    ],
+)
+def test_offset_parameters_are_validated(
+    client: TestClient, form: dict[str, str], code: str
+) -> None:
+    response = _post(client, "offset", form)
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == code

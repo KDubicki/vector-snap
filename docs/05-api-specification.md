@@ -40,6 +40,7 @@ Responses are JSON unless stated otherwise. Errors use the format described in
 | `POST` | `/api/v1/svg/lasso` | Cut a region out of shapes, as the editor's lasso ([details](#post-apiv1svglasso)) |
 | `POST` | `/api/v1/svg/transform` | Move, scale, flip and rotate shapes, curves kept ([details](#post-apiv1svgtransform)) |
 | `POST` | `/api/v1/svg/delete` | Delete shapes by id or the specks below an area ([details](#post-apiv1svgdelete)) |
+| `POST` | `/api/v1/svg/offset` | Grow or shrink shapes: bleed, kerf compensation ([details](#post-apiv1svgoffset)) |
 | `POST` | `/api/v1/svg/simplify` | Fewer outline points within a tolerance ([details](#post-apiv1svgsimplify)) |
 | `POST` | `/api/v1/svg/stats` | Colors, shapes, coverage and specks of a document ([details](#post-apiv1svgstats)) |
 | `POST` | `/api/v1/svg/merge` | Unite shapes into the largest of them, as the editor's merge ([details](#post-apiv1svgmerge)) |
@@ -437,6 +438,28 @@ SVG comes back unchanged).
 Errors: `413 FILE_TOO_LARGE`, `422 INVALID_SVG`, `422 VALIDATION_ERROR` (`smaller_than`
 out of range), `422 INVALID_PARAMETERS` (bad `ids`, neither `ids` nor `smaller_than`,
 or every shape would go).
+
+### `POST /api/v1/svg/offset`
+
+Grow or shrink shapes: bleed for stickers and print-and-cut, kerf compensation for lasers
+and cutters, thicker thin lines before printing.
+
+- `distance` (required) — how far outlines move, document px, −100 … 100, not 0:
+  positive grows (outlines out, holes in), negative shrinks.
+- `corners` — `round` (default) or `sharp` (mitred, as the design's own corners).
+- `ids` — JSON array of the shapes to change, `["p-1-0"]`; without it, every shape.
+
+Grown shapes may overlap their neighbours, as bleed does. A shape shrunk to nothing (or
+to slivers under 0.5 px²) is removed with its layer if that empties it; shrinking every
+shape away is an error. Changed shapes become straight segments. Response:
+
+```json
+{ "svg": "<svg ...>...</svg>", "offset": ["p-0-0", "p-1-0"], "removed": ["p-1-3"] }
+```
+
+Errors: `413 FILE_TOO_LARGE`, `422 INVALID_SVG`, `422 VALIDATION_ERROR` (no or out of
+range `distance`, unknown `corners`), `422 INVALID_PARAMETERS` (`distance` 0, bad `ids`,
+nothing left).
 
 ### `POST /api/v1/svg/simplify`
 
