@@ -42,7 +42,7 @@ backend/
 │   │       │   ├── colors.py     # merge similar, recolor
 │   │       │   ├── cuts.py       # split (knife), lasso
 │   │       │   ├── shapes.py     # delete, merge, transform, simplify, offset
-│   │       │   ├── document.py   # crop
+│   │       │   ├── document.py   # crop, reorder
 │   │       │   └── info.py       # stats
 │   │       └── vectorize.py
 │   ├── schemas/
@@ -67,6 +67,7 @@ backend/
 │       ├── svg_split.py        # knife and lasso cuts, as the editor (/svg/split, /svg/lasso)
 │       ├── svg_transform.py    # move, scale, flip, rotate shapes, curves kept (/svg/transform)
 │       ├── svg_crop.py         # crop the document to its shapes (/svg/crop)
+│       ├── svg_reorder.py      # color layer order, given or sorted (/svg/reorder)
 │       ├── svg_offset.py       # grow or shrink shapes: bleed, kerf (/svg/offset)
 │       ├── svg_simplify.py     # fewer outline points within a tolerance (/svg/simplify)
 │       ├── svg_stats.py        # colors, shapes, coverage and specks of a document (/svg/stats)

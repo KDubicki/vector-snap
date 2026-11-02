@@ -1,4 +1,4 @@
-"""Change the document as a whole: crop it to its shapes."""
+"""Change the document as a whole: crop it to its shapes, reorder its color layers."""
 
 from typing import Annotated
 
@@ -6,10 +6,12 @@ from fastapi import APIRouter, Form
 from fastapi.concurrency import run_in_threadpool
 
 from app.api.export_forms import UploadedSvg
+from app.core.errors import InvalidParameters
 from app.schemas.palette import parse_palette_indices
-from app.schemas.svg import SvgCropResponse
+from app.schemas.svg import SvgCropResponse, SvgReorderResponse, parse_layer_order
 from app.services.svg_crop import crop_document
 from app.services.svg_edit import serialize_svg
+from app.services.svg_reorder import LayerSort, reorder_layers
 
 router = APIRouter()
 
@@ -38,4 +40,31 @@ async def crop_svg(
         height=cropped.document.height,
         dx=cropped.dx,
         dy=cropped.dy,
+    )
+
+
+@router.post("/reorder", response_model=SvgReorderResponse)
+async def reorder_svg(
+    document: UploadedSvg,
+    order: Annotated[
+        str,
+        Form(description="JSON array of every palette index, bottom to top, e.g. [2, 0, 1]"),
+    ] = "[]",
+    sort: Annotated[
+        LayerSort | None,
+        Form(
+            description="Instead of `order`: light_to_dark, dark_to_light, or largest_first "
+            "(the layer covering most at the bottom)"
+        ),
+    ] = None,
+) -> SvgReorderResponse:
+    """Put the color layers in another order (what covers what, the 3D print's bottom
+    color): explicitly or sorted."""
+    indices = parse_layer_order(order, "order")
+    if bool(indices) == (sort is not None):
+        raise InvalidParameters("Send either `order` or `sort`.", {"field": "order"})
+    reordered = await run_in_threadpool(reorder_layers, document, indices, sort)
+    return SvgReorderResponse(
+        svg=serialize_svg(reordered),
+        order=[layer.palette_index for layer in reordered.layers],
     )

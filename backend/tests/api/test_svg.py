@@ -337,3 +337,33 @@ def test_crop_parameters_are_validated(client: TestClient, form: dict[str, str],
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == code
+
+
+def test_reorders_layers(client: TestClient) -> None:
+    explicit = _post(client, "reorder", {"order": "[2, 0, 1]"})
+    assert explicit.status_code == 200
+    assert explicit.json()["order"] == [2, 0, 1]
+    assert explicit.json()["svg"].index('id="color-2"') < explicit.json()["svg"].index(
+        'id="color-0"'
+    )
+
+    assert _post(client, "reorder", {"sort": "dark_to_light"}).json()["order"] == [2, 1, 0]
+
+
+@pytest.mark.parametrize(
+    ("form", "code"),
+    [
+        ({}, "INVALID_PARAMETERS"),
+        ({"order": "[0, 1, 2]", "sort": "largest_first"}, "INVALID_PARAMETERS"),
+        ({"order": "[0, 1]"}, "INVALID_PARAMETERS"),
+        ({"order": "[0, true, 2]"}, "INVALID_PARAMETERS"),
+        ({"sort": "random"}, "VALIDATION_ERROR"),
+    ],
+)
+def test_reorder_parameters_are_validated(
+    client: TestClient, form: dict[str, str], code: str
+) -> None:
+    response = _post(client, "reorder", form)
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == code

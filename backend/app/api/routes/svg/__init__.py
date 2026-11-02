@@ -4,7 +4,7 @@ and scripts. See docs/05-api-specification.md#svg.
 - `colors`: join similar colors, recolor, snap to filaments.
 - `cuts`: knife and lasso.
 - `shapes`: delete, merge, transform and simplify shapes.
-- `document`: crop the document.
+- `document`: crop the document, reorder its color layers.
 - `info`: statistics of a document.
 """
 

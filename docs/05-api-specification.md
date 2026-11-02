@@ -43,6 +43,7 @@ Responses are JSON unless stated otherwise. Errors use the format described in
 | `POST` | `/api/v1/svg/offset` | Grow or shrink shapes: bleed, kerf compensation ([details](#post-apiv1svgoffset)) |
 | `POST` | `/api/v1/svg/simplify` | Fewer outline points within a tolerance ([details](#post-apiv1svgsimplify)) |
 | `POST` | `/api/v1/svg/crop` | Crop the document to its shapes, with padding ([details](#post-apiv1svgcrop)) |
+| `POST` | `/api/v1/svg/reorder` | Reorder the color layers, given or sorted ([details](#post-apiv1svgreorder)) |
 | `POST` | `/api/v1/svg/stats` | Colors, shapes, coverage and specks of a document ([details](#post-apiv1svgstats)) |
 | `POST` | `/api/v1/svg/merge` | Unite shapes into the largest of them, as the editor's merge ([details](#post-apiv1svgmerge)) |
 
@@ -507,6 +508,24 @@ every shape moves with it — translated, so **curves stay curves**. Response:
 
 Errors: `413 FILE_TOO_LARGE`, `422 INVALID_SVG`, `422 VALIDATION_ERROR` (`padding` out
 of range), `422 INVALID_PARAMETERS` (bad `ignore_colors`, nothing left to crop to).
+
+### `POST /api/v1/svg/reorder`
+
+Layers are drawn bottom to top, so their order decides what covers what (`stacked`
+tracing, moved shapes) and, for 3D prints in document order, which color sits lowest.
+One of:
+
+- `order` — JSON array of every palette index of the SVG exactly once, bottom to top,
+  `[2, 0, 1]`.
+- `sort` — `light_to_dark`, `dark_to_light` (by brightness, as the 3D `stack_order`) or
+  `largest_first` (the layer covering most at the bottom, e.g. the background below the
+  motif). Equal layers keep their order.
+
+Response: `{ "svg": "<svg ...>...</svg>", "order": [2, 0, 1] }`.
+
+Errors: `413 FILE_TOO_LARGE`, `422 INVALID_SVG`, `422 VALIDATION_ERROR` (unknown
+`sort`), `422 INVALID_PARAMETERS` (neither or both, an `order` that is not every layer
+once).
 
 ### `POST /api/v1/svg/stats`
 

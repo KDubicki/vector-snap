@@ -103,6 +103,11 @@ class SvgCropResponse(BaseModel):
     dy: float = Field(description="How far every shape moved down (negative: up)")
 
 
+class SvgReorderResponse(BaseModel):
+    svg: str
+    order: list[int] = Field(description="Palette indices of the layers, bottom to top")
+
+
 # A knife line drawn in the editor has a few hundred points.
 MAX_LINE_POINTS = 10_000
 MAX_SHAPE_IDS = 10_000
@@ -158,5 +163,21 @@ def parse_shape_ids(raw: str, field: str) -> list[str]:
     ):
         raise InvalidParameters(
             f'`{field}` must be a JSON array of shape ids like ["p-1-0"].', {"field": field}
+        )
+    return values
+
+
+def parse_layer_order(raw: str, field: str) -> list[int]:
+    """Parse a JSON array of palette indices in a given order (a multipart field)."""
+    try:
+        values = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise InvalidParameters(f"`{field}` must be a JSON array.", {"field": field}) from exc
+    if not isinstance(values, list) or not all(
+        isinstance(value, int) and not isinstance(value, bool) and value >= 0 for value in values
+    ):
+        raise InvalidParameters(
+            f"`{field}` must be a JSON array of palette indices like [2, 0, 1].",
+            {"field": field},
         )
     return values
