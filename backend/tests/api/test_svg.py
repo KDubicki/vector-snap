@@ -312,3 +312,28 @@ def test_offset_parameters_are_validated(
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == code
+
+
+def test_crops_the_document(client: TestClient) -> None:
+    response = _post(client, "crop", {"padding": "1", "ignore_colors": "[0]"})
+
+    assert response.status_code == 200
+    body = response.json()
+    # #fefefe at (30, 0)-(40, 10) and red at (20, 10)-(30, 20).
+    assert (body["width"], body["height"], body["dx"], body["dy"]) == (22, 22, -19, 1)
+    assert 'viewBox="0 0 22 22"' in body["svg"]
+
+
+@pytest.mark.parametrize(
+    ("form", "code"),
+    [
+        ({"padding": "-1"}, "VALIDATION_ERROR"),
+        ({"ignore_colors": "nope"}, "INVALID_PARAMETERS"),
+        ({"ignore_colors": "[0, 1, 2]"}, "INVALID_PARAMETERS"),
+    ],
+)
+def test_crop_parameters_are_validated(client: TestClient, form: dict[str, str], code: str) -> None:
+    response = _post(client, "crop", form)
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == code

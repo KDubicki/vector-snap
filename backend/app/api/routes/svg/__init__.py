@@ -4,13 +4,14 @@ and scripts. See docs/05-api-specification.md#svg.
 - `colors`: join similar colors, recolor, snap to filaments.
 - `cuts`: knife and lasso.
 - `shapes`: delete, merge, transform and simplify shapes.
+- `document`: crop the document.
 - `info`: statistics of a document.
 """
 
 from fastapi import APIRouter
 
-from app.api.routes.svg import colors, cuts, info, shapes
+from app.api.routes.svg import colors, cuts, document, info, shapes
 
 router = APIRouter(prefix="/svg", tags=["svg"])
-for module in (colors, cuts, shapes, info):
+for module in (colors, cuts, shapes, document, info):
     router.include_router(module.router)

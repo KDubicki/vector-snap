@@ -95,6 +95,14 @@ class SvgOffsetResponse(BaseModel):
     removed: list[str] = Field(description="Ids of the shapes shrunk to nothing")
 
 
+class SvgCropResponse(BaseModel):
+    svg: str
+    width: float = Field(gt=0, description="The cropped document's width, px")
+    height: float = Field(gt=0)
+    dx: float = Field(description="How far every shape moved right (negative: left)")
+    dy: float = Field(description="How far every shape moved down (negative: up)")
+
+
 # A knife line drawn in the editor has a few hundred points.
 MAX_LINE_POINTS = 10_000
 MAX_SHAPE_IDS = 10_000

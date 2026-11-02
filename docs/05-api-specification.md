@@ -42,6 +42,7 @@ Responses are JSON unless stated otherwise. Errors use the format described in
 | `POST` | `/api/v1/svg/delete` | Delete shapes by id or the specks below an area ([details](#post-apiv1svgdelete)) |
 | `POST` | `/api/v1/svg/offset` | Grow or shrink shapes: bleed, kerf compensation ([details](#post-apiv1svgoffset)) |
 | `POST` | `/api/v1/svg/simplify` | Fewer outline points within a tolerance ([details](#post-apiv1svgsimplify)) |
+| `POST` | `/api/v1/svg/crop` | Crop the document to its shapes, with padding ([details](#post-apiv1svgcrop)) |
 | `POST` | `/api/v1/svg/stats` | Colors, shapes, coverage and specks of a document ([details](#post-apiv1svgstats)) |
 | `POST` | `/api/v1/svg/merge` | Unite shapes into the largest of them, as the editor's merge ([details](#post-apiv1svgmerge)) |
 
@@ -484,6 +485,28 @@ flattened to 0.25 px as every export flattens them.
 
 Errors: `413 FILE_TOO_LARGE`, `422 INVALID_SVG`, `422 VALIDATION_ERROR` (`tolerance` out
 of range), `422 INVALID_PARAMETERS` (bad `ids`).
+
+### `POST /api/v1/svg/crop`
+
+Trim the empty margin around a design, so exports and prints are as large as the design
+itself:
+
+- `padding` — margin kept around the shapes, document px, 0 … 10 000, default 0.
+- `ignore_colors` — JSON array of palette indices whose shapes do not count, `[0]`: a
+  background that fills the whole image would otherwise keep every margin. Their shapes
+  stay in the document (parts beyond the new viewBox are just not shown).
+
+The viewBox becomes the box around the counted shapes plus `padding` on every side, and
+every shape moves with it — translated, so **curves stay curves**. Response:
+
+```json
+{ "svg": "<svg ...>...</svg>", "width": 312.5, "height": 180, "dx": -40.25, "dy": -12 }
+```
+
+`dx` and `dy` say how far the shapes moved, to place other things the same way.
+
+Errors: `413 FILE_TOO_LARGE`, `422 INVALID_SVG`, `422 VALIDATION_ERROR` (`padding` out
+of range), `422 INVALID_PARAMETERS` (bad `ignore_colors`, nothing left to crop to).
 
 ### `POST /api/v1/svg/stats`
 

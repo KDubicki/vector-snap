@@ -48,7 +48,7 @@
   large images and batch processing.
 - More server-side SVG operations: `/svg/merge-similar`, `/svg/recolor`, `/svg/split`,
   `/svg/lasso`, `/svg/delete`, `/svg/merge`, `/svg/transform`, `/svg/simplify`,
-  `/svg/offset` and `/svg/stats` are done
+  `/svg/offset`, `/svg/crop` and `/svg/stats` are done
   (see [05](05-api-specification.md#svg)): the editor's knife, lasso, delete, merge,
   transforms and recoloring also run on the server.
 - More export options. (EPS, per-layer STL heights and lithophanes are done, see
