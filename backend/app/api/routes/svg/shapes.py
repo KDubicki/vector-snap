@@ -9,6 +9,7 @@ from app.api.export_forms import UploadedSvg
 from app.core.errors import InvalidParameters
 from app.schemas.svg import (
     SvgDeleteResponse,
+    SvgFillHolesResponse,
     SvgMergeResponse,
     SvgOffsetResponse,
     SvgSimplifyResponse,
@@ -18,6 +19,7 @@ from app.schemas.svg import (
 from app.services.svg_edit import (
     serialize_svg,
 )
+from app.services.svg_holes import fill_holes
 from app.services.svg_offset import Corners, offset_shapes
 from app.services.svg_shapes import delete_shapes, merge_shapes
 from app.services.svg_simplify import simplify_shapes
@@ -156,4 +158,24 @@ async def offset_svg(
     edited = await run_in_threadpool(offset_shapes, document, distance, selected, corners)
     return SvgOffsetResponse(
         svg=serialize_svg(edited.document), offset=edited.offset, removed=edited.removed
+    )
+
+
+@router.post("/fill-holes", response_model=SvgFillHolesResponse)
+async def fill_svg_holes(
+    document: UploadedSvg,
+    smaller_than: Annotated[
+        float,
+        Form(gt=0, le=1_000_000, description="Fill empty holes below this area, px²"),
+    ] = 25.0,
+    ids: Annotated[
+        str, Form(description='Shapes to fill, e.g. ["p-1-0"]; without them every shape')
+    ] = "[]",
+) -> SvgFillHolesResponse:
+    """Fill pin holes tracing left inside colors: empty holes below `smaller_than`; a hole
+    another color fills stays. Curves are kept."""
+    selected = parse_shape_ids(ids, "ids")
+    edited = await run_in_threadpool(fill_holes, document, smaller_than, selected)
+    return SvgFillHolesResponse(
+        svg=serialize_svg(edited.document), filled=edited.filled, shapes=edited.shapes
     )

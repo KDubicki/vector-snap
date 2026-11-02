@@ -108,6 +108,12 @@ class SvgReorderResponse(BaseModel):
     order: list[int] = Field(description="Palette indices of the layers, bottom to top")
 
 
+class SvgFillHolesResponse(BaseModel):
+    svg: str
+    filled: int = Field(ge=0, description="Holes filled")
+    shapes: list[str] = Field(description="Ids of the shapes that lost holes")
+
+
 # A knife line drawn in the editor has a few hundred points.
 MAX_LINE_POINTS = 10_000
 MAX_SHAPE_IDS = 10_000

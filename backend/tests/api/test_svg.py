@@ -367,3 +367,24 @@ def test_reorder_parameters_are_validated(
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == code
+
+
+def test_fills_holes(client: TestClient) -> None:
+    holed = contract_svg(20, 20, [("#000000", ["M0,0 H20 V20 H0 Z M5,5 h2 v2 h-2 z"])])
+    response = client.post(
+        "/api/v1/svg/fill-holes",
+        files={"svg": ("doc.svg", holed, "image/svg+xml")},
+        data={"smaller_than": "10"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert (body["filled"], body["shapes"]) == (1, ["p-0-0"])
+    assert "M 5,5" not in body["svg"]
+
+
+def test_fill_holes_size_is_validated(client: TestClient) -> None:
+    response = _post(client, "fill-holes", {"smaller_than": "0"})
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
