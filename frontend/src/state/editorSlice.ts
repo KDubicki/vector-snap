@@ -1,4 +1,6 @@
 import type { StateCreator } from 'zustand';
+import { errorMessage, simplifySvg } from '../api/client';
+import { serializeSvg } from '../editor/export';
 import { findShape, parseSvg, sameColorShapes, shapeFill, type EditorDoc } from '../editor/model';
 import { pathArea, shapesSmallerThan, uniteShapes, type Point } from '../editor/geometry';
 import { emptyHistory, record, redo, undo, type History } from '../editor/history';
@@ -42,6 +44,8 @@ export interface EditorState {
    * View only: downloads, exports and the 3D print keep them.
    */
   hiddenGroups: number[];
+  /** A simplification is on its way to and from the backend. */
+  simplifying: boolean;
   /** Undo/redo snapshots of `editor`. */
   history: History;
   /** Neutral, non-error hint for the user (e.g. why an edit did nothing). */
@@ -59,6 +63,11 @@ export interface EditorActions {
   /** Hide a color group on the canvas (its shapes leave the selection), or show it again. */
   toggleGroupVisibility: (paletteIndex: number) => void;
   showAllGroups: () => void;
+  /**
+   * Fewer outline points within `tolerance` px (`POST /svg/simplify`), for the selection
+   * or every shape; one undo step. Discarded when the document changed meanwhile.
+   */
+  simplifyOutlines: (tolerance: number) => Promise<void>;
   /** Select every shown shape that is not selected, and nothing that is. */
   invertSelection: () => void;
   /** Select every shape of the selected shapes' colors (own colors included). */
@@ -117,6 +126,7 @@ export const initialEditorState: EditorState = {
   selection: [],
   hoveredGroup: null,
   hiddenGroups: [],
+  simplifying: false,
   history: emptyHistory,
   notice: null,
   savedDoc: null,
@@ -167,8 +177,38 @@ function restore(state: EditorState, doc: EditorDoc, history: History): Partial<
   };
 }
 
-export const createEditorSlice: StateCreator<AppState, [], [], EditorSlice> = (set) => ({
+export const createEditorSlice: StateCreator<AppState, [], [], EditorSlice> = (set, get) => ({
   ...initialEditorState,
+
+  simplifyOutlines: async (tolerance) => {
+    const { editor: sent, selection } = get();
+    if (!sent || get().simplifying) return;
+    set({ simplifying: true, notice: null });
+    try {
+      const result = await simplifySvg(serializeSvg(sent), tolerance, selection);
+      set((state) => {
+        if (state.editor !== sent) {
+          return { simplifying: false, notice: 'The design changed meanwhile: simplify again.' };
+        }
+        if (!result.simplified.length) {
+          return {
+            simplifying: false,
+            notice: 'No outline has points to lose at this level; try a stronger one.',
+          };
+        }
+        // Rounded down: a 99.8% saving does not read as every point gone.
+        const saved = Math.floor((1 - result.points_after / result.points_before) * 100);
+        const shapes = result.simplified.length;
+        return {
+          ...commit(state, parseSvg(result.svg)),
+          simplifying: false,
+          notice: `Simplified ${shapes === 1 ? '1 shape' : `${shapes} shapes`}: ${result.points_before} → ${result.points_after} points (−${saved}%).`,
+        };
+      });
+    } catch (error) {
+      set({ simplifying: false, notice: `Simplifying failed: ${errorMessage(error)}` });
+    }
+  },
 
   select: (id, additive = false) =>
     set((state) => {

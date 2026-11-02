@@ -115,6 +115,15 @@ export interface ModelSize {
   z_mm: number;
 }
 
+/** Outlines with fewer points (`POST /svg/simplify`). */
+export interface SvgSimplifyResponse {
+  svg: string;
+  /** Ids of the shapes that lost points. */
+  simplified: string[];
+  points_before: number;
+  points_after: number;
+}
+
 /** Shapes narrower than the nozzle where they print (`POST /export/print-check`). */
 export interface PrintCheck {
   nozzle_mm: number;

@@ -272,6 +272,18 @@ Implemented in `src/editor/operations.ts` (pure functions, unit-tested).
   disappear. Disabled for mixed colors (recolor them first); a notice says when the
   shapes already are a group of their own.
 
+## Simplify outlines ✅
+
+Traced outlines carry many more points than a cutting plotter, laser software or slicer
+needs. **Simplify outlines** (`SimplifyOutlines`, store action `simplifyOutlines()`)
+sends the document to `POST /api/v1/svg/simplify` — the selected shapes, or every shape
+without a selection — at *Light* 0.5 px, *Medium* 1 px (default) or *Strong* 2 px, and
+takes the result back as one undoable edit: holes stay, simplified shapes become
+straight segments (Undo brings the curves back), shapes with nothing to lose keep their
+curves. A notice tells the saving ("Simplified 6 shapes: 89066 → 203 points (−99%)").
+The button shows *Simplifying…* while the backend works; a result that arrives after
+the design was edited meanwhile is dropped with a notice instead of undoing that edit.
+
 ## Similar colors ✅
 
 Recoloring, placed fragments and opened SVGs can leave colors nobody can tell apart —

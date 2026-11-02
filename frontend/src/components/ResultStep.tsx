@@ -11,6 +11,7 @@ import { EditorPalettePanel } from './EditorPalettePanel';
 import { ExportPanel } from './ExportPanel';
 import { FragmentsPanel } from './FragmentsPanel';
 import { ShapeInspector } from './ShapeInspector';
+import { SimplifyOutlines } from './SimplifyOutlines';
 import { SmallShapesSelector } from './SmallShapesSelector';
 import { SvgEditor } from './SvgEditor';
 
@@ -71,6 +72,7 @@ export function ResultStep() {
         </dl>
         <ShapeInspector />
         <SmallShapesSelector />
+        <SimplifyOutlines />
         <EditorPalettePanel />
         <FragmentsPanel />
         <ExportPanel />

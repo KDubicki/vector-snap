@@ -8,6 +8,7 @@ import type {
   PrintCheck,
   QuantizeParams,
   QuantizeResponse,
+  SvgSimplifyResponse,
   TracingOptions,
   VectorizeResponse,
 } from '../types/api';
@@ -89,6 +90,20 @@ function exportForm(svg: string, options: Record<string, string | number | boole
   form.append('svg', new Blob([svg], { type: 'image/svg+xml' }), 'document.svg');
   for (const [key, value] of Object.entries(options)) form.append(key, String(value));
   return form;
+}
+
+/** Outlines of `ids` (every shape without) with fewer points, within `tolerance` px. */
+export function simplifySvg(
+  svg: string,
+  tolerance: number,
+  ids: string[],
+  signal?: AbortSignal,
+): Promise<SvgSimplifyResponse> {
+  return request<SvgSimplifyResponse>('/svg/simplify', {
+    method: 'POST',
+    body: exportForm(svg, { tolerance, ids: JSON.stringify(ids) }),
+    signal,
+  });
 }
 
 /** Where to change filament when printing the 3D export (same options as STL/3MF). */

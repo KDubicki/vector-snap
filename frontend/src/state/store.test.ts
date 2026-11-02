@@ -719,6 +719,65 @@ describe('app store', () => {
     expect(store().hiddenGroups).toEqual([]);
   });
 
+  it('simplifies outlines on the backend as one undoable edit', async () => {
+    useAppStore.setState({ quantized });
+    vi.stubGlobal('fetch', respond(vectorized));
+    await store().runVectorize();
+    const original = store().editor;
+    const simplerSvg = vectorized.svg.replace('M0,0 L10,0 L10,10 Z', 'M0,0 L10,10 L10,0 Z');
+
+    store().select('p-0-0');
+    const fetch = respond({
+      svg: simplerSvg,
+      simplified: ['p-0-0'],
+      points_before: 40,
+      points_after: 10,
+    });
+    vi.stubGlobal('fetch', fetch);
+    const done = store().simplifyOutlines(1);
+    expect(store().simplifying).toBe(true);
+    await done;
+
+    const form = fetch.mock.lastCall![1].body as FormData;
+    expect([form.get('tolerance'), form.get('ids')]).toEqual(['1', '["p-0-0"]']);
+    expect(findShape(store().editor!, 'p-0-0')!.shape.d).toBe('M0,0 L10,10 L10,0 Z');
+    expect(store().notice).toBe('Simplified 1 shape: 40 → 10 points (−75%).');
+    expect(store().simplifying).toBe(false);
+    store().undo();
+    expect(store().editor).toBe(original);
+
+    vi.stubGlobal(
+      'fetch',
+      respond({ svg: simplerSvg, simplified: [], points_before: 6, points_after: 6 }),
+    );
+    await store().simplifyOutlines(0.5);
+    expect(store().notice).toMatch(/No outline has points to lose/);
+    expect(store().editor).toBe(original);
+
+    vi.stubGlobal('fetch', respond({ error: { code: 'X', message: 'Boom' } }, 500));
+    await store().simplifyOutlines(1);
+    expect(store().notice).toBe('Simplifying failed: Boom');
+  });
+
+  it('drops a simplification when the design changed meanwhile', async () => {
+    useAppStore.setState({ quantized });
+    vi.stubGlobal('fetch', respond(vectorized));
+    await store().runVectorize();
+    vi.stubGlobal(
+      'fetch',
+      respond({ svg: vectorized.svg, simplified: ['p-0-0'], points_before: 4, points_after: 3 }),
+    );
+
+    const done = store().simplifyOutlines(1);
+    store().select('p-0-1');
+    store().deleteSelection();
+    const edited = store().editor;
+    await done;
+
+    expect(store().editor).toBe(edited);
+    expect(store().notice).toBe('The design changed meanwhile: simplify again.');
+  });
+
   it('inverts the selection', async () => {
     useAppStore.setState({ quantized });
     vi.stubGlobal('fetch', respond(vectorized));
