@@ -38,13 +38,17 @@ backend/
 │   │       │   ├── drawings.py   # DXF, PDF, EPS, PNG, layers, palette
 │   │       │   └── crafts.py     # sticker, stencil, coloring page
 │   │       ├── quantize.py
-│   │       ├── svg.py          # /svg/* (server-side SVG edits: merge, recolor, split)
+│   │       ├── svg/            # /svg/*, the editor's tools on the server, one router per topic
+│   │       │   ├── colors.py     # merge similar, recolor
+│   │       │   ├── cuts.py       # split (knife), lasso
+│   │       │   ├── shapes.py     # delete, merge, transform, simplify
+│   │       │   └── info.py       # stats
 │   │       └── vectorize.py
 │   ├── schemas/
 │   │   ├── export.py           # export form parsers, filament plan / estimate responses
 │   │   ├── palette.py          # PaletteColor, Palette
 │   │   ├── quantize.py         # QuantizeAlgorithm, QuantizeResponse
-│   │   ├── svg.py              # SvgEditResponse, SvgSplitResponse, line and id parsers
+│   │   ├── svg.py              # /svg/* responses, line and id parsers
 │   │   ├── system.py           # HealthResponse, LimitsResponse
 │   │   └── vectorize.py        # TracingMode, Stacking, VectorizeResponse
 │   └── services/
