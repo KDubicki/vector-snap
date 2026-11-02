@@ -43,13 +43,15 @@ backend/
 │   │       │   ├── cuts.py       # split (knife), lasso
 │   │       │   ├── shapes.py     # delete, merge, transform, simplify, offset, fill holes
 │   │       │   ├── document.py   # crop, reorder
-│   │       │   └── info.py       # stats, validate
+│   │       │   ├── info.py       # stats, validate
+│   │       │   └── batch.py      # several edits in one request
 │   │       └── vectorize.py
 │   ├── schemas/
 │   │   ├── export.py           # export form parsers, filament plan / estimate responses
 │   │   ├── palette.py          # PaletteColor, Palette
 │   │   ├── quantize.py         # QuantizeAlgorithm, QuantizeResponse
 │   │   ├── svg.py              # /svg/* responses, line and id parsers
+│   │   ├── svg_batch.py        # /svg/batch steps (one model per edit)
 │   │   ├── system.py           # HealthResponse, LimitsResponse
 │   │   └── vectorize.py        # TracingMode, Stacking, VectorizeResponse
 │   └── services/

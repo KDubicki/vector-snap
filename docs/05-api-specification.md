@@ -45,6 +45,7 @@ Responses are JSON unless stated otherwise. Errors use the format described in
 | `POST` | `/api/v1/svg/simplify` | Fewer outline points within a tolerance ([details](#post-apiv1svgsimplify)) |
 | `POST` | `/api/v1/svg/crop` | Crop the document to its shapes, with padding ([details](#post-apiv1svgcrop)) |
 | `POST` | `/api/v1/svg/reorder` | Reorder the color layers, given or sorted ([details](#post-apiv1svgreorder)) |
+| `POST` | `/api/v1/svg/batch` | Several edits in one request, as JSON steps ([details](#post-apiv1svgbatch)) |
 | `POST` | `/api/v1/svg/validate` | Check an SVG against the contract: errors and warnings ([details](#post-apiv1svgvalidate)) |
 | `POST` | `/api/v1/svg/stats` | Colors, shapes, coverage and specks of a document ([details](#post-apiv1svgstats)) |
 | `POST` | `/api/v1/svg/merge` | Unite shapes into the largest of them, as the editor's merge ([details](#post-apiv1svgmerge)) |
@@ -551,6 +552,52 @@ Response: `{ "svg": "<svg ...>...</svg>", "order": [2, 0, 1] }`.
 Errors: `413 FILE_TOO_LARGE`, `422 INVALID_SVG`, `422 VALIDATION_ERROR` (unknown
 `sort`), `422 INVALID_PARAMETERS` (neither or both, an `order` that is not every layer
 once).
+
+### `POST /api/v1/svg/batch`
+
+A clean-up script in one request: `operations` (required) is a JSON array of 1 to 50
+steps, each run on the previous one's result, with the same values and limits as the
+step's own endpoint (unknown fields are refused):
+
+| `op` | Fields | Endpoint |
+|------|--------|----------|
+| `delete` | `ids`, `smaller_than` (one of them) | [`/svg/delete`](#post-apiv1svgdelete) |
+| `merge_similar` | `max_delta_e` (default 2) | `/svg/merge-similar` |
+| `recolor` | `colors` (`{"#fefefe": "#ffffff"}`), `filaments` (`["#ffffff", …]`) | `/svg/recolor` |
+| `simplify` | `tolerance` (0.5), `ids` | [`/svg/simplify`](#post-apiv1svgsimplify) |
+| `offset` | `distance` (required, not 0), `corners`, `ids` | [`/svg/offset`](#post-apiv1svgoffset) |
+| `fill_holes` | `smaller_than` (25), `ids` | [`/svg/fill-holes`](#post-apiv1svgfill-holes) |
+| `transform` | `dx`, `dy`, `scale`, `rotate`, `flip`, `ids` | [`/svg/transform`](#post-apiv1svgtransform) |
+| `crop` | `padding`, `ignore_colors` | [`/svg/crop`](#post-apiv1svgcrop) |
+| `reorder` | `order` or `sort` | [`/svg/reorder`](#post-apiv1svgreorder) |
+
+Lists are JSON values here, not JSON strings. Example — clean a traced logo for a cutter:
+
+```json
+[
+  {"op": "delete", "smaller_than": 25},
+  {"op": "merge_similar", "max_delta_e": 2},
+  {"op": "fill_holes", "smaller_than": 25},
+  {"op": "simplify", "tolerance": 0.5},
+  {"op": "crop", "padding": 10, "ignore_colors": [0]}
+]
+```
+
+Response: the final SVG and what each step changed — shapes for `delete`, `simplify`,
+`offset`, `transform` and `crop`, colors for `merge_similar` and `recolor`, holes for
+`fill_holes`, layers that moved for `reorder`:
+
+```json
+{ "svg": "<svg ...>...</svg>",
+  "steps": [{"op": "delete", "changed": 146}, {"op": "merge_similar", "changed": 1}, ...] }
+```
+
+Errors: `413 FILE_TOO_LARGE`, `413 SVG_TOO_COMPLEX`, `422 INVALID_SVG`,
+`422 VALIDATION_ERROR` (no `operations`), `422 INVALID_PARAMETERS` — `details.field`
+`operations` with `details.errors` (`loc`, `msg`) for steps that are not valid JSON,
+unknown or out of range; or a step that cannot run, its message starting with
+`Step <n> (<op>):` and `details.step` its position (from 0). Nothing is returned for a
+batch that fails.
 
 ### `POST /api/v1/svg/validate`
 
