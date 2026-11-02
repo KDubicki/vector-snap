@@ -13,7 +13,7 @@ from dataclasses import dataclass, replace
 from shapely import unary_union
 
 from app.core.errors import InvalidParameters
-from app.services.svg_geometry import VectorDocument, flatten, to_polygon
+from app.services.svg_geometry import VectorDocument, shape_outline
 from app.services.svg_transform import transform_path
 
 
@@ -30,7 +30,7 @@ def crop_document(
     """The document cropped to its shapes (but those of the `ignore` palette indices),
     plus `padding` document px on every side."""
     counted = [
-        to_polygon(flatten(shape.d))
+        shape_outline(shape)
         for layer in document.layers
         if layer.palette_index not in ignore
         for shape in layer.shapes

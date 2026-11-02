@@ -17,6 +17,7 @@ import svgelements
 from numpy.typing import NDArray
 from shapely import Polygon, STRtree, contains, points, prepare
 
+from app.services.svg_document import edit_shapes
 from app.services.svg_geometry import VectorDocument, VectorShape, flatten
 
 # A hole counts as empty while other shapes cover less than this share of it.
@@ -125,26 +126,21 @@ def fill_holes(
 ) -> FilledHoles:
     """Fill the empty holes below `smaller_than` px² in the shapes in `ids` (every shape
     without `ids`)."""
-    wanted = set(ids)
-    coverage = _Coverage([shape for layer in document.layers for shape in layer.shapes])
-    position = 0
-    total = 0
+    shapes = [shape for layer in document.layers for shape in layer.shapes]
+    coverage = _Coverage(shapes)
+    position = {id(shape): index for index, shape in enumerate(shapes)}  # equal shapes repeat
+    filled_holes = 0
     changed: list[str] = []
-    layers = []
-    for layer in document.layers:
-        kept: list[VectorShape] = []
-        for shape in layer.shapes:
-            result = None
-            if not wanted or shape.id in wanted:
-                covered = partial(coverage.share, shape_index=position)
-                result = _fill(shape, smaller_than, covered)
-            position += 1
-            if result is None:
-                kept.append(shape)
-                continue
-            d, filled = result
-            total += filled
-            changed.append(shape.id)
-            kept.append(replace(shape, d=d))
-        layers.append(replace(layer, shapes=kept))
-    return FilledHoles(replace(document, layers=layers), total, changed)
+
+    def edit(shape: VectorShape) -> VectorShape:
+        nonlocal filled_holes
+        covered = partial(coverage.share, shape_index=position[id(shape)])
+        result = _fill(shape, smaller_than, covered)
+        if result is None:
+            return shape
+        d, filled = result
+        filled_holes += filled
+        changed.append(shape.id)
+        return replace(shape, d=d)
+
+    return FilledHoles(edit_shapes(document, ids, edit), filled_holes, changed)

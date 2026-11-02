@@ -21,7 +21,7 @@ from shapely.ops import polylabel
 
 from app import __version__
 from app.core.errors import InvalidParameters
-from app.services.svg_geometry import VectorDocument, flatten, polygons, to_polygon
+from app.services.svg_geometry import VectorDocument, polygons, shape_outline
 
 ColoringPageSize = Literal["a4", "letter"]
 
@@ -56,7 +56,7 @@ def visible_regions(document: VectorDocument) -> list[tuple[str, int, BaseGeomet
     """What every shape shows of itself, top shapes cut out of lower ones, as
     (fill, palette index, geometry in document px), bottom first."""
     shapes = [
-        (shape.fill, layer.palette_index, to_polygon(flatten(shape.d)))
+        (shape.fill, layer.palette_index, shape_outline(shape))
         for layer in document.layers
         for shape in layer.shapes
     ]

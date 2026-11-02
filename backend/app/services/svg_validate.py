@@ -16,7 +16,7 @@ from lxml import etree
 from shapely import box
 
 from app.core.errors import InvalidSvg
-from app.services.svg_geometry import SVG_NS, flatten, parse_svg, to_polygon
+from app.services.svg_geometry import SVG_NS, parse_svg, shape_outline
 
 Severity = Literal["error", "warning"]
 _HEX_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
@@ -139,7 +139,7 @@ def validate_svg(data: bytes, max_shapes: int | None = None) -> Validation:
     outside: list[str] = []
     for layer in document.layers:
         for shape in layer.shapes:
-            outline = to_polygon(flatten(shape.d))
+            outline = shape_outline(shape)
             if outline.is_empty or outline.area <= 0:
                 empty.append(shape.id)
             elif not page.covers(outline):

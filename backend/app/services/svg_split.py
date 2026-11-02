@@ -21,13 +21,13 @@ from shapely.geometry.base import BaseGeometry
 from shapely.ops import split
 
 from app.core.errors import InvalidParameters
+from app.services.svg_document import Edited, edit_shapes
 from app.services.svg_geometry import (
     VectorDocument,
     VectorShape,
-    flatten,
     path_data,
     polygons,
-    to_polygon,
+    shape_outline,
 )
 
 # Pieces smaller than this (document px²) are numeric slivers, as in the editor.
@@ -43,7 +43,7 @@ class SplitSvg:
 
 def pieces(shape: VectorShape, line: LineString) -> list[Polygon] | None:
     """The pieces the line cuts a shape into, or None when it does not fully cross it."""
-    parts = polygons(to_polygon(flatten(shape.d)))
+    parts = polygons(shape_outline(shape))
     if not parts:
         return None
     geometry = MultiPolygon(parts)
@@ -73,29 +73,32 @@ def _piece_ids(shape_id: str, count: int, taken: set[str]) -> list[str]:
     return ids
 
 
+def _replaced(shape: VectorShape, ids: list[str], parts: list[Polygon]) -> list[VectorShape]:
+    """Pieces of a shape with its color, under the given ids."""
+    return [
+        replace(shape, id=piece_id, d=path_data(part))
+        for piece_id, part in zip(ids, parts, strict=True)
+    ]
+
+
 def _split_shapes(
     document: VectorDocument, line: LineString, allowed: Collection[str] | None
 ) -> SplitSvg:
     taken = {shape.id for layer in document.layers for shape in layer.shapes}
     created: list[str] = []
-    split_count = 0
-    layers = []
-    for layer in document.layers:
-        shapes: list[VectorShape] = []
-        for shape in layer.shapes:
-            cut = None if allowed is not None and shape.id not in allowed else pieces(shape, line)
-            if cut is None:
-                shapes.append(shape)
-                continue
-            ids = _piece_ids(shape.id, len(cut), taken)
-            shapes.extend(
-                replace(shape, id=piece_id, d=path_data(piece))
-                for piece_id, piece in zip(ids, cut, strict=True)
-            )
-            created.extend(ids)
-            split_count += 1
-        layers.append(replace(layer, shapes=shapes))
-    return SplitSvg(replace(document, layers=layers), created, split_count)
+    split_ids: list[str] = []
+
+    def edit(shape: VectorShape) -> Edited:
+        cut = pieces(shape, line)
+        if cut is None:
+            return shape
+        ids = _piece_ids(shape.id, len(cut), taken)
+        created.extend(ids)
+        split_ids.append(shape.id)
+        return _replaced(shape, ids, cut)
+
+    edited = edit_shapes(document, allowed or (), edit)
+    return SplitSvg(edited, created, len(split_ids))
 
 
 def split_along_line(
@@ -120,7 +123,7 @@ class LassoCut:
 
 
 def _geometry(shape: VectorShape) -> MultiPolygon:
-    return MultiPolygon(polygons(to_polygon(flatten(shape.d))))
+    return MultiPolygon(polygons(shape_outline(shape)))
 
 
 def _pieces_of(geometry: BaseGeometry) -> list[Polygon]:
@@ -160,26 +163,23 @@ def cut_region(
         under = _shape_under(document, region[0])
         targets = {under} if under is not None else set()
 
+    if not targets:
+        return LassoCut(document, [], [], 0)
+
     taken = {shape.id for layer in document.layers for shape in layer.shapes}
     inside: list[str] = []
     outside: list[str] = []
-    cut = 0
-    layers = []
-    for layer in document.layers:
-        shapes: list[VectorShape] = []
-        for shape in layer.shapes:
-            pieces = region_pieces(shape, area) if shape.id in targets else None
-            if pieces is None:
-                shapes.append(shape)
-                continue
-            parts = [*pieces[0], *pieces[1]]
-            piece_ids = _piece_ids(shape.id, len(parts), taken)
-            shapes.extend(
-                replace(shape, id=piece_id, d=path_data(piece))
-                for piece_id, piece in zip(piece_ids, parts, strict=True)
-            )
-            inside.extend(piece_ids[: len(pieces[0])])
-            outside.extend(piece_ids[len(pieces[0]) :])
-            cut += 1
-        layers.append(replace(layer, shapes=shapes))
-    return LassoCut(replace(document, layers=layers), inside, outside, cut)
+    cut: list[str] = []
+
+    def edit(shape: VectorShape) -> Edited:
+        pieces = region_pieces(shape, area)
+        if pieces is None:
+            return shape
+        parts = [*pieces[0], *pieces[1]]
+        piece_ids = _piece_ids(shape.id, len(parts), taken)
+        inside.extend(piece_ids[: len(pieces[0])])
+        outside.extend(piece_ids[len(pieces[0]) :])
+        cut.append(shape.id)
+        return _replaced(shape, piece_ids, parts)
+
+    return LassoCut(edit_shapes(document, targets, edit), inside, outside, len(cut))

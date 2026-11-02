@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from PIL import Image, ImageDraw
 from shapely import affinity
 
-from app.services.svg_geometry import VectorDocument, flatten, polygons, to_polygon
+from app.services.svg_geometry import VectorDocument, polygons, shape_outline
 
 # Drawn this many times larger, then scaled down for anti-aliased edges...
 SUPERSAMPLE = 4
@@ -47,9 +47,7 @@ def export_png(document: VectorDocument, options: PngOptions) -> bytes:
     tolerance = 0.25 / scale
     for layer in document.layers:
         for shape in layer.shapes:
-            geometry = affinity.scale(
-                to_polygon(flatten(shape.d, tolerance)), scale, scale, origin=(0, 0)
-            )
+            geometry = affinity.scale(shape_outline(shape, tolerance), scale, scale, origin=(0, 0))
             if geometry.is_empty:
                 continue
             left, top, right, bottom = geometry.bounds

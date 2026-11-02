@@ -14,12 +14,12 @@ from dataclasses import dataclass, replace
 from shapely import unary_union
 
 from app.core.errors import InvalidParameters
+from app.services.svg_document import edit_shapes
 from app.services.svg_geometry import (
     VectorDocument,
     VectorShape,
-    flatten,
     path_data,
-    to_polygon,
+    shape_outline,
 )
 
 
@@ -31,7 +31,7 @@ class DeletedShapes:
 
 def shape_area(shape: VectorShape) -> float:
     """Filled area of a shape in document px² (holes excluded)."""
-    return float(to_polygon(flatten(shape.d)).area)
+    return float(shape_outline(shape).area)
 
 
 def delete_shapes(
@@ -44,19 +44,17 @@ def delete_shapes(
         return shape.id in remove or (smaller_than > 0 and shape_area(shape) < smaller_than)
 
     gone: list[str] = []
-    layers = []
-    for layer in document.layers:
-        kept = []
-        for shape in layer.shapes:
-            if deleted(shape):
-                gone.append(shape.id)
-            else:
-                kept.append(shape)
-        if kept:
-            layers.append(layer if len(kept) == len(layer.shapes) else replace(layer, shapes=kept))
-    if not layers:
+
+    def edit(shape: VectorShape) -> VectorShape | None:
+        if not deleted(shape):
+            return shape
+        gone.append(shape.id)
+        return None
+
+    edited = edit_shapes(document, (), edit)
+    if not edited.layers:
         raise InvalidParameters("This would delete every shape; keep at least one.")
-    return DeletedShapes(replace(document, layers=layers), gone)
+    return DeletedShapes(edited, gone)
 
 
 @dataclass(frozen=True)
@@ -74,7 +72,7 @@ def merge_shapes(document: VectorDocument, ids: Collection[str]) -> MergedShapes
     shapes = [shape for layer in document.layers for shape in layer.shapes if shape.id in wanted]
     if len(shapes) < 2:
         raise InvalidParameters("Send at least two shape `ids` to merge.", {"field": "ids"})
-    geometries = [to_polygon(flatten(shape.d)) for shape in shapes]
+    geometries = [shape_outline(shape) for shape in shapes]
     united = unary_union(geometries)
     if united.is_empty:
         raise InvalidParameters("The shapes have no area to merge.", {"field": "ids"})

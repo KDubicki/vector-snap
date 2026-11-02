@@ -15,11 +15,11 @@ from typing import Literal
 from shapely import unary_union
 
 from app.core.errors import InvalidParameters
+from app.services.svg_document import edit_shapes
 from app.services.svg_geometry import (
     VectorDocument,
     curve_path,
-    flatten,
-    to_polygon,
+    shape_outline,
 )
 
 Flip = Literal["none", "x", "y"]
@@ -102,23 +102,13 @@ def transform_shapes(
     ]
     if not targets:
         raise InvalidParameters("None of the `ids` is a shape of the SVG.", {"field": "ids"})
-    outline = unary_union([to_polygon(flatten(shape.d)) for shape in targets])
+    outline = unary_union([shape_outline(shape) for shape in targets])
     if outline.is_empty:
         raise InvalidParameters("The shapes have no area to transform.", {"field": "ids"})
     left, top, right, bottom = outline.bounds
     matrix = transform_matrix(((left + right) / 2, (top + bottom) / 2), scale, rotate, flip, dx, dy)
 
-    moving = {id(shape) for shape in targets}  # by identity: equal shapes may repeat
-    layers = [
-        replace(
-            layer,
-            shapes=[
-                replace(shape, d=transform_path(shape.d, matrix)) if id(shape) in moving else shape
-                for shape in layer.shapes
-            ],
-        )
-        if any(id(shape) in moving for shape in layer.shapes)
-        else layer
-        for layer in document.layers
-    ]
-    return TransformedShapes(replace(document, layers=layers), [shape.id for shape in targets])
+    edited = edit_shapes(
+        document, wanted, lambda shape: replace(shape, d=transform_path(shape.d, matrix))
+    )
+    return TransformedShapes(edited, [shape.id for shape in targets])

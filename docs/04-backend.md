@@ -63,6 +63,7 @@ backend/
 │       ├── svg_postprocess.py  # sanitize, group per color, add ids / data attrs
 │       ├── svg_geometry.py     # parse contract SVG, flatten curves, polygons (exports)
 │       ├── svg_edit.py         # serialize contract SVG, merge similar, recolor (/svg/*)
+│       ├── svg_document.py     # edit_shapes(): the loop every server-side edit shares
 │       ├── svg_shapes.py       # delete and merge shapes, as the editor (/svg/delete, /svg/merge)
 │       ├── svg_split.py        # knife and lasso cuts, as the editor (/svg/split, /svg/lasso)
 │       ├── svg_transform.py    # move, scale, flip, rotate shapes, curves kept (/svg/transform)

@@ -187,6 +187,11 @@ def to_polygon(rings: list[NDArray[np.float64]]) -> BaseGeometry:
     return geometry
 
 
+def shape_outline(shape: VectorShape, tolerance: float = DEFAULT_TOLERANCE) -> BaseGeometry:
+    """A shape's filled area as Shapely geometry, holes included (even-odd)."""
+    return to_polygon(flatten(shape.d, tolerance))
+
+
 def polygons(geometry: BaseGeometry) -> list[Polygon]:
     """All non-empty polygons of a geometry (flattening multi-part results)."""
     if isinstance(geometry, Polygon):
@@ -220,9 +225,7 @@ def shapes_geometry(shapes: list[VectorShape]) -> BaseGeometry:
 
     Adjacent shapes merge, so exports have no internal walls or double cuts.
     """
-    return unary_union([to_polygon(flatten(shape.d)) for shape in shapes]).simplify(
-        SIMPLIFY_TOLERANCE
-    )
+    return unary_union([shape_outline(shape) for shape in shapes]).simplify(SIMPLIFY_TOLERANCE)
 
 
 def layer_geometries(document: VectorDocument) -> list[BaseGeometry]:

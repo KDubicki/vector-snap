@@ -11,12 +11,12 @@ from dataclasses import dataclass, replace
 from typing import Literal
 
 from app.core.errors import InvalidParameters
+from app.services.svg_document import edit_shapes
 from app.services.svg_geometry import (
     VectorDocument,
     VectorShape,
-    flatten,
     path_data,
-    to_polygon,
+    shape_outline,
 )
 
 Corners = Literal["round", "sharp"]
@@ -39,29 +39,21 @@ def offset_shapes(
     corners: Corners = "round",
 ) -> OffsetShapes:
     """Grow (`distance` > 0) or shrink (< 0) the shapes in `ids`, every shape without."""
-    wanted = set(ids)
     join_style = "round" if corners == "round" else "mitre"
     offset: list[str] = []
     removed: list[str] = []
-    layers = []
-    for layer in document.layers:
-        shapes: list[VectorShape] = []
-        for shape in layer.shapes:
-            if wanted and shape.id not in wanted:
-                shapes.append(shape)
-                continue
-            moved = to_polygon(flatten(shape.d)).buffer(
-                distance, quad_segs=8, join_style=join_style
-            )
-            if moved.is_empty or moved.area < MIN_AREA:
-                removed.append(shape.id)
-                continue
-            offset.append(shape.id)
-            shapes.append(replace(shape, d=path_data(moved)))
-        if shapes:
-            layers.append(replace(layer, shapes=shapes))
-    if not layers:
+
+    def edit(shape: VectorShape) -> VectorShape | None:
+        moved = shape_outline(shape).buffer(distance, quad_segs=8, join_style=join_style)
+        if moved.is_empty or moved.area < MIN_AREA:
+            removed.append(shape.id)
+            return None
+        offset.append(shape.id)
+        return replace(shape, d=path_data(moved))
+
+    edited = edit_shapes(document, ids, edit)
+    if not edited.layers:
         raise InvalidParameters(
             f"Shrinking by {-distance:g} px leaves no shape.", {"field": "distance"}
         )
-    return OffsetShapes(replace(document, layers=layers), offset, removed)
+    return OffsetShapes(edited, offset, removed)
