@@ -45,6 +45,7 @@ Responses are JSON unless stated otherwise. Errors use the format described in
 | `POST` | `/api/v1/svg/simplify` | Fewer outline points within a tolerance ([details](#post-apiv1svgsimplify)) |
 | `POST` | `/api/v1/svg/crop` | Crop the document to its shapes, with padding ([details](#post-apiv1svgcrop)) |
 | `POST` | `/api/v1/svg/reorder` | Reorder the color layers, given or sorted ([details](#post-apiv1svgreorder)) |
+| `POST` | `/api/v1/svg/validate` | Check an SVG against the contract: errors and warnings ([details](#post-apiv1svgvalidate)) |
 | `POST` | `/api/v1/svg/stats` | Colors, shapes, coverage and specks of a document ([details](#post-apiv1svgstats)) |
 | `POST` | `/api/v1/svg/merge` | Unite shapes into the largest of them, as the editor's merge ([details](#post-apiv1svgmerge)) |
 
@@ -549,6 +550,37 @@ Response: `{ "svg": "<svg ...>...</svg>", "order": [2, 0, 1] }`.
 Errors: `413 FILE_TOO_LARGE`, `422 INVALID_SVG`, `422 VALIDATION_ERROR` (unknown
 `sort`), `422 INVALID_PARAMETERS` (neither or both, an `order` that is not every layer
 once).
+
+### `POST /api/v1/svg/validate`
+
+Check an SVG made or changed by another tool before editing or exporting it. It is never
+rejected itself (only `413` for a file over the limit): the answer lists what edits and
+exports would fail on (**errors**) or silently repair and leave out (**warnings**).
+
+```json
+{
+  "valid": true, "colors": 3, "shapes": 41,
+  "problems": [
+    { "severity": "warning", "code": "duplicate_id", "ids": ["p-1-0"],
+      "message": "1 id(s) used by more than one shape: edits by id reach all of them." }
+  ]
+}
+```
+
+| `code` | Severity | Meaning |
+|--------|----------|---------|
+| `invalid_svg` | error | Not well-formed XML, not an SVG, no viewBox/size, or no shapes |
+| `ignored_elements` | warning | Elements other than `<g>` color groups of `<path>`s (`<rect>`, `<text>`, …) are left out |
+| `group_without_fill` | warning | A group without a `#rrggbb` fill is read as black |
+| `group_without_index` | warning | A group without `data-palette-index` is numbered by its position |
+| `duplicate_palette_index` | warning | Groups sharing a palette index (colors are chosen and printed per index) |
+| `path_without_data` | warning | Paths without `d` are left out |
+| `path_without_id` | warning | Paths without an id get `p-<group>-<n>` |
+| `duplicate_id` | warning | One id on several shapes: edits by id reach all of them |
+| `shape_without_area` | warning | Shapes with nothing to print or cut |
+| `shape_outside_viewbox` | warning | Shapes reaching beyond the viewBox: exports keep them, the SVG view cuts them off |
+
+`valid` is true without errors. `ids` lists up to 50 shapes concerned.
 
 ### `POST /api/v1/svg/stats`
 

@@ -388,3 +388,17 @@ def test_fill_holes_size_is_validated(client: TestClient) -> None:
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_validates_an_svg(client: TestClient) -> None:
+    response = _post(client, "validate")
+
+    assert response.status_code == 200
+    assert response.json() == {"valid": True, "colors": 3, "shapes": 3, "problems": []}
+
+    broken = client.post(
+        "/api/v1/svg/validate", files={"svg": ("doc.svg", b"<html/>", "image/svg+xml")}
+    )
+    assert broken.status_code == 200
+    assert broken.json()["valid"] is False
+    assert broken.json()["problems"][0]["code"] == "invalid_svg"

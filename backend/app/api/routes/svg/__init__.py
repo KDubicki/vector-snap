@@ -5,7 +5,7 @@ and scripts. See docs/05-api-specification.md#svg.
 - `cuts`: knife and lasso.
 - `shapes`: delete, merge, transform and simplify shapes.
 - `document`: crop the document, reorder its color layers.
-- `info`: statistics of a document.
+- `info`: statistics of a document, contract check.
 """
 
 from fastapi import APIRouter

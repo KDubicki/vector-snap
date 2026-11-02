@@ -43,7 +43,7 @@ backend/
 │   │       │   ├── cuts.py       # split (knife), lasso
 │   │       │   ├── shapes.py     # delete, merge, transform, simplify, offset, fill holes
 │   │       │   ├── document.py   # crop, reorder
-│   │       │   └── info.py       # stats
+│   │       │   └── info.py       # stats, validate
 │   │       └── vectorize.py
 │   ├── schemas/
 │   │   ├── export.py           # export form parsers, filament plan / estimate responses
@@ -71,6 +71,7 @@ backend/
 │       ├── svg_holes.py        # fill small empty holes, curves kept (/svg/fill-holes)
 │       ├── svg_offset.py       # grow or shrink shapes: bleed, kerf (/svg/offset)
 │       ├── svg_simplify.py     # fewer outline points within a tolerance (/svg/simplify)
+│       ├── svg_validate.py     # contract check: errors and warnings (/svg/validate)
 │       ├── svg_stats.py        # colors, shapes, coverage and specks of a document (/svg/stats)
 │       ├── model_options.py    # StlOptions, Body, layer snapping (shared by 3D exports)
 │       ├── model_parts.py      # color order, heights, parts per color and height, footprints

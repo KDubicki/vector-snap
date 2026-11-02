@@ -1,16 +1,22 @@
-"""What a document holds: colors, shapes, coverage and specks."""
+"""What a document holds: colors, shapes, coverage and specks, and whether it follows the
+contract."""
 
 from typing import Annotated
 
-from fastapi import APIRouter, Form
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from fastapi.concurrency import run_in_threadpool
 
+from app.api.deps import read_upload
 from app.api.export_forms import UploadedSvg
+from app.core.config import Settings, get_settings
 from app.schemas.svg import (
     SvgLayerStatsModel,
+    SvgProblemModel,
     SvgStatsResponse,
+    SvgValidateResponse,
 )
 from app.services.svg_stats import svg_stats
+from app.services.svg_validate import validate_svg
 
 router = APIRouter()
 
@@ -43,5 +49,29 @@ async def svg_statistics(
                 specks=layer.specks,
             )
             for layer in stats.layers
+        ],
+    )
+
+
+@router.post("/validate", response_model=SvgValidateResponse)
+async def validate_svg_file(
+    settings: Annotated[Settings, Depends(get_settings)],
+    svg: Annotated[UploadFile, File(description="SVG to check against the VectorSnap contract")],
+) -> SvgValidateResponse:
+    """Check an SVG made or changed by another tool: what edits and exports would fail on
+    (errors) or silently repair and leave out (warnings). Never rejects the SVG itself."""
+    result = await run_in_threadpool(validate_svg, await read_upload(svg, settings))
+    return SvgValidateResponse(
+        valid=result.valid,
+        colors=result.colors,
+        shapes=result.shapes,
+        problems=[
+            SvgProblemModel(
+                severity=problem.severity,
+                code=problem.code,
+                message=problem.message,
+                ids=problem.ids,
+            )
+            for problem in result.problems
         ],
     )

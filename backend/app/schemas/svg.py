@@ -1,6 +1,7 @@
 import json
 import math
 import re
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -112,6 +113,20 @@ class SvgFillHolesResponse(BaseModel):
     svg: str
     filled: int = Field(ge=0, description="Holes filled")
     shapes: list[str] = Field(description="Ids of the shapes that lost holes")
+
+
+class SvgProblemModel(BaseModel):
+    severity: Literal["error", "warning"]
+    code: str = Field(description="Stable name of the problem, e.g. duplicate_id")
+    message: str
+    ids: list[str] = Field(description="Shapes concerned (at most 50), when it is about shapes")
+
+
+class SvgValidateResponse(BaseModel):
+    valid: bool = Field(description="No errors: edits and exports accept the SVG")
+    colors: int = Field(ge=0)
+    shapes: int = Field(ge=0)
+    problems: list[SvgProblemModel]
 
 
 # A knife line drawn in the editor has a few hundred points.
