@@ -12,6 +12,7 @@ from fastapi import Depends, File, Form, UploadFile
 
 from app.api.deps import read_upload
 from app.core.config import Settings, get_settings
+from app.core.errors import SvgTooComplex
 from app.schemas.export import (
     parse_color_stacks,
     parse_filaments,
@@ -31,8 +32,17 @@ async def uploaded_svg(
     settings: Annotated[Settings, Depends(get_settings)],
     svg: Annotated[UploadFile, File(description="SVG in the VectorSnap contract")],
 ) -> VectorDocument:
-    """Read and parse the `svg` form field every export takes."""
-    return parse_svg(await read_upload(svg, settings))
+    """Read and parse the `svg` form field every export and SVG edit takes, refusing more
+    shapes than `max_svg_shapes`."""
+    document = parse_svg(await read_upload(svg, settings))
+    shapes = sum(len(layer.shapes) for layer in document.layers)
+    if shapes > settings.max_svg_shapes:
+        raise SvgTooComplex(
+            f"The SVG has {shapes} shapes; at most {settings.max_svg_shapes} are accepted. "
+            "Delete specks (/svg/delete) or trace with fewer colors.",
+            {"shapes": shapes, "max_svg_shapes": settings.max_svg_shapes},
+        )
+    return document
 
 
 UploadedSvg = Annotated[VectorDocument, Depends(uploaded_svg)]

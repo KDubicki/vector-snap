@@ -73,6 +73,7 @@ Responses are JSON unless stated otherwise. Errors use the format described in
   "max_image_dimension": 4096,
   "min_colors": 2,
   "max_colors": 64,
+  "max_svg_shapes": 20000,
   "supported_formats": ["image/jpeg", "image/png"]
 }
 ```
@@ -570,6 +571,7 @@ exports would fail on (**errors**) or silently repair and leave out (**warnings*
 | `code` | Severity | Meaning |
 |--------|----------|---------|
 | `invalid_svg` | error | Not well-formed XML, not an SVG, no viewBox/size, or no shapes |
+| `too_many_shapes` | error | More shapes than `max_svg_shapes` (see [limits](#get-apiv1limits)) |
 | `ignored_elements` | warning | Elements other than `<g>` color groups of `<path>`s (`<rect>`, `<text>`, …) are left out |
 | `group_without_fill` | warning | A group without a `#rrggbb` fill is read as black |
 | `group_without_index` | warning | A group without `data-palette-index` is numbered by its position |
@@ -632,6 +634,11 @@ Response:
 
 Errors: `413 FILE_TOO_LARGE`, `422 INVALID_SVG`, `422 VALIDATION_ERROR` (no `ids`),
 `422 INVALID_PARAMETERS` (bad `ids`, fewer than two of them found, no area to merge).
+
+Every endpoint that takes an `svg` upload (`/svg/*` except `/svg/validate`, and
+`/export/*`) refuses one with more shapes than `max_svg_shapes`:
+`413 SVG_TOO_COMPLEX` with `details` `{"shapes": 31250, "max_svg_shapes": 20000}`.
+`/svg/validate` reports it as the error `too_many_shapes` instead.
 
 ---
 

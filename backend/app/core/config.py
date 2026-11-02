@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     max_image_dimension: int = 4096
     min_colors: int = 2
     max_colors: int = 64
+    # Shapes an uploaded SVG may hold: geometry work grows with them (a traced photo has a
+    # few thousand).
+    max_svg_shapes: int = 20_000
     cors_origins: Annotated[list[str], NoDecode] = ["http://localhost:5173"]
 
     @field_validator("cors_origins", mode="before")

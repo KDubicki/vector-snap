@@ -115,6 +115,7 @@ All settings are read from environment variables prefixed with `VECTORSNAP_`
 | `VECTORSNAP_MAX_IMAGE_DIMENSION` | `4096` | Max width/height in pixels |
 | `VECTORSNAP_MIN_COLORS` | `2` | Lower bound for `colors` |
 | `VECTORSNAP_MAX_COLORS` | `64` | Upper bound for `colors` |
+| `VECTORSNAP_MAX_SVG_SHAPES` | `20000` | Shapes an uploaded SVG may hold (`/svg/*`, `/export/*`); more → `413 SVG_TOO_COMPLEX` |
 | `VECTORSNAP_CORS_ORIGINS` | `http://localhost:5173` | Comma-separated allowed origins |
 | `UVICORN_WORKERS` | `1` | Worker processes in the container |
 
@@ -138,6 +139,7 @@ exception handler into a uniform JSON body:
 |-----------|------|--------|
 | `UnsupportedMediaType` | 415 | `UNSUPPORTED_MEDIA_TYPE` |
 | `FileTooLarge` | 413 | `FILE_TOO_LARGE` |
+| `SvgTooComplex` | 413 | `SVG_TOO_COMPLEX` (more shapes than `max_svg_shapes`) |
 | `ImageTooLarge` | 422 | `IMAGE_TOO_LARGE` |
 | `InvalidImage` | 422 | `INVALID_IMAGE` |
 | `InvalidParameters` | 422 | `INVALID_PARAMETERS` |

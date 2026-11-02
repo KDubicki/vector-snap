@@ -21,6 +21,7 @@ def test_limits_exposes_configuration(client: TestClient) -> None:
     body = client.get("/api/v1/limits").json()
 
     assert body["min_colors"] < body["max_colors"]
+    assert body["max_svg_shapes"] == 20_000
     assert "image/png" in body["supported_formats"]
 
 

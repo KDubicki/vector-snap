@@ -27,5 +27,6 @@ async def limits(settings: Annotated[Settings, Depends(get_settings)]) -> Limits
         max_image_dimension=settings.max_image_dimension,
         min_colors=settings.min_colors,
         max_colors=settings.max_colors,
+        max_svg_shapes=settings.max_svg_shapes,
         supported_formats=list(SUPPORTED_FORMATS.values()),
     )

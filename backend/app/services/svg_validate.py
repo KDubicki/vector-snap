@@ -47,8 +47,8 @@ def _warning(code: str, message: str, ids: list[str] | None = None) -> Problem:
     return Problem("warning", code, message, (ids or [])[:MAX_LISTED_IDS])
 
 
-def validate_svg(data: bytes) -> Validation:
-    """Every problem of the SVG, errors first."""
+def validate_svg(data: bytes, max_shapes: int | None = None) -> Validation:
+    """Every problem of the SVG, errors first; more shapes than `max_shapes` is an error."""
     try:
         document = parse_svg(data)
     except InvalidSvg as error:
@@ -162,4 +162,13 @@ def validate_svg(data: bytes) -> Validation:
             )
         )
     shapes = sum(len(layer.shapes) for layer in document.layers)
+    if max_shapes is not None and shapes > max_shapes:
+        problems.insert(
+            0,
+            Problem(
+                "error",
+                "too_many_shapes",
+                f"{shapes} shapes; edits and exports accept at most {max_shapes}.",
+            ),
+        )
     return Validation(len(document.layers), shapes, problems)

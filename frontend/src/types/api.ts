@@ -16,6 +16,8 @@ export interface Limits {
   max_image_dimension: number;
   min_colors: number;
   max_colors: number;
+  /** Shapes an uploaded SVG may hold (edits and exports). */
+  max_svg_shapes: number;
   supported_formats: string[];
 }
 

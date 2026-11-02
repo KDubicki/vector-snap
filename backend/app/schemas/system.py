@@ -11,4 +11,5 @@ class LimitsResponse(BaseModel):
     max_image_dimension: int
     min_colors: int
     max_colors: int
+    max_svg_shapes: int
     supported_formats: list[str]

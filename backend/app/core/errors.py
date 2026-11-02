@@ -27,6 +27,13 @@ class FileTooLarge(VectorSnapError):
     code = "FILE_TOO_LARGE"
 
 
+class SvgTooComplex(VectorSnapError):
+    """Raised for an SVG with more shapes than `max_svg_shapes`."""
+
+    status_code = 413
+    code = "SVG_TOO_COMPLEX"
+
+
 class ImageTooLarge(VectorSnapError):
     status_code = 422
     code = "IMAGE_TOO_LARGE"
