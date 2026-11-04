@@ -63,6 +63,13 @@ class ProcessingError(VectorSnapError):
     code = "PROCESSING_ERROR"
 
 
+class ServerBusy(VectorSnapError):
+    """Every processing slot stayed taken for `queue_timeout_s` (see app.core.concurrency)."""
+
+    status_code = 503
+    code = "SERVER_BUSY"
+
+
 def error_body(
     request: Request, code: str, message: str, details: dict[str, Any]
 ) -> dict[str, Any]:
@@ -72,13 +79,18 @@ def error_body(
     }
 
 
+def error_response(request: Request, exc: VectorSnapError) -> JSONResponse:
+    """The error envelope of a domain error, for handlers and middleware alike."""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=error_body(request, exc.code, exc.message, exc.details),
+    )
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(VectorSnapError)
     async def handle_domain_error(request: Request, exc: VectorSnapError) -> JSONResponse:
-        return JSONResponse(
-            status_code=exc.status_code,
-            content=error_body(request, exc.code, exc.message, exc.details),
-        )
+        return error_response(request, exc)
 
     @app.exception_handler(RequestValidationError)
     async def handle_validation_error(

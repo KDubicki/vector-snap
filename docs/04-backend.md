@@ -22,6 +22,7 @@ backend/
 ├── app/
 │   ├── main.py                 # App factory, middleware, router registration
 │   ├── core/
+│   │   ├── concurrency.py      # Processing slots: at most N POST requests at once
 │   │   ├── config.py           # Settings (pydantic-settings, VECTORSNAP_* env vars)
 │   │   ├── errors.py           # Domain exceptions + HTTP exception handlers
 │   │   └── logging.py          # Structured JSON logging, request-id middleware
@@ -119,6 +120,8 @@ All settings are read from environment variables prefixed with `VECTORSNAP_`
 | `VECTORSNAP_MIN_COLORS` | `2` | Lower bound for `colors` |
 | `VECTORSNAP_MAX_COLORS` | `64` | Upper bound for `colors` |
 | `VECTORSNAP_MAX_SVG_SHAPES` | `20000` | Shapes an uploaded SVG may hold (`/svg/*`, `/export/*`); more → `413 SVG_TOO_COMPLEX` |
+| `VECTORSNAP_MAX_CONCURRENT_JOBS` | `4` | Processing (POST) requests a worker runs at once; more wait for a slot ([concurrency](#concurrency)) |
+| `VECTORSNAP_QUEUE_TIMEOUT_S` | `30` | Seconds a request waits for a slot before `503 SERVER_BUSY`; `0` = answer at once |
 | `VECTORSNAP_CORS_ORIGINS` | `http://localhost:5173` | Comma-separated allowed origins |
 | `UVICORN_WORKERS` | `1` | Worker processes in the container |
 
@@ -147,6 +150,7 @@ exception handler into a uniform JSON body:
 | `InvalidImage` | 422 | `INVALID_IMAGE` |
 | `InvalidParameters` | 422 | `INVALID_PARAMETERS` |
 | `ProcessingError` | 500 | `PROCESSING_ERROR` |
+| `ServerBusy` | 503 | `SERVER_BUSY` (no processing slot came free in time; `Retry-After` header) |
 | FastAPI `RequestValidationError` | 422 | `VALIDATION_ERROR` (`details.errors`: `loc`, `msg`, `type`; submitted input is never echoed) |
 
 ## Security considerations
@@ -161,6 +165,24 @@ exception handler into a uniform JSON body:
   `viewBox`, `width`, `height`). No scripts, event handlers, `<foreignObject>`, entities
   or external `href`s can appear.
 - The container runs as a non-root user.
+
+## Concurrency
+
+Every `POST` decodes an image or SVG and runs CPU and memory heavy work in the thread
+pool: quantizing a 4096 px photo, tracing it, building a 3D model. Dozens of them at once
+slow every one down and can run the container out of memory, so `ProcessingLimitMiddleware`
+(`app/core/concurrency.py`) runs at most `VECTORSNAP_MAX_CONCURRENT_JOBS` of them at once
+per worker process (with `UVICORN_WORKERS` workers, that many times more per container).
+Further requests wait for a slot in arrival order, up to `VECTORSNAP_QUEUE_TIMEOUT_S`;
+one that waited longer is answered `503 SERVER_BUSY` with `Retry-After: 5`, so the client
+retries instead of piling up. `GET` requests (health checks, `/limits`) and CORS
+preflights never wait. A client sending several requests together only sees the later
+ones queue for a moment.
+
+Size the limit to memory, not cores: quantizing or tracing a 4096 × 4096 image peaks at
+about 1.2 GB, so the default of 4 can take some 5 GB at worst. Keep
+`VECTORSNAP_QUEUE_TIMEOUT_S` plus the slowest request below the proxy timeout (nginx:
+`proxy_read_timeout 120s`).
 
 ## Compression
 

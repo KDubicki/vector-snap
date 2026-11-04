@@ -110,6 +110,9 @@ See [07-frontend.md](07-frontend.md) and [08-svg-editor.md](08-svg-editor.md).
 
 - The backend is CPU-bound and stateless → scale horizontally behind any load balancer.
 - Worker count per container is controlled with `UVICORN_WORKERS` (default: 1 per vCPU).
+- Each worker runs at most `VECTORSNAP_MAX_CONCURRENT_JOBS` processing requests at once
+  and queues the rest, answering `503 SERVER_BUSY` with `Retry-After` when the queue
+  wait runs out ([04](04-backend.md#concurrency)).
 - The frontend is static files → can be served from any CDN/object storage instead of nginx.
 - For very large images or batch jobs, an asynchronous job API backed by a queue is
   planned (see [Roadmap](11-roadmap.md)); the service layer is already decoupled for it.

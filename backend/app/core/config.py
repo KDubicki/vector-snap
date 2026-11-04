@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Annotated, Literal
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     # Shapes an uploaded SVG may hold: geometry work grows with them (a traced photo has a
     # few thousand).
     max_svg_shapes: int = 20_000
+    # Processing (POST) requests one worker runs at once; more wait up to
+    # `queue_timeout_s` for a slot, then get 503 SERVER_BUSY (app.core.concurrency).
+    max_concurrent_jobs: int = Field(4, ge=1)
+    queue_timeout_s: float = Field(30.0, ge=0)
     cors_origins: Annotated[list[str], NoDecode] = ["http://localhost:5173"]
 
     @field_validator("cors_origins", mode="before")

@@ -13,6 +13,11 @@ Responses of 1 KB and more are **gzip-compressed** for clients that accept it
 `Vary: Accept-Encoding`. SVG, JSON, STL, DXF and EPS shrink to a fifth to two fifths;
 formats that are compressed already (PNG, ZIP, 3MF) are sent as they are.
 
+A server runs a limited number of `POST` requests at once; the others wait for a slot.
+Any `POST` can therefore answer **`503 SERVER_BUSY`** when none came free in time
+(`VECTORSNAP_QUEUE_TIMEOUT_S`, 30 s by default), with a `Retry-After` header in seconds:
+send the request again after it. See [04 — Concurrency](04-backend.md#concurrency).
+
 ## Overview
 
 | Method | Path | Description |
