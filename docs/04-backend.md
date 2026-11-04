@@ -162,6 +162,14 @@ exception handler into a uniform JSON body:
   or external `href`s can appear.
 - The container runs as a non-root user.
 
+## Compression
+
+`GZipMiddleware` (`app/main.py`) compresses responses of 1 KB and more when the request
+accepts gzip, at level 6 (as small as level 9 on SVG and STL, in less time). A traced SVG
+in its JSON envelope shrinks to about 40 %, a binary STL to about 20 %. Content that is
+compressed already — PNG and other images, ZIP and 3MF — is skipped. nginx passes the
+compressed responses through unchanged.
+
 ## Observability
 
 - `GET /api/v1/health` — liveness (process up).

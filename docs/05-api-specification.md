@@ -8,6 +8,11 @@ All processing endpoints accept `multipart/form-data` because they receive binar
 Responses are JSON unless stated otherwise. Errors use the format described in
 [04-backend.md](04-backend.md#error-handling).
 
+Responses of 1 KB and more are **gzip-compressed** for clients that accept it
+(`Accept-Encoding: gzip`; browsers, curl with `--compressed`, httpx and requests do), with
+`Vary: Accept-Encoding`. SVG, JSON, STL, DXF and EPS shrink to a fifth to two fifths;
+formats that are compressed already (PNG, ZIP, 3MF) are sent as they are.
+
 ## Overview
 
 | Method | Path | Description |
