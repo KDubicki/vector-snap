@@ -25,7 +25,12 @@ def test_limits_exposes_configuration(client: TestClient) -> None:
     assert "image/png" in body["supported_formats"]
 
 
-def test_ready_reports_ready(client: TestClient) -> None:
+def test_ready_reports_ready_with_the_load(client: TestClient) -> None:
     response = client.get("/api/v1/health/ready")
 
-    assert response.json() == {"status": "ready", "version": __version__}
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "ready",
+        "version": __version__,
+        "jobs": {"running": 0, "waiting": 0, "limit": 4},
+    }

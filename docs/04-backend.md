@@ -195,7 +195,10 @@ compressed responses through unchanged.
 ## Observability
 
 - `GET /api/v1/health` — liveness (process up).
-- `GET /api/v1/health/ready` — readiness (dependencies importable, thread pool available).
+- `GET /api/v1/health/ready` — readiness, with the worker's processing load
+  (`jobs`: `running`, `waiting`, `limit`; see [Concurrency](#concurrency)). It stays
+  ready while every slot is busy, so a busy service queues requests instead of leaving
+  the load balancer.
 - Every request gets an `X-Request-ID` (taken from the incoming header or generated) that
   is echoed in the response and included in every log line.
 - Logs (`app/core/logging.py`): one JSON object per line in production

@@ -23,7 +23,7 @@ send the request again after it. See [04 — Concurrency](04-backend.md#concurre
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET`  | `/api/v1/health` | Liveness probe |
-| `GET`  | `/api/v1/health/ready` | Readiness probe |
+| `GET`  | `/api/v1/health/ready` | Readiness probe, with the worker's processing load |
 | `GET`  | `/api/v1/limits` | Server-side limits (for client-side validation/UI) |
 | `POST` | `/api/v1/quantize` | Reduce an image to N colors, return indexed PNG + palette |
 | `POST` | `/api/v1/suggest-colors` | Suggest a color count for an image |
@@ -72,7 +72,19 @@ send the request again after it. See [04 — Concurrency](04-backend.md#concurre
 
 ## `GET /api/v1/health/ready`
 
-**200 OK** — `{"status": "ready"}` · **503** — `{"status": "not_ready", "reason": "..."}`
+**200 OK**
+
+```json
+{"status": "ready", "version": "0.1.0", "jobs": {"running": 4, "waiting": 2, "limit": 4}}
+```
+
+`jobs` is the load of the worker process that answered: processing requests holding a
+slot, those queued for one, and its slots (`VECTORSNAP_MAX_CONCURRENT_JOBS`, see
+[04 — Concurrency](04-backend.md#concurrency)) — for dashboards and autoscaling
+(`waiting` above 0 means more replicas would help). The service is ready as soon as it
+answers, since its libraries load before it serves, and it **stays ready when every slot
+is busy**: requests queue then, while a not-ready answer would take a lone replica out
+of the load balancer and fail all of them.
 
 ## `GET /api/v1/limits`
 

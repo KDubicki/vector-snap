@@ -120,6 +120,21 @@ async def test_without_a_queue_a_free_slot_is_still_taken(server: Server) -> Non
     assert second.status_code == 503
 
 
+async def test_readiness_reports_running_and_waiting_requests(server: Server) -> None:
+    async with anyio.create_task_group() as tasks:
+        tasks.start_soon(server.client.post, "/api/v1/test/slow")
+        await server.until_started()
+        tasks.start_soon(server.client.post, "/api/v1/test/quick")
+        await server.until(busy=1, waiting=1)
+
+        ready = await server.client.get("/api/v1/health/ready")
+        server.finish.set()
+
+    # Still ready: the queued request is served once the slot frees.
+    assert ready.status_code == 200
+    assert ready.json()["jobs"] == {"running": 1, "waiting": 1, "limit": 1}
+
+
 async def test_other_requests_never_wait(server: Server) -> None:
     async with anyio.create_task_group() as tasks:
         tasks.start_soon(server.client.post, "/api/v1/test/slow")
