@@ -25,7 +25,8 @@ backend/
 │   │   ├── concurrency.py      # Processing slots: at most N POST requests at once
 │   │   ├── config.py           # Settings (pydantic-settings, VECTORSNAP_* env vars)
 │   │   ├── errors.py           # Domain exceptions + HTTP exception handlers
-│   │   └── logging.py          # Structured JSON logging, request-id middleware
+│   │   ├── logging.py          # Structured JSON logging, request-id middleware
+│   │   └── security.py         # Security headers on API responses
 │   ├── api/
 │   │   ├── deps.py             # Shared dependencies (size-limited upload reading)
 │   │   ├── export_forms.py     # Form dependencies of the exports (SVG, 3D, 3MF, colors left out)
@@ -164,6 +165,14 @@ exception handler into a uniform JSON body:
   from the tracer output (`svg`, `g`, `path`; attributes `d`, `fill`, `id`, `data-*`,
   `viewBox`, `width`, `height`). No scripts, event handlers, `<foreignObject>`, entities
   or external `href`s can appear.
+- Every response under `/api/` carries `X-Content-Type-Options: nosniff` and
+  `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'; sandbox`
+  (`app/core/security.py`): the API returns data and files, never pages, so a browser
+  that opens a response — an SVG export in a tab, the answer to a form posted from
+  another site — must not sniff it into HTML, run scripts in it or frame it. These hold
+  when the backend is reached directly (port 8000) or by other services, not only
+  behind nginx. The interactive docs (`/docs`, `/redoc`, `/openapi.json`) load scripts
+  and are left out.
 - The container runs as a non-root user.
 
 ## Concurrency

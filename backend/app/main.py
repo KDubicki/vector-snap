@@ -8,6 +8,7 @@ from app.core.concurrency import ProcessingLimitMiddleware, ProcessingSlots
 from app.core.config import Settings, get_settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging, request_id_middleware
+from app.core.security import SecurityHeadersMiddleware
 
 # Responses smaller than this are sent as they are: gzip saves too little on them.
 GZIP_MINIMUM_BYTES = 1024
@@ -46,6 +47,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_headers=["*"],
         expose_headers=["X-Request-ID", "X-Stencil-Bridges", "Retry-After"],
     )
+    app.add_middleware(SecurityHeadersMiddleware)
     app.middleware("http")(request_id_middleware)
     register_exception_handlers(app)
     app.include_router(api_router)
