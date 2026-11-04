@@ -562,6 +562,9 @@ step's own endpoint (unknown fields are refused):
 | `op` | Fields | Endpoint |
 |------|--------|----------|
 | `delete` | `ids`, `smaller_than` (one of them) | [`/svg/delete`](#post-apiv1svgdelete) |
+| `merge` | `ids` (required, 2+) | [`/svg/merge`](#post-apiv1svgmerge) |
+| `split` | `line` (required, `[[x, y], …]`, 2+ points), `ids` | [`/svg/split`](#post-apiv1svgsplit) |
+| `lasso` | `region` (required, `[[x, y], …]`, 3+ points), `ids` | [`/svg/lasso`](#post-apiv1svglasso) |
 | `merge_similar` | `max_delta_e` (default 2) | `/svg/merge-similar` |
 | `recolor` | `colors` (`{"#fefefe": "#ffffff"}`), `filaments` (`["#ffffff", …]`) | `/svg/recolor` |
 | `simplify` | `tolerance` (0.5), `ids` | [`/svg/simplify`](#post-apiv1svgsimplify) |
@@ -584,8 +587,10 @@ Lists are JSON values here, not JSON strings. Example — clean a traced logo fo
 ```
 
 Response: the final SVG and what each step changed — shapes for `delete`, `simplify`,
-`offset`, `transform` and `crop`, colors for `merge_similar` and `recolor`, holes for
-`fill_holes`, layers that moved for `reorder`:
+`offset`, `transform` and `crop`, shapes united into the largest one for `merge`, shapes
+cut for `split` and `lasso`, colors for `merge_similar` and `recolor`, holes for
+`fill_holes`, layers that moved for `reorder`. A later step can name the pieces of a cut
+by their derived ids (`p-1-0.a`, …):
 
 ```json
 { "svg": "<svg ...>...</svg>",

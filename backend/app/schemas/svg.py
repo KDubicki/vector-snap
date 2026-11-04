@@ -165,7 +165,13 @@ def parse_line(raw: str, field: str, min_points: int = 2) -> list[tuple[float, f
             f"`{field}` must be {min_points} to {MAX_LINE_POINTS} points like [[0, 5], [40, 5]].",
             {"field": field},
         )
-    points = [(float(x), float(y)) for x, y in values]
+    return check_distinct_points([(float(x), float(y)) for x, y in values], field)
+
+
+def check_distinct_points(
+    points: list[tuple[float, float]], field: str
+) -> list[tuple[float, float]]:
+    """The points, refused when they are all the same point (a line or region of no size)."""
     if len(set(points)) < 2:
         raise InvalidParameters(f"`{field}` needs two different points.", {"field": field})
     return points

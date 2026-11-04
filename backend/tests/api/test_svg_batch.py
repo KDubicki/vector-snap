@@ -60,6 +60,29 @@ def test_runs_every_step_on_the_previous_result(client: TestClient) -> None:
     assert 'id="p-2-1"' not in body["svg"]
 
 
+def test_cuts_and_merges_shapes(client: TestClient) -> None:
+    response = _batch(
+        client,
+        [
+            {"op": "split", "line": [[10, -5], [10, 25]]},
+            {"op": "merge", "ids": ["p-0-0.a", "p-0-0.b"]},
+            {"op": "lasso", "region": [[2, 2], [8, 2], [8, 8], [2, 8]]},
+        ],
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [(step["op"], step["changed"]) for step in body["steps"]] == [
+        ("split", 1),
+        ("merge", 1),
+        ("lasso", 1),
+    ]
+    # The merge kept one half's id; the lasso cut that shape (the one under its first
+    # point) into a piece inside the region and one around it.
+    assert 'id="p-0-0"' not in body["svg"]
+    assert body["svg"].count('id="p-0-0.') == 2
+
+
 @pytest.mark.parametrize(
     ("steps", "message"),
     [
@@ -72,6 +95,12 @@ def test_runs_every_step_on_the_previous_result(client: TestClient) -> None:
         ([{"op": "offset", "distance": 0}], "Step 1 (offset)"),
         ([{"op": "reorder"}], "Step 1 (reorder)"),
         ([{"op": "offset", "distance": -50}], "Step 1 (offset)"),
+        ([{"op": "merge", "ids": ["p-0-0"]}], "operations"),
+        ([{"op": "merge", "ids": ["p-0-0", "nope"]}], "Step 1 (merge)"),
+        ([{"op": "split", "line": [[0, 0]]}], "operations"),
+        ([{"op": "split", "line": [[0, 0], [0, 0]]}], "Step 1 (split)"),
+        ([{"op": "lasso", "region": [[0, 0], [5, 5]]}], "operations"),
+        ([{"op": "lasso", "region": [[0, 0], [5, 5], [9, 9]]}], "Step 1 (lasso)"),
     ],
 )
 def test_bad_steps_are_named(client: TestClient, steps: object, message: str) -> None:

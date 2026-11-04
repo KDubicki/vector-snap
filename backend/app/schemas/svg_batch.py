@@ -3,12 +3,15 @@ their own endpoints. See docs/05-api-specification.md#post-apiv1svgbatch."""
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, TypeAdapter
 
 from app.schemas.palette import HEX_COLOR_PATTERN
+from app.schemas.svg import MAX_LINE_POINTS, MAX_SHAPE_IDS
 
 HexColor = Annotated[str, Field(pattern=HEX_COLOR_PATTERN)]
-ShapeIds = Annotated[list[str], Field(max_length=10_000)]
+ShapeIds = Annotated[list[str], Field(max_length=MAX_SHAPE_IDS)]
+# A point in document px, [x, y].
+Point = tuple[FiniteFloat, FiniteFloat]
 
 # Steps one batch may hold.
 MAX_STEPS = 50
@@ -22,6 +25,23 @@ class DeleteStep(_Step):
     op: Literal["delete"]
     ids: ShapeIds = []
     smaller_than: float = Field(0.0, ge=0, le=1_000_000)
+
+
+class MergeStep(_Step):
+    op: Literal["merge"]
+    ids: Annotated[list[str], Field(min_length=2, max_length=MAX_SHAPE_IDS)]
+
+
+class SplitStep(_Step):
+    op: Literal["split"]
+    line: Annotated[list[Point], Field(min_length=2, max_length=MAX_LINE_POINTS)]
+    ids: ShapeIds = []
+
+
+class LassoStep(_Step):
+    op: Literal["lasso"]
+    region: Annotated[list[Point], Field(min_length=3, max_length=MAX_LINE_POINTS)]
+    ids: ShapeIds = []
 
 
 class MergeSimilarStep(_Step):
@@ -78,6 +98,9 @@ class ReorderStep(_Step):
 
 Step = Annotated[
     DeleteStep
+    | MergeStep
+    | SplitStep
+    | LassoStep
     | MergeSimilarStep
     | RecolorStep
     | SimplifyStep

@@ -9,17 +9,21 @@ from pydantic import ValidationError
 
 from app.api.export_forms import UploadedSvg
 from app.core.errors import InvalidParameters
+from app.schemas.svg import check_distinct_points
 from app.schemas.svg_batch import (
     MAX_STEPS,
     STEPS,
     CropStep,
     DeleteStep,
     FillHolesStep,
+    LassoStep,
     MergeSimilarStep,
+    MergeStep,
     OffsetStep,
     RecolorStep,
     ReorderStep,
     SimplifyStep,
+    SplitStep,
     Step,
     SvgBatchResponse,
     SvgBatchStepModel,
@@ -31,8 +35,9 @@ from app.services.svg_geometry import VectorDocument
 from app.services.svg_holes import fill_holes
 from app.services.svg_offset import offset_shapes
 from app.services.svg_reorder import reorder_layers
-from app.services.svg_shapes import delete_shapes
+from app.services.svg_shapes import delete_shapes, merge_shapes
 from app.services.svg_simplify import simplify_shapes
+from app.services.svg_split import cut_region, split_along_line
 from app.services.svg_transform import transform_shapes
 
 router = APIRouter()
@@ -50,6 +55,17 @@ def _run(document: VectorDocument, step: Step) -> tuple[VectorDocument, int]:
                 raise _nothing_to_do("give `ids` or `smaller_than`")
             deleted = delete_shapes(document, step.ids, step.smaller_than)
             return deleted.document, len(deleted.deleted)
+        case MergeStep():
+            merged_shapes = merge_shapes(document, step.ids)
+            return merged_shapes.document, len(merged_shapes.merged)
+        case SplitStep():
+            line = check_distinct_points(step.line, "line")
+            split = split_along_line(document, line, step.ids)
+            return split.document, split.split
+        case LassoStep():
+            region = check_distinct_points(step.region, "region")
+            lassoed = cut_region(document, region, step.ids)
+            return lassoed.document, lassoed.cut
         case MergeSimilarStep():
             merged = merge_similar_colors(document, step.max_delta_e)
             return merged.document, len(merged.changes)
@@ -126,7 +142,8 @@ async def batch_svg(
     ],
 ) -> SvgBatchResponse:
     """Several edits in one request, each step on the previous one's result: delete,
-    merge_similar, recolor, simplify, offset, fill_holes, transform, crop, reorder."""
+    merge, split, lasso, merge_similar, recolor, simplify, offset, fill_holes, transform,
+    crop, reorder."""
     try:
         steps = STEPS.validate_json(operations)
     except ValidationError as error:
