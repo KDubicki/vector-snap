@@ -129,7 +129,9 @@ All settings are read from environment variables prefixed with `VECTORSNAP_`
 ## Error handling
 
 Domain errors are raised as subclasses of `VectorSnapError` and converted by a global
-exception handler into a uniform JSON body:
+exception handler into a uniform JSON body; validation errors and the HTTP errors of the
+framework (unknown path or method, malformed body) get the same body, so every error a
+client sees has a `code` and the `request_id`:
 
 ```json
 {
@@ -153,6 +155,9 @@ exception handler into a uniform JSON body:
 | `ProcessingError` | 500 | `PROCESSING_ERROR` |
 | `ServerBusy` | 503 | `SERVER_BUSY` (no processing slot came free in time; `Retry-After` header) |
 | FastAPI `RequestValidationError` | 422 | `VALIDATION_ERROR` (`details.errors`: `loc`, `msg`, `type`; submitted input is never echoed) |
+| Starlette `HTTPException` | 404 | `NOT_FOUND` (no endpoint at the path; `details.path`) |
+| Starlette `HTTPException` | 405 | `METHOD_NOT_ALLOWED` (`details.allowed` and the `Allow` header list the methods) |
+| Starlette `HTTPException` | 400 | `BAD_REQUEST` (a body that is not valid multipart, more than 1000 fields, a field over 1 MB) |
 
 ## Security considerations
 

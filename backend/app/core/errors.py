@@ -1,8 +1,10 @@
+from http import HTTPStatus
 from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException
 
 
 class VectorSnapError(Exception):
@@ -87,10 +89,35 @@ def error_response(request: Request, exc: VectorSnapError) -> JSONResponse:
     )
 
 
+def _http_error(request: Request, exc: HTTPException) -> tuple[str, str, dict[str, Any]]:
+    """Code, message and details of an error the framework raised: no route for the path
+    or method, a body that is not valid multipart."""
+    try:
+        code = HTTPStatus(exc.status_code).name
+    except ValueError:
+        code = "HTTP_ERROR"
+    if exc.status_code == 404:
+        return code, f"No endpoint at {request.url.path}.", {"path": request.url.path}
+    if exc.status_code == 405:
+        allowed = [m.strip() for m in (exc.headers or {}).get("Allow", "").split(",") if m.strip()]
+        use = " or ".join(allowed) or "another method"
+        return code, f"{request.method} is not allowed here; use {use}.", {"allowed": allowed}
+    return code, str(exc.detail), {}
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(VectorSnapError)
     async def handle_domain_error(request: Request, exc: VectorSnapError) -> JSONResponse:
         return error_response(request, exc)
+
+    @app.exception_handler(HTTPException)
+    async def handle_http_error(request: Request, exc: HTTPException) -> JSONResponse:
+        code, message, details = _http_error(request, exc)
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=error_body(request, code, message, details),
+            headers=exc.headers,
+        )
 
     @app.exception_handler(RequestValidationError)
     async def handle_validation_error(
