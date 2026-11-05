@@ -22,7 +22,17 @@ Multi-stage build:
    `pyproject.toml`. Build tools are only present in this stage.
 2. **runtime** — copies the virtualenv and the `app/` package, creates an unprivileged
    `app` user (referenced by numeric UID `1000` so Kubernetes `runAsNonRoot` can verify it), sets `PYTHONDONTWRITEBYTECODE=1`, `PYTHONUNBUFFERED=1`, and starts
-   `uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers ${UVICORN_WORKERS}`.
+   `uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers ${UVICORN_WORKERS}` with
+   `exec`, so uvicorn is PID 1.
+
+**Stopping.** Docker and Kubernetes send SIGTERM to PID 1. uvicorn then stops taking
+requests and lets those in progress finish, for up to `UVICORN_TIMEOUT_GRACEFUL_SHUTDOWN`
+seconds (50 by default), before it exits; with several workers it passes the signal on to
+each. `docker-compose.yml` gives the backend `stop_grace_period: 60s`, so a deploy or
+`docker compose down` no longer cuts a long export off after Docker's default 10 s. In
+Kubernetes keep `terminationGracePeriodSeconds` (30 by default) above the timeout, or
+lower the timeout. Before `exec`, the `sh -c` wrapper was PID 1: it took the SIGTERM and
+exited, and the kernel killed uvicorn with every request in progress.
 
 The backend image is self-contained and can be deployed without the frontend — this is
 the "microservice" deployment mode.

@@ -127,6 +127,7 @@ All settings are read from environment variables prefixed with `VECTORSNAP_`
 | `VECTORSNAP_QUEUE_TIMEOUT_S` | `30` | Seconds a request waits for a slot before `503 SERVER_BUSY`; `0` = answer at once |
 | `VECTORSNAP_CORS_ORIGINS` | `http://localhost:5173` | Comma-separated allowed origins |
 | `UVICORN_WORKERS` | `1` | Worker processes in the container |
+| `UVICORN_TIMEOUT_GRACEFUL_SHUTDOWN` | `50` | Seconds requests in progress may take to finish once the container is stopped ([09](09-containerization.md)) |
 
 ## Error handling
 

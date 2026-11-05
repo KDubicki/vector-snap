@@ -10,10 +10,14 @@ COPY app ./app
 RUN pip install .
 
 FROM python:3.12-slim AS runtime
+# UVICORN_TIMEOUT_GRACEFUL_SHUTDOWN: on SIGTERM uvicorn stops taking requests and lets
+# those in progress finish for up to this many seconds; keep it below the stop timeout
+# (docker-compose.yml stop_grace_period, Kubernetes terminationGracePeriodSeconds).
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH="/opt/venv/bin:$PATH" \
-    UVICORN_WORKERS=1
+    UVICORN_WORKERS=1 \
+    UVICORN_TIMEOUT_GRACEFUL_SHUTDOWN=50
 RUN useradd --create-home --uid 1000 app
 WORKDIR /srv
 COPY --from=builder /opt/venv /opt/venv
@@ -22,4 +26,6 @@ USER 1000:1000
 EXPOSE 8000
 HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=3 \
     CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=2)"]
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers ${UVICORN_WORKERS}"]
+# exec: uvicorn replaces the shell as PID 1 and gets SIGTERM itself. Under `sh -c` the
+# shell took it, exited, and the kernel killed uvicorn mid-request.
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers ${UVICORN_WORKERS}"]

@@ -15,6 +15,9 @@ services:
     networks:
       - vectorsnap
     restart: unless-stopped
+    # Requests in progress finish on stop (UVICORN_TIMEOUT_GRACEFUL_SHUTDOWN, 50 s) before
+    # Docker kills the container; its default of 10 s cut long exports off.
+    stop_grace_period: 60s
 
   frontend:
     build:
