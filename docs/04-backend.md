@@ -158,6 +158,13 @@ client sees has a `code` and the `request_id`:
 | Starlette `HTTPException` | 404 | `NOT_FOUND` (no endpoint at the path; `details.path`) |
 | Starlette `HTTPException` | 405 | `METHOD_NOT_ALLOWED` (`details.allowed` and the `Allow` header list the methods) |
 | Starlette `HTTPException` | 400 | `BAD_REQUEST` (a body that is not valid multipart, more than 1000 fields, a field over 1 MB) |
+| Any other exception (a bug) | 500 | `INTERNAL_ERROR` (a fixed message; the traceback is logged under the request id by `app.errors`) |
+
+An exception no handler takes is answered by `UnhandledErrorMiddleware`
+(`app/core/errors.py`), the innermost middleware, rather than by Starlette's plain-text
+`Internal Server Error` page: the 500 then still carries the request id and CORS headers,
+so the frontend can show it and a bug report can quote it, while the client sees no
+internals.
 
 ## Security considerations
 

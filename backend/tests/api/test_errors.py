@@ -1,6 +1,11 @@
+from collections.abc import AsyncIterator
+
+import pytest
 from fastapi import HTTPException
+from fastapi.responses import StreamingResponse
 from fastapi.testclient import TestClient
 
+from app.core.errors import INTERNAL_ERROR_MESSAGE
 from app.main import create_app
 from tests.vectors import contract_svg
 
@@ -59,3 +64,56 @@ def test_an_http_error_without_a_standard_status_keeps_its_message() -> None:
         "message": "Out of tea.",
         "details": {},
     }
+
+
+def _crashing_app() -> TestClient:
+    app = create_app()
+
+    @app.post("/api/v1/test/crash")
+    async def crash() -> None:
+        raise RuntimeError("secret internals")
+
+    @app.post("/api/v1/test/crash-in-thread")
+    def crash_in_thread() -> None:
+        raise ValueError("secret internals")
+
+    return TestClient(app)
+
+
+@pytest.mark.parametrize("path", ["/api/v1/test/crash", "/api/v1/test/crash-in-thread"])
+def test_an_unexpected_error_is_answered_in_the_error_envelope(
+    path: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    response = _crashing_app().post(path, headers={"Origin": "http://localhost:5173"})
+
+    assert response.status_code == 500
+    body = response.json()
+    assert body["error"] == {
+        "code": "INTERNAL_ERROR",
+        "message": INTERNAL_ERROR_MESSAGE,
+        "details": {},
+    }
+    assert body["request_id"] == response.headers["X-Request-ID"]
+    # A browser can read it, and it gives nothing away.
+    assert response.headers["Access-Control-Allow-Origin"] == "http://localhost:5173"
+    assert "secret" not in response.text
+    # The traceback is in the log, under the request id.
+    [record] = [r for r in caplog.records if r.name == "app.errors"]
+    assert record.exc_info is not None
+    assert getattr(record, "request_id", body["request_id"]) == body["request_id"]
+
+
+def test_an_error_after_the_answer_started_is_left_to_the_server() -> None:
+    app = create_app()
+
+    @app.get("/api/v1/test/broken-stream")
+    async def broken_stream() -> StreamingResponse:
+        async def parts() -> AsyncIterator[bytes]:
+            yield b"partial"
+            raise RuntimeError("cut off")
+
+        return StreamingResponse(parts())
+
+    # Nothing can replace a response already sent: the error reaches the server.
+    with TestClient(app) as client, pytest.raises(RuntimeError, match="cut off"):
+        client.get("/api/v1/test/broken-stream")

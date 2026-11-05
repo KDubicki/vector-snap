@@ -1,3 +1,4 @@
+import logging
 from http import HTTPStatus
 from typing import Any
 
@@ -5,6 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 
 class VectorSnapError(Exception):
@@ -134,3 +136,45 @@ def register_exception_handlers(app: FastAPI) -> None:
                 request, "VALIDATION_ERROR", "Request validation failed.", {"errors": errors}
             ),
         )
+
+
+INTERNAL_ERROR_MESSAGE = (
+    "The server failed to process the request. Quote the request id when reporting it."
+)
+error_logger = logging.getLogger("app.errors")
+
+
+class UnhandledErrorMiddleware:
+    """Answers an exception no handler took (a bug) with a 500 in the error envelope.
+
+    It sits inside the other middleware, unlike Starlette's own 500 page, so the answer
+    still carries the request id, CORS headers (a browser can read it) and gzip. The
+    traceback goes to the log only; the client sees no internals.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        started = False
+
+        async def send_tracking(message: Message) -> None:
+            nonlocal started
+            started = started or message["type"] == "http.response.start"
+            await send(message)
+
+        try:
+            await self.app(scope, receive, send_tracking)
+        except Exception:
+            if started:  # too late for another answer
+                raise
+            error_logger.exception("unhandled error")
+            request = Request(scope)
+            response = JSONResponse(
+                status_code=500,
+                content=error_body(request, "INTERNAL_ERROR", INTERNAL_ERROR_MESSAGE, {}),
+            )
+            await response(scope, receive, send)

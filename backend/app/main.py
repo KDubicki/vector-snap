@@ -6,7 +6,7 @@ from app import __version__
 from app.api.router import api_router
 from app.core.concurrency import ProcessingLimitMiddleware, ProcessingSlots
 from app.core.config import Settings, get_settings
-from app.core.errors import register_exception_handlers
+from app.core.errors import UnhandledErrorMiddleware, register_exception_handlers
 from app.core.logging import configure_logging, request_id_middleware
 from app.core.security import SecurityHeadersMiddleware
 
@@ -29,6 +29,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     # Innermost of the middleware: a request waiting for a slot holds no resources yet,
     # and the 503 of one that waited too long still gets CORS headers and a request id.
+    # Innermost: a bug's 500 still passes the middleware below (request id, CORS, gzip).
+    app.add_middleware(UnhandledErrorMiddleware)
     slots = ProcessingSlots(settings.max_concurrent_jobs, settings.queue_timeout_s)
     app.state.processing_slots = slots
     app.add_middleware(ProcessingLimitMiddleware, slots=slots)
