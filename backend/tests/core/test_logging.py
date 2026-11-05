@@ -1,6 +1,7 @@
 import json
 import logging
 import sys
+import uuid
 
 import pytest
 from fastapi.testclient import TestClient
@@ -125,3 +126,37 @@ def test_requests_that_crash_are_logged_as_500(caplog: pytest.LogCaptureFixture)
 
     assert response.status_code == 500
     assert [r.__dict__["status"] for r in _access(caplog)] == [500]
+
+
+@pytest.mark.parametrize(
+    "request_id",
+    [
+        "req-42",
+        "3f2b9c1d8e7a6b5c4d3e2f1a0b9c8d7e",  # nginx's $request_id
+        "0f8fad5b-d9cb-469f-a165-70867728950e",
+        "00-4bf92f3577b34da6-01:span.7_a",
+        "x" * 128,
+    ],
+)
+def test_a_well_formed_request_id_is_kept(client: TestClient, request_id: str) -> None:
+    response = client.get("/api/v1/health", headers={"X-Request-ID": request_id})
+
+    assert response.headers["X-Request-ID"] == request_id
+
+
+@pytest.mark.parametrize(
+    "request_id",
+    ["", " ", "two words", 'quote"d', "status=200 path=/fake", "x" * 129, "a\\b", "id;drop"],
+)
+def test_a_malformed_request_id_is_replaced(
+    client: TestClient, caplog: pytest.LogCaptureFixture, request_id: str
+) -> None:
+    caplog.set_level(logging.INFO)
+
+    response = client.post("/api/v1/quantize", headers={"X-Request-ID": request_id})
+
+    replaced = response.headers["X-Request-ID"]
+    assert replaced != request_id
+    assert str(uuid.UUID(replaced)) == replaced
+    assert response.json()["request_id"] == replaced
+    assert [r.__dict__["request_id"] for r in _access(caplog)] == [replaced]

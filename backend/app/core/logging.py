@@ -6,6 +6,7 @@ production and `key=value` pairs in development. See docs/04-backend.md#observab
 
 import json
 import logging
+import re
 import time
 import uuid
 from collections.abc import Awaitable, Callable
@@ -17,6 +18,10 @@ from fastapi import Request, Response
 
 REQUEST_ID_HEADER = "X-Request-ID"
 HEALTH_PREFIX = "/api/v1/health"
+# An incoming X-Request-ID is kept when it looks like an id a proxy or client makes
+# (nginx's 32 hex digits, a UUID, a trace id). Anything else (spaces, quotes,
+# `key=value` lookalikes, kilobytes) would land verbatim in every log line.
+REQUEST_ID_PATTERN = re.compile(r"[A-Za-z0-9._:-]{1,128}")
 
 request_id_var: ContextVar[str] = ContextVar("request_id", default="-")
 access_logger = logging.getLogger("app.access")
@@ -97,10 +102,16 @@ def configure_logging(level: str, *, json_logs: bool = False) -> None:
     logging.getLogger("uvicorn.access").disabled = True
 
 
+def request_id_of(request: Request) -> str:
+    """The client's request id when it is well-formed, otherwise a new UUID."""
+    incoming = request.headers.get(REQUEST_ID_HEADER, "")
+    return incoming if REQUEST_ID_PATTERN.fullmatch(incoming) else str(uuid.uuid4())
+
+
 async def request_id_middleware(
     request: Request, call_next: Callable[[Request], Awaitable[Response]]
 ) -> Response:
-    request_id = request.headers.get(REQUEST_ID_HEADER) or str(uuid.uuid4())
+    request_id = request_id_of(request)
     request.state.request_id = request_id
     token = request_id_var.set(request_id)
     started = time.perf_counter()

@@ -228,7 +228,10 @@ compressed responses through unchanged.
   ready while every slot is busy, so a busy service queues requests instead of leaving
   the load balancer.
 - Every request gets an `X-Request-ID` (taken from the incoming header or generated) that
-  is echoed in the response and included in every log line.
+  is echoed in the response and included in every log line. An incoming id is kept only
+  when it is 1–128 characters of `A–Z a–z 0–9 . _ : -` (nginx's `$request_id`, a UUID, a
+  trace id); anything else — spaces, quotes, `key=value` lookalikes, kilobytes of text —
+  would land verbatim in every log line, so it is replaced by a new UUID.
 - Logs (`app/core/logging.py`): one JSON object per line in production
   (`VECTORSNAP_ENV=production`: `time`, `level`, `logger`, `message`, `request_id` plus
   any extra fields), human-readable lines in development
