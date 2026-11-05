@@ -7,6 +7,7 @@ from fastapi.concurrency import run_in_threadpool
 
 from app.api.export_forms import UploadedSvg
 from app.core.errors import InvalidParameters
+from app.schemas.palette import parse_palette_indices
 from app.schemas.svg import (
     SvgDeleteResponse,
     SvgFillHolesResponse,
@@ -41,15 +42,24 @@ async def delete_svg_shapes(
             "(25 = a 5 x 5 px speck); 0 = off",
         ),
     ] = 0.0,
+    layers: Annotated[
+        str,
+        Form(
+            description="Color layers to delete whole, by palette index, e.g. [0] for a background"
+        ),
+    ] = "[]",
 ) -> SvgDeleteResponse:
-    """Delete shapes by id and/or the specks left by tracing, as the editor's delete:
-    layers left empty are removed, and at least one shape has to stay."""
+    """Delete shapes by id, the specks left by tracing and/or whole color layers, as the
+    editor's delete: layers left empty are removed, and at least one shape has to
+    stay."""
     selected = parse_shape_ids(ids, "ids")
-    if not selected and smaller_than == 0:
+    whole = parse_palette_indices(layers, "layers")
+    if not selected and smaller_than == 0 and not whole:
         raise InvalidParameters(
-            "Send the shape `ids` to delete or a `smaller_than` area.", {"field": "ids"}
+            "Send the shape `ids` to delete, a `smaller_than` area or color `layers`.",
+            {"field": "ids"},
         )
-    edited = await run_in_threadpool(delete_shapes, document, selected, smaller_than)
+    edited = await run_in_threadpool(delete_shapes, document, selected, smaller_than, whole)
     return SvgDeleteResponse(
         svg=serialize_svg(edited.document),
         colors=len(edited.document.layers),

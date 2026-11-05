@@ -1,11 +1,11 @@
 """Delete and merge shapes on the server: the SVG editor's delete and merge for services
 and scripts without a browser.
 
-Shapes are deleted by id or by size (specks and slivers left by tracing, as the editor's
-"Select shapes smaller than"); merged shapes become the largest of them, as in the
-editor. Layers left without shapes are removed and at least one shape stays, so the
-result is still a valid document. See docs/05-api-specification.md#post-apiv1svgdelete
-and #post-apiv1svgmerge.
+Shapes are deleted by id, by size (specks and slivers left by tracing, as the editor's
+"Select shapes smaller than") or by color layer (a background); merged shapes become the
+largest of them, as in the editor. Layers left without shapes are removed and at least
+one shape stays, so the result is still a valid document. See
+docs/05-api-specification.md#post-apiv1svgdelete and #post-apiv1svgmerge.
 """
 
 from collections.abc import Collection
@@ -35,13 +35,29 @@ def shape_area(shape: VectorShape) -> float:
 
 
 def delete_shapes(
-    document: VectorDocument, ids: Collection[str] = (), smaller_than: float = 0.0
+    document: VectorDocument,
+    ids: Collection[str] = (),
+    smaller_than: float = 0.0,
+    layers: Collection[int] = (),
 ) -> DeletedShapes:
-    """Remove the shapes in `ids` and those with an area below `smaller_than` px²."""
+    """Remove the shapes in `ids`, those with an area below `smaller_than` px² and every
+    shape of the color layers whose palette index is in `layers`."""
     remove = set(ids)
+    whole = set(layers)
+    # By identity: an id may repeat in another layer (a document from another tool).
+    in_layers = {
+        id(shape)
+        for layer in document.layers
+        if layer.palette_index in whole
+        for shape in layer.shapes
+    }
 
     def deleted(shape: VectorShape) -> bool:
-        return shape.id in remove or (smaller_than > 0 and shape_area(shape) < smaller_than)
+        return (
+            id(shape) in in_layers
+            or shape.id in remove
+            or (smaller_than > 0 and shape_area(shape) < smaller_than)
+        )
 
     gone: list[str] = []
 

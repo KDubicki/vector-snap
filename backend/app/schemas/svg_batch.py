@@ -25,6 +25,7 @@ class DeleteStep(_Step):
     op: Literal["delete"]
     ids: ShapeIds = []
     smaller_than: float = Field(0.0, ge=0, le=1_000_000)
+    layers: list[Annotated[int, Field(ge=0)]] = []
 
 
 class MergeStep(_Step):

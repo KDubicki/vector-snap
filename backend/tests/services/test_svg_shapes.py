@@ -37,7 +37,34 @@ def test_deletes_shapes_smaller_than_an_area() -> None:
     assert delete_shapes(DOC).document == DOC
 
 
+def test_deletes_whole_color_layers() -> None:
+    result = delete_shapes(DOC, layers=[1, 9])  # 9: no such layer, ignored
+
+    assert result.deleted == ["p-1-0", "p-1-1"]
+    assert [layer.palette_index for layer in result.document.layers] == [0, 2]
+    assert delete_shapes(DOC, ["p-2-0"], layers=[0]).deleted == ["p-0-0", "p-2-0"]
+
+
+def test_a_layer_is_deleted_by_its_shapes_not_their_ids() -> None:
+    # The same id in two layers (a document made by another tool): only the layer
+    # asked for loses its shape.
+    twin = VectorDocument(
+        10,
+        10,
+        [
+            VectorLayer(0, "#ffffff", [VectorShape("a", "#ffffff", "M0,0 h10 v10 h-10 z")]),
+            VectorLayer(1, "#000000", [VectorShape("a", "#000000", "M2,2 h2 v2 h-2 z")]),
+        ],
+    )
+
+    result = delete_shapes(twin, layers=[1])
+
+    assert [layer.palette_index for layer in result.document.layers] == [0]
+
+
 def test_keeps_at_least_one_shape() -> None:
+    with pytest.raises(InvalidParameters):
+        delete_shapes(DOC, layers=[0, 1, 2])
     with pytest.raises(InvalidParameters):
         delete_shapes(DOC, smaller_than=10_000)
 

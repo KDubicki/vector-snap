@@ -51,9 +51,9 @@ def _run(document: VectorDocument, step: Step) -> tuple[VectorDocument, int]:
     """One step: the edited document and how much it changed."""
     match step:
         case DeleteStep():
-            if not step.ids and step.smaller_than == 0:
-                raise _nothing_to_do("give `ids` or `smaller_than`")
-            deleted = delete_shapes(document, step.ids, step.smaller_than)
+            if not step.ids and step.smaller_than == 0 and not step.layers:
+                raise _nothing_to_do("give `ids`, `smaller_than` or `layers`")
+            deleted = delete_shapes(document, step.ids, step.smaller_than, step.layers)
             return deleted.document, len(deleted.deleted)
         case MergeStep():
             merged_shapes = merge_shapes(document, step.ids)

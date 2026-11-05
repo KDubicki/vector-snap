@@ -60,6 +60,13 @@ def test_runs_every_step_on_the_previous_result(client: TestClient) -> None:
     assert 'id="p-2-1"' not in body["svg"]
 
 
+def test_deletes_a_whole_color_layer(client: TestClient) -> None:
+    body = _batch(client, [{"op": "delete", "layers": [2]}]).json()
+
+    assert body["steps"] == [{"op": "delete", "changed": 2}]
+    assert "#ff0000" not in body["svg"]
+
+
 def test_cuts_and_merges_shapes(client: TestClient) -> None:
     response = _batch(
         client,

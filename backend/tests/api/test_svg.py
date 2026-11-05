@@ -132,10 +132,22 @@ def test_deletes_shapes_smaller_than_an_area(client: TestClient) -> None:
     assert response.json()["deleted"] == ["p-1-0", "p-2-0"]
 
 
+def test_deletes_whole_color_layers(client: TestClient) -> None:
+    response = _post(client, "delete", {"layers": "[0, 2]"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["deleted"] == ["p-0-0", "p-2-0"]
+    assert body["colors"] == 1
+
+
 @pytest.mark.parametrize(
     ("form", "code", "field"),
     [
         ({}, "INVALID_PARAMETERS", "ids"),
+        ({"layers": "[]"}, "INVALID_PARAMETERS", "ids"),
+        ({"layers": '["white"]'}, "INVALID_PARAMETERS", "layers"),
+        ({"layers": "[0, 1, 2]"}, "INVALID_PARAMETERS", None),  # every shape
         ({"ids": "[]", "smaller_than": "0"}, "INVALID_PARAMETERS", "ids"),
         ({"ids": "[1]"}, "INVALID_PARAMETERS", "ids"),
         ({"smaller_than": "-1"}, "VALIDATION_ERROR", None),

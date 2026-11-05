@@ -54,7 +54,7 @@ total, in milliseconds ([04 — Observability](04-backend.md#observability)).
 | `POST` | `/api/v1/svg/split` | Split shapes along a line, as the editor's knife ([details](#post-apiv1svgsplit)) |
 | `POST` | `/api/v1/svg/lasso` | Cut a region out of shapes, as the editor's lasso ([details](#post-apiv1svglasso)) |
 | `POST` | `/api/v1/svg/transform` | Move, scale, flip and rotate shapes, curves kept ([details](#post-apiv1svgtransform)) |
-| `POST` | `/api/v1/svg/delete` | Delete shapes by id or the specks below an area ([details](#post-apiv1svgdelete)) |
+| `POST` | `/api/v1/svg/delete` | Delete shapes by id, the specks below an area or whole color layers ([details](#post-apiv1svgdelete)) |
 | `POST` | `/api/v1/svg/offset` | Grow or shrink shapes: bleed, kerf compensation ([details](#post-apiv1svgoffset)) |
 | `POST` | `/api/v1/svg/fill-holes` | Fill small empty holes tracing left inside colors ([details](#post-apiv1svgfill-holes)) |
 | `POST` | `/api/v1/svg/simplify` | Fewer outline points within a tolerance ([details](#post-apiv1svgsimplify)) |
@@ -458,6 +458,9 @@ The editor's delete ([08](08-svg-editor.md#tools)) on the server, at least one o
 - `smaller_than` — also delete every shape with a filled area (holes excluded) below this
   many document px², 0–1 000 000, default 0 (off): the specks and slivers tracing leaves,
   as the editor's *Select shapes smaller than* (25 = a 5 × 5 px speck).
+- `layers` — JSON array of palette indices, `[0]`: delete these color layers whole, e.g.
+  a background traced as a color; unknown indices are ignored. A layer is matched by
+  its `data-palette-index`, so a shape id that repeats in another layer stays there.
 
 Color layers left without shapes are removed. Response:
 
@@ -469,8 +472,8 @@ Color layers left without shapes are removed. Response:
 SVG comes back unchanged).
 
 Errors: `413 FILE_TOO_LARGE`, `422 INVALID_SVG`, `422 VALIDATION_ERROR` (`smaller_than`
-out of range), `422 INVALID_PARAMETERS` (bad `ids`, neither `ids` nor `smaller_than`,
-or every shape would go).
+out of range), `422 INVALID_PARAMETERS` (bad `ids` or `layers`, none of `ids`, `smaller_than` and
+`layers`, or every shape would go).
 
 ### `POST /api/v1/svg/offset`
 
@@ -588,7 +591,7 @@ step's own endpoint (unknown fields are refused):
 
 | `op` | Fields | Endpoint |
 |------|--------|----------|
-| `delete` | `ids`, `smaller_than` (one of them) | [`/svg/delete`](#post-apiv1svgdelete) |
+| `delete` | `ids`, `smaller_than`, `layers` (`[0]`; at least one of them) | [`/svg/delete`](#post-apiv1svgdelete) |
 | `merge` | `ids` (required, 2+) | [`/svg/merge`](#post-apiv1svgmerge) |
 | `split` | `line` (required, `[[x, y], …]`, 2+ points), `ids` | [`/svg/split`](#post-apiv1svgsplit) |
 | `lasso` | `region` (required, `[[x, y], …]`, 3+ points), `ids` | [`/svg/lasso`](#post-apiv1svglasso) |
