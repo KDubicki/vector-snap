@@ -22,6 +22,7 @@ backend/
 ├── app/
 │   ├── main.py                 # App factory, middleware, router registration
 │   ├── core/
+│   │   ├── body_limit.py       # Refuse bodies over the upload limit before parsing them
 │   │   ├── concurrency.py      # Processing slots: at most N POST requests at once
 │   │   ├── config.py           # Settings (pydantic-settings, VECTORSNAP_* env vars)
 │   │   ├── errors.py           # Domain exceptions + HTTP exception handlers
@@ -173,6 +174,12 @@ internals.
 - File type is detected from content (`Image.open(...).format`), not from the filename
   or `Content-Type` header.
 - Uploads are read into memory with a hard byte limit; nothing is written to disk.
+  `BodySizeLimitMiddleware` (`app/core/body_limit.py`) refuses a body larger than
+  `VECTORSNAP_MAX_UPLOAD_MB` plus 4 MB for the other form fields with `413 FILE_TOO_LARGE`
+  before it is parsed: at once when its `Content-Length` says so, otherwise (a chunked
+  body) as soon as the bytes received pass the limit. It also keeps file parts in memory
+  up to that size (Starlette writes those over 1 MB to temporary files by default), so a
+  read-only root file system works. The per-file check of `read_upload` still applies.
 - Output SVG is rebuilt from scratch rather than filtered: only path geometry is taken
   from the tracer output (`svg`, `g`, `path`; attributes `d`, `fill`, `id`, `data-*`,
   `viewBox`, `width`, `height`). No scripts, event handlers, `<foreignObject>`, entities

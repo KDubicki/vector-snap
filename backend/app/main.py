@@ -4,6 +4,7 @@ from starlette.middleware.gzip import DEFAULT_EXCLUDED_CONTENT_TYPES, GZipMiddle
 
 from app import __version__
 from app.api.router import api_router
+from app.core.body_limit import BodySizeLimitMiddleware
 from app.core.concurrency import ProcessingLimitMiddleware, ProcessingSlots
 from app.core.config import Settings, get_settings
 from app.core.errors import UnhandledErrorMiddleware, register_exception_handlers
@@ -34,6 +35,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     slots = ProcessingSlots(settings.max_concurrent_jobs, settings.queue_timeout_s)
     app.state.processing_slots = slots
     app.add_middleware(ProcessingLimitMiddleware, slots=slots)
+    # Outside the slots: a body over the limit is refused before it waits for one.
+    app.add_middleware(BodySizeLimitMiddleware, max_upload_mb=settings.max_upload_mb)
     # SVGs, their JSON envelopes, STL, DXF and EPS shrink to a fifth to two fifths;
     # level 6 compresses them as well as 9, in less time.
     app.add_middleware(
