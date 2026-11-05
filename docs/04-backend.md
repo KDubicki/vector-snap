@@ -50,6 +50,7 @@ backend/
 │   │       │   └── batch.py      # several edits in one request
 │   │       └── vectorize.py
 │   ├── schemas/
+│   │   ├── errors.py           # ErrorResponse (the error envelope) and the errors per endpoint, for OpenAPI
 │   │   ├── export.py           # export form parsers, filament plan / estimate responses
 │   │   ├── palette.py          # PaletteColor, Palette
 │   │   ├── quantize.py         # QuantizeAlgorithm, QuantizeResponse
@@ -160,6 +161,12 @@ client sees has a `code` and the `request_id`:
 | Starlette `HTTPException` | 405 | `METHOD_NOT_ALLOWED` (`details.allowed` and the `Allow` header list the methods) |
 | Starlette `HTTPException` | 400 | `BAD_REQUEST` (a body that is not valid multipart, more than 1000 fields, a field over 1 MB) |
 | Any other exception (a bug) | 500 | `INTERNAL_ERROR` (a fixed message; the traceback is logged under the request id by `app.errors`) |
+
+The OpenAPI schema describes this body as `ErrorResponse` (`app/schemas/errors.py`) for
+every error status a processing endpoint can answer — 400, 413, 415 (endpoints taking an
+image), 422, 500 and 503 — in place of FastAPI's default `HTTPValidationError`
+(`{"detail": [...]}`), which this API never sends; a client generated from the schema
+gets the right error type.
 
 An exception no handler takes is answered by `UnhandledErrorMiddleware`
 (`app/core/errors.py`), the innermost middleware, rather than by Starlette's plain-text

@@ -54,5 +54,6 @@
   transforms and recoloring also run on the server.
 - More export options. (EPS, per-layer STL heights and lithophanes are done, see
   [13-export-formats.md](13-export-formats.md).)
-- Generated TypeScript client from OpenAPI.
+- Generated TypeScript client from OpenAPI (the schema already describes the error
+  envelope, `ErrorResponse`, for every error status).
 - Kubernetes manifests / Helm chart.

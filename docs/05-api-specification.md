@@ -6,7 +6,8 @@ the backend at `/openapi.json` (Swagger UI at `/docs`, ReDoc at `/redoc`; disabl
 
 All processing endpoints accept `multipart/form-data` because they receive binary images.
 Responses are JSON unless stated otherwise. Errors use the format described in
-[04-backend.md](04-backend.md#error-handling).
+[04-backend.md](04-backend.md#error-handling), `ErrorResponse` in the OpenAPI document,
+which lists for every endpoint the error statuses it can answer.
 
 Responses of 1 KB and more are **gzip-compressed** for clients that accept it
 (`Accept-Encoding: gzip`; browsers, curl with `--compressed`, httpx and requests do), with
