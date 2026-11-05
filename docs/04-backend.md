@@ -31,7 +31,7 @@ backend/
 │   ├── api/
 │   │   ├── deps.py             # Shared dependencies (size-limited upload reading)
 │   │   ├── export_forms.py     # Form dependencies of the exports (SVG, 3D, 3MF, colors left out)
-│   │   ├── responses.py        # attachment(): a file to download
+│   │   ├── responses.py        # attachment(), SvgEditRoute (raw SVG with Accept: image/svg+xml)
 │   │   ├── router.py           # Aggregates routers under /api/v1
 │   │   └── routes/
 │   │       ├── health.py       # /health, /health/ready, /limits

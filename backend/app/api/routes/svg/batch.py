@@ -8,6 +8,7 @@ from fastapi.concurrency import run_in_threadpool
 from pydantic import ValidationError
 
 from app.api.export_forms import UploadedSvg
+from app.api.responses import SvgEditRoute
 from app.core.errors import InvalidParameters
 from app.schemas.svg import check_distinct_points
 from app.schemas.svg_batch import (
@@ -40,7 +41,7 @@ from app.services.svg_simplify import simplify_shapes
 from app.services.svg_split import cut_region, split_along_line
 from app.services.svg_transform import transform_shapes
 
-router = APIRouter()
+router = APIRouter(route_class=SvgEditRoute)
 
 
 def _nothing_to_do(what: str) -> InvalidParameters:

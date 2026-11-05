@@ -6,6 +6,7 @@ from fastapi import APIRouter, Form
 from fastapi.concurrency import run_in_threadpool
 
 from app.api.export_forms import UploadedSvg
+from app.api.responses import SvgEditRoute
 from app.core.errors import InvalidParameters
 from app.schemas.palette import parse_palette_indices
 from app.schemas.svg import SvgCropResponse, SvgReorderResponse, parse_layer_order
@@ -13,7 +14,7 @@ from app.services.svg_crop import crop_document
 from app.services.svg_edit import serialize_svg
 from app.services.svg_reorder import LayerSort, reorder_layers
 
-router = APIRouter()
+router = APIRouter(route_class=SvgEditRoute)
 
 
 @router.post("/crop", response_model=SvgCropResponse)

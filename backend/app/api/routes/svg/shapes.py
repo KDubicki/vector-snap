@@ -6,6 +6,7 @@ from fastapi import APIRouter, Form
 from fastapi.concurrency import run_in_threadpool
 
 from app.api.export_forms import UploadedSvg
+from app.api.responses import SvgEditRoute
 from app.core.errors import InvalidParameters
 from app.schemas.palette import parse_palette_indices
 from app.schemas.svg import (
@@ -26,7 +27,7 @@ from app.services.svg_shapes import delete_shapes, merge_shapes
 from app.services.svg_simplify import simplify_shapes
 from app.services.svg_transform import Flip, transform_shapes
 
-router = APIRouter()
+router = APIRouter(route_class=SvgEditRoute)
 
 
 @router.post("/delete", response_model=SvgDeleteResponse)

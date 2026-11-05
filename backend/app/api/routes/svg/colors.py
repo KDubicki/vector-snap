@@ -7,6 +7,7 @@ from fastapi import APIRouter, Form
 from fastapi.concurrency import run_in_threadpool
 
 from app.api.export_forms import UploadedSvg
+from app.api.responses import SvgEditRoute
 from app.core.errors import InvalidParameters
 from app.schemas.palette import parse_hex_colors, rgb_to_hex
 from app.schemas.svg import (
@@ -21,7 +22,7 @@ from app.services.svg_edit import (
     serialize_svg,
 )
 
-router = APIRouter()
+router = APIRouter(route_class=SvgEditRoute)
 
 
 # A large filament collection, as `filaments` of /quantize.

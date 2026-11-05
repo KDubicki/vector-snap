@@ -6,6 +6,7 @@ from fastapi import APIRouter, Form
 from fastapi.concurrency import run_in_threadpool
 
 from app.api.export_forms import UploadedSvg
+from app.api.responses import SvgEditRoute
 from app.schemas.svg import (
     SvgLassoResponse,
     SvgSplitResponse,
@@ -17,7 +18,7 @@ from app.services.svg_edit import (
 )
 from app.services.svg_split import cut_region, split_along_line
 
-router = APIRouter()
+router = APIRouter(route_class=SvgEditRoute)
 
 
 @router.post("/split", response_model=SvgSplitResponse)

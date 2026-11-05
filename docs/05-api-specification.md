@@ -350,6 +350,19 @@ differs from its layer's. Layers that end up with the same color are **joined**:
 layer covering less moves on top of the one covering more (every layer would otherwise
 be its own filament in a 3D print).
 
+**Raw SVG.** Every edit (all of `/svg/*` except `/svg/stats` and `/svg/validate`, which
+report on a document) answers with the edited SVG itself, `image/svg+xml`, when the
+request asks for it with `Accept: image/svg+xml` (as `/vectorize` does); the JSON
+envelope stays the default, and errors stay JSON. So a script can pipe one edit into the
+next without parsing JSON, at the cost of the summary fields (`deleted`, `changes`, …):
+
+```bash
+curl -s -H 'Accept: image/svg+xml' -F svg=@traced.svg -F smaller_than=25 \
+    http://localhost:8000/api/v1/svg/delete \
+  | curl -s -H 'Accept: image/svg+xml' -F svg=@- -F tolerance=0.5 \
+    http://localhost:8000/api/v1/svg/simplify > clean.svg
+```
+
 ### `POST /api/v1/svg/merge-similar`
 
 `max_delta_e` (> 0–10, default 2): layers whose colors are closer than this on the

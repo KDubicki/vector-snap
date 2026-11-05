@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, File, Form, Request, Response, UploadFil
 from fastapi.concurrency import run_in_threadpool
 
 from app.api.deps import check_color_count, read_upload
+from app.api.responses import SVG_MEDIA_TYPE, wants_svg
 from app.core.config import Settings, get_settings
 from app.core.errors import InvalidParameters
 from app.schemas.palette import palette_colors, parse_hex_colors, parse_palette_indices
@@ -13,13 +14,6 @@ from app.services.pipeline import vectorize_image
 from app.services.vectorization import TracingOptions
 
 router = APIRouter(tags=["processing"])
-
-SVG_MEDIA_TYPE = "image/svg+xml"
-
-
-def _wants_svg(request: Request) -> bool:
-    accept = request.headers.get("accept", "")
-    return SVG_MEDIA_TYPE in accept and "application/json" not in accept
 
 
 @router.post(
@@ -84,7 +78,7 @@ async def vectorize(
         background=background_indices,
     )
 
-    if _wants_svg(request):
+    if wants_svg(request):
         return Response(content=result.svg, media_type=SVG_MEDIA_TYPE)
 
     return VectorizeResponse(
