@@ -6,7 +6,7 @@
 |---------|---------|-------|
 | Web framework | FastAPI + Uvicorn | Async, automatic OpenAPI schema |
 | Validation / settings | Pydantic v2, pydantic-settings | Env-based configuration |
-| Image decoding | Pillow | JPEG/PNG, EXIF transpose, decompression-bomb guard |
+| Image decoding | Pillow | JPEG, PNG, WebP, AVIF (animated: first frame), EXIF transpose, decompression-bomb guard |
 | Numerics | NumPy | Pixel arrays |
 | Quantization | scikit-learn (`MiniBatchKMeans`), Pillow (`MEDIANCUT`) | See [pipeline](06-image-processing-pipeline.md) |
 | Vectorization | vtracer (Python bindings, Rust core) | Multi-color tracing, spline/polygon output |

@@ -30,7 +30,7 @@ of the microservice can use it too.
 All endpoints except the lithophane take `multipart/form-data` with an `svg` file in the
 [SVG output contract](05-api-specification.md#svg-output-contract) plus format options,
 and return the file as an attachment. Invalid SVG → `422 INVALID_SVG`. The lithophane
-takes the uploaded JPEG/PNG as `image` instead.
+takes the uploaded JPEG/PNG/WebP/AVIF as `image` instead.
 
 ## Shared geometry (`app/services/svg_geometry.py`)
 

@@ -44,7 +44,8 @@ Status legend: ✅ implemented · 🔜 planned (see [Roadmap](11-roadmap.md)).
 
 ### Step 1 — Upload ✅
 
-- Drop zone, file picker and paste from clipboard; only JPEG/PNG are accepted. The zone
+- Drop zone, file picker and paste from clipboard; only JPEG/PNG are accepted (the
+  backend also reads WebP and AVIF; see `supported_formats` of `/limits`). The zone
   highlights while a file is dragged over it ("Release to upload"); the file input is
   visually hidden inside a styled "Choose image" button and stays keyboard reachable.
 - Accepted formats and the upload limit (`max_upload_mb`) are shown under the button.

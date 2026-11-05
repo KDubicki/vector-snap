@@ -225,3 +225,21 @@ def test_quantize_to_filaments_needs_valid_filaments(
     response = _post(client, encode(stripes()), colors="4", **form)
 
     assert response.status_code == 422
+
+
+@pytest.mark.parametrize(("image_format", "params"), [("WEBP", {"lossless": True}), ("AVIF", {})])
+def test_quantize_reads_webp_and_avif(
+    client: TestClient, image_format: str, params: dict[str, object]
+) -> None:
+    image = Image.new("RGB", (40, 20), (255, 255, 255))
+    image.paste((0, 0, 255), (0, 0, 20, 20))
+    response = client.post(
+        "/api/v1/quantize",
+        files={"image": ("photo", encode(image, image_format, **params), "image/webp")},
+        data={"colors": "2"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert (body["width"], body["height"]) == (40, 20)
+    assert [color["coverage"] for color in body["palette"]] == pytest.approx([0.5, 0.5], abs=0.05)

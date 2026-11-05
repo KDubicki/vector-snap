@@ -1,6 +1,7 @@
 # VectorSnap
 
-VectorSnap converts raster images (JPEG / PNG) into scalable vector graphics (SVG).
+VectorSnap converts raster images (JPEG / PNG; the API also reads WebP and AVIF) into
+scalable vector graphics (SVG).
 Before vectorization the image can be reduced to a chosen number of colors, and the
 resulting palette can be edited. Once the SVG is generated, individual vector shapes
 can be split into smaller pieces and recolored directly in the browser.

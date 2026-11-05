@@ -13,7 +13,14 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 
 from app.core.errors import ImageTooLarge, InvalidImage, NotIndexedImage, UnsupportedMediaType
 
-SUPPORTED_FORMATS = {"JPEG": "image/jpeg", "PNG": "image/png"}
+# Pillow format name -> media type. WebP and AVIF are what phones, browsers and image
+# CDNs save today; an animated one is read as its first frame.
+SUPPORTED_FORMATS = {
+    "JPEG": "image/jpeg",
+    "PNG": "image/png",
+    "WEBP": "image/webp",
+    "AVIF": "image/avif",
+}
 
 # Pixels with alpha below this threshold are treated as fully transparent.
 ALPHA_THRESHOLD = 128

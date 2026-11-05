@@ -22,7 +22,7 @@ def test_limits_exposes_configuration(client: TestClient) -> None:
 
     assert body["min_colors"] < body["max_colors"]
     assert body["max_svg_shapes"] == 20_000
-    assert "image/png" in body["supported_formats"]
+    assert body["supported_formats"] == ["image/jpeg", "image/png", "image/webp", "image/avif"]
 
 
 def test_ready_reports_ready_with_the_load(client: TestClient) -> None:

@@ -1,3 +1,4 @@
+import io
 import zlib
 
 import numpy as np
@@ -214,3 +215,46 @@ def test_decode_indexed_rejects_labels_outside_the_palette() -> None:
 
     with pytest.raises(InvalidImage):
         decode_indexed_png(bytes(data), max_dimension=64)
+
+
+def test_decodes_lossless_webp_exactly() -> None:
+    image = stripes()
+
+    decoded = decode_image(encode(image, "WEBP", lossless=True), max_dimension=64)
+
+    assert np.array_equal(decoded.rgb, np.asarray(image))
+    assert decoded.alpha_mask.all()
+
+
+def test_webp_transparency_is_masked_out() -> None:
+    data = encode(with_transparent_corner(stripes()), "WEBP", lossless=True)
+
+    decoded = decode_image(data, max_dimension=64)
+
+    assert not decoded.alpha_mask[0, 0]
+    assert decoded.alpha_mask[-1, -1]
+
+
+def test_decodes_avif() -> None:
+    image = Image.new("RGB", (32, 16), (200, 30, 40))
+
+    decoded = decode_image(encode(image, "AVIF", quality=90), max_dimension=64)
+
+    assert (decoded.width, decoded.height) == (32, 16)
+    # Lossy: close to the color, not exactly it.
+    assert np.abs(decoded.rgb.astype(int) - (200, 30, 40)).max() <= 8
+
+
+def test_an_animated_webp_is_read_as_its_first_frame() -> None:
+    frames = [Image.new("RGB", (8, 8), color) for color in ((255, 0, 0), (0, 0, 255))]
+    buffer = io.BytesIO()
+    frames[0].save(buffer, "WEBP", save_all=True, append_images=frames[1:], lossless=True)
+
+    decoded = decode_image(buffer.getvalue(), max_dimension=64)
+
+    assert tuple(decoded.rgb[0, 0]) == (255, 0, 0)
+
+
+def test_the_webp_size_limit_holds() -> None:
+    with pytest.raises(ImageTooLarge):
+        decode_image(encode(Image.new("RGB", (100, 10)), "WEBP"), max_dimension=64)
