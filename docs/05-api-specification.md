@@ -18,6 +18,10 @@ Any `POST` can therefore answer **`503 SERVER_BUSY`** when none came free in tim
 (`VECTORSNAP_QUEUE_TIMEOUT_S`, 30 s by default), with a `Retry-After` header in seconds:
 send the request again after it. See [04 — Concurrency](04-backend.md#concurrency).
 
+Every response has a `Server-Timing` header with the time spent waiting for a slot
+(`queue`), in each processing step (`decode`, `quantize`, `suggest`, `trace`) and in
+total, in milliseconds ([04 — Observability](04-backend.md#observability)).
+
 ## Overview
 
 | Method | Path | Description |

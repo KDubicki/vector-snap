@@ -13,6 +13,7 @@ from numpy.typing import NDArray
 from scipy import ndimage
 
 from app.core.errors import InvalidParameters, NotIndexedImage
+from app.core.logging import record_timing
 from app.services.color_suggestion import ColorSuggestion, suggest_color_count
 from app.services.image_io import (
     TRANSPARENT_LABEL,
@@ -44,6 +45,13 @@ logger = logging.getLogger(__name__)
 
 def _ms(started: float) -> int:
     return round((time.perf_counter() - started) * 1000)
+
+
+def _step(name: str, started: float) -> int:
+    """Milliseconds since `started`, also reported in the request's Server-Timing."""
+    ms = _ms(started)
+    record_timing(name, ms)
+    return ms
 
 
 @dataclass(frozen=True)
@@ -81,7 +89,7 @@ def quantize_image(
     """
     started = time.perf_counter()
     image = decode_image(data, max_dimension, upscale=upscale)
-    decode_ms = _ms(started)
+    decode_ms = _step("decode", started)
     started = time.perf_counter()
     if algorithm == "filaments":
         result = quantize_filaments(image, filaments or [], colors, locked_colors=locked_colors)
@@ -111,7 +119,7 @@ def quantize_image(
             "upscale": upscale,
             "merged_colors": len(merged),
             "decode_ms": decode_ms,
-            "quantize_ms": _ms(started),
+            "quantize_ms": _step("quantize", started),
         },
     )
     return image, result, merged
@@ -122,7 +130,7 @@ def suggest_colors(
 ) -> ColorSuggestion:
     started = time.perf_counter()
     image = decode_image(data, max_dimension)
-    decode_ms = _ms(started)
+    decode_ms = _step("decode", started)
     started = time.perf_counter()
     suggestion = suggest_color_count(image, min_colors=min_colors, max_colors=max_colors)
     logger.info(
@@ -132,7 +140,7 @@ def suggest_colors(
             "height": image.height,
             "suggested_colors": suggestion.colors,
             "decode_ms": decode_ms,
-            "suggest_ms": _ms(started),
+            "suggest_ms": _step("suggest", started),
         },
     )
     return suggestion
@@ -215,7 +223,7 @@ def vectorize_image(
                 {"field": "colors"},
             ) from exc
         labels, palette = indexed.labels, indexed.palette
-        decode_ms = _ms(started)
+        decode_ms = _step("decode", started)
 
     if palette_override is not None:
         if len(palette_override) != len(palette):
@@ -257,7 +265,7 @@ def vectorize_image(
             **asdict(options),
             "path_count": document.path_count,
             **({"decode_ms": decode_ms} if decode_ms is not None else {}),
-            "trace_ms": _ms(trace_started),
+            "trace_ms": _step("trace", trace_started),
         },
     )
     counts = np.bincount(labels[labels != TRANSPARENT_LABEL], minlength=len(palette))

@@ -237,8 +237,15 @@ compressed responses through unchanged.
   any extra fields), human-readable lines in development
   (`... INFO app.access [<request id>] POST /api/v1/quantize 200 duration_ms=812`).
   uvicorn's own logs go through the same handler; its access log is replaced by one
-  `app.access` line per request with `method`, `path`, `status` and `duration_ms`
-  (crashed requests are logged as `500`; health checks only at `debug` level).
+  `app.access` line per request with `method`, `path`, `status` and `duration_ms`, plus
+  `queue_ms` for processing requests — how long they waited for a slot
+  ([Concurrency](#concurrency)) — (crashed requests are logged as `500`; health checks
+  only at `debug` level).
+- Every response carries a `Server-Timing` header that browser developer tools show
+  under *Timing*: `queue` (waiting for a processing slot), the pipeline steps the request
+  ran — `decode`, `quantize`, `suggest`, `trace` — and `total`, in milliseconds, e.g.
+  `queue;dur=0.1, decode;dur=12.0, quantize;dur=803.0, total;dur=845.2`. A step reports
+  itself with `record_timing()` (`app/core/logging.py`), also from worker threads.
 - Processing steps (`app.services.pipeline`) log input dimensions, parameters and step
   durations under the same request id: `quantized image` (`colors`, `algorithm`,
   `decode_ms`, `quantize_ms`, ...), `vectorized image` (tracing options, `path_count`,

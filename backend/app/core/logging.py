@@ -24,6 +24,9 @@ HEALTH_PREFIX = "/api/v1/health"
 REQUEST_ID_PATTERN = re.compile(r"[A-Za-z0-9._:-]{1,128}")
 
 request_id_var: ContextVar[str] = ContextVar("request_id", default="-")
+# Durations (ms) of the steps of the request being handled, by name, for its
+# Server-Timing header; None outside a request.
+step_timings_var: ContextVar[dict[str, float] | None] = ContextVar("step_timings", default=None)
 access_logger = logging.getLogger("app.access")
 
 # Attributes every LogRecord has; anything else was passed through `extra`
@@ -102,6 +105,21 @@ def configure_logging(level: str, *, json_logs: bool = False) -> None:
     logging.getLogger("uvicorn.access").disabled = True
 
 
+def record_timing(step: str, ms: float) -> None:
+    """Report how long a step of the request took, in its Server-Timing header (a
+    no-op outside a request). Worker threads share the request's dict: the thread
+    pool runs them in a copy of its context."""
+    timings = step_timings_var.get()
+    if timings is not None:
+        timings[step] = ms
+
+
+def server_timing(timings: dict[str, float], total_ms: float) -> str:
+    """`Server-Timing` value: each step, then the whole request (`total`)."""
+    steps = [*timings.items(), ("total", total_ms)]
+    return ", ".join(f"{name};dur={ms:.1f}" for name, ms in steps)
+
+
 def request_id_of(request: Request) -> str:
     """The client's request id when it is well-formed, otherwise a new UUID."""
     incoming = request.headers.get(REQUEST_ID_HEADER, "")
@@ -114,12 +132,17 @@ async def request_id_middleware(
     request_id = request_id_of(request)
     request.state.request_id = request_id
     token = request_id_var.set(request_id)
+    timings: dict[str, float] = {}
+    timings_token = step_timings_var.set(timings)
     started = time.perf_counter()
     status = 500  # unless a response comes back
     try:
         response = await call_next(request)
         status = response.status_code
         response.headers[REQUEST_ID_HEADER] = request_id
+        response.headers["Server-Timing"] = server_timing(
+            timings, (time.perf_counter() - started) * 1000
+        )
         return response
     finally:
         # Health checks run every few seconds; keep them out of normal logs.
@@ -135,6 +158,8 @@ async def request_id_middleware(
                 "path": request.url.path,
                 "status": status,
                 "duration_ms": round((time.perf_counter() - started) * 1000),
+                **({"queue_ms": round(timings["queue"])} if "queue" in timings else {}),
             },
         )
+        step_timings_var.reset(timings_token)
         request_id_var.reset(token)

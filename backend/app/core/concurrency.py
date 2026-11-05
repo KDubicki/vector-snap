@@ -8,11 +8,14 @@ with `Retry-After`. Other requests (health checks, limits, CORS preflights) neve
 The limit holds per worker process. See docs/04-backend.md#concurrency.
 """
 
+import time
+
 import anyio
 from starlette.requests import Request
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.core.errors import ServerBusy, error_response
+from app.core.logging import record_timing
 
 # Seconds a client is told to wait before trying a busy server again.
 RETRY_AFTER_S = 5
@@ -65,7 +68,10 @@ class ProcessingLimitMiddleware:
         if scope["type"] != "http" or scope["method"] != "POST":
             await self.app(scope, receive, send)
             return
-        if not await self.slots.acquire():
+        waiting = time.perf_counter()
+        acquired = await self.slots.acquire()
+        record_timing("queue", (time.perf_counter() - waiting) * 1000)
+        if not acquired:
             busy = ServerBusy(
                 f"The server is busy: all {self.slots.limit} processing slots are taken. "
                 f"Try again in {RETRY_AFTER_S} seconds.",
