@@ -1,12 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   ApiError,
+  BUSY_RETRIES,
   errorMessage,
   exportFile,
   exportLithophane,
   getFilamentPlan,
   getLimits,
   quantize,
+  retryAfterSeconds,
   suggestColors,
   vectorize,
 } from './client';
@@ -19,6 +21,16 @@ function mockFetch(response: Response) {
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status });
+}
+
+function busy(retryAfter = '5') {
+  return new Response(
+    JSON.stringify({
+      error: { code: 'SERVER_BUSY', message: 'The server is busy.', details: {} },
+      request_id: 'r',
+    }),
+    { status: 503, headers: { 'Retry-After': retryAfter } },
+  );
 }
 
 describe('api client', () => {
@@ -218,6 +230,75 @@ describe('api client', () => {
     expect(form.get('base_mm')).toBe('0.6');
     expect(form.get('layered')).toBe('true');
     expect(result).toEqual(plan);
+  });
+
+  describe('when the server is busy', () => {
+    afterEach(() => vi.useRealTimers());
+
+    it('waits the Retry-After it asks for and tries again', async () => {
+      vi.useFakeTimers();
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(busy('3'))
+        .mockResolvedValueOnce(busy())
+        .mockResolvedValueOnce(jsonResponse({ colors: 5, target_delta_e: 5, errors: [] }));
+      vi.stubGlobal('fetch', fetchMock);
+
+      const suggestion = suggestColors(new Blob(['img']));
+      await vi.advanceTimersByTimeAsync(2999);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      await vi.advanceTimersByTimeAsync(5000);
+
+      await expect(suggestion).resolves.toMatchObject({ colors: 5 });
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+      // The same form goes again.
+      expect(fetchMock.mock.calls[2][1]).toBe(fetchMock.mock.calls[0][1]);
+    });
+
+    it('gives up with the backend error after the last retry', async () => {
+      vi.useFakeTimers();
+      const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(busy()));
+      vi.stubGlobal('fetch', fetchMock);
+
+      const result = exportFile('stl', '<svg/>', {}).catch((error: unknown) => error);
+      await vi.advanceTimersByTimeAsync(BUSY_RETRIES * 5000);
+
+      expect(await result).toMatchObject({ status: 503, code: 'SERVER_BUSY' });
+      expect(fetchMock).toHaveBeenCalledTimes(BUSY_RETRIES + 1);
+    });
+
+    it('stops waiting when the request is aborted', async () => {
+      vi.useFakeTimers();
+      const fetchMock = vi.fn().mockResolvedValue(busy('30'));
+      vi.stubGlobal('fetch', fetchMock);
+      const controller = new AbortController();
+
+      const result = getLimits(controller.signal).catch((error: unknown) => error);
+      await vi.advanceTimersByTimeAsync(1000);
+      controller.abort();
+
+      expect(await result).toMatchObject({ name: 'AbortError' });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not retry other 503 answers', async () => {
+      const fetchMock = mockFetch(new Response('Service Unavailable', { status: 503 }));
+
+      await expect(getLimits()).rejects.toMatchObject({ status: 503 });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('reads Retry-After in seconds or as a date, within 1–30 s', () => {
+      const now = Date.parse('2026-11-06T12:00:00Z');
+      expect(retryAfterSeconds('7', now)).toBe(7);
+      expect(retryAfterSeconds('0', now)).toBe(1);
+      expect(retryAfterSeconds('3600', now)).toBe(30);
+      expect(retryAfterSeconds('Fri, 06 Nov 2026 12:00:12 GMT', now)).toBe(12);
+      expect(retryAfterSeconds('soon', now)).toBe(5);
+      expect(retryAfterSeconds(null, now)).toBe(5);
+    });
   });
 
   it('turns errors into messages with a fallback', () => {

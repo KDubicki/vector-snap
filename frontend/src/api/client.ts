@@ -44,8 +44,63 @@ async function toApiError(response: Response): Promise<ApiError> {
   );
 }
 
+/**
+ * Times a request is sent again after `503 SERVER_BUSY`: every processing slot of the
+ * backend was taken and its queue timed out (docs/05-api-specification.md#overview).
+ */
+export const BUSY_RETRIES = 2;
+/** Wait before a retry when the answer has no usable `Retry-After`, and the longest one. */
+const DEFAULT_RETRY_AFTER_S = 5;
+const MAX_RETRY_AFTER_S = 30;
+
+/** Seconds `Retry-After` asks for (seconds or an HTTP date), within 1–30. */
+export function retryAfterSeconds(header: string | null, now = Date.now()): number {
+  if (!header) return DEFAULT_RETRY_AFTER_S;
+  const seconds = /^\d+$/.test(header.trim()) ? Number(header) : (Date.parse(header) - now) / 1000;
+  if (Number.isNaN(seconds)) return DEFAULT_RETRY_AFTER_S;
+  return Math.min(Math.max(seconds, 1), MAX_RETRY_AFTER_S);
+}
+
+function wait(seconds: number, signal?: AbortSignal | null): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const aborted = () => reject(new DOMException('The request was aborted.', 'AbortError'));
+    if (signal?.aborted) return aborted();
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, seconds * 1000);
+    const onAbort = () => {
+      clearTimeout(timer);
+      aborted();
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+async function isServerBusy(response: Response): Promise<boolean> {
+  if (response.status !== 503) return false;
+  const body = (await response
+    .clone()
+    .json()
+    .catch(() => null)) as ApiErrorBody | null;
+  return body?.error.code === 'SERVER_BUSY';
+}
+
+/**
+ * `fetch`, sent again up to `BUSY_RETRIES` times while the backend answers `503
+ * SERVER_BUSY`, after the `Retry-After` it gives: a moment of heavy load then costs a
+ * wait instead of an error. Aborting the signal stops the wait too.
+ */
+async function send(url: string, init?: RequestInit): Promise<Response> {
+  for (let retry = 0; ; retry += 1) {
+    const response = await fetch(url, init);
+    if (retry === BUSY_RETRIES || !(await isServerBusy(response))) return response;
+    await wait(retryAfterSeconds(response.headers.get('Retry-After')), init?.signal);
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${BASE_URL}/v1${path}`, init);
+  const response = await send(`${BASE_URL}/v1${path}`, init);
   if (!response.ok) throw await toApiError(response);
   return (await response.json()) as T;
 }
@@ -58,7 +113,7 @@ export async function exportFile(
   signal?: AbortSignal,
 ): Promise<Blob> {
   const form = exportForm(svg, options);
-  const response = await fetch(`${BASE_URL}/v1/export/${format}`, {
+  const response = await send(`${BASE_URL}/v1/export/${format}`, {
     method: 'POST',
     body: form,
     signal,
@@ -76,7 +131,7 @@ export async function exportLithophane(
   const form = new FormData();
   form.append('image', image);
   for (const [key, value] of Object.entries(options)) form.append(key, String(value));
-  const response = await fetch(`${BASE_URL}/v1/export/lithophane`, {
+  const response = await send(`${BASE_URL}/v1/export/lithophane`, {
     method: 'POST',
     body: form,
     signal,

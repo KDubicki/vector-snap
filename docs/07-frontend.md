@@ -613,6 +613,15 @@ interface FragmentsSlice {
 - Thin typed wrapper over `fetch`; base URL from `VITE_API_BASE_URL` (default `/api`).
 - Converts the error envelope into a typed `ApiError` (`code`, `message`, `requestId`).
 - All calls accept an `AbortSignal`.
+- **Busy server**: an answer `503 SERVER_BUSY` (every processing slot taken and the
+  backend's queue timed out, see [05](05-api-specification.md#overview)) is sent again
+  after the `Retry-After` it gives (seconds or a date, kept within 1–30 s; 5 s without
+  one), up to `BUSY_RETRIES` (2) times, before its error is shown — a moment of heavy
+  load costs a wait inside the usual progress indicator instead of an error. The same
+  form goes again; aborting the signal (a newer quantization) ends the wait at once.
+  Other 503 answers (a proxy's) are not retried. Checked against a backend with one slot
+  and no queue: *503 → 5 s → 503 → 5 s → 200*, and the palette appeared without an
+  error.
 - TypeScript types in `src/types/api.ts` mirror the OpenAPI schema; generating them with
   `openapi-typescript` is planned once the API stabilizes.
 
