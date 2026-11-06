@@ -69,6 +69,9 @@ total, in milliseconds ([04 — Observability](04-backend.md#observability)).
 
 ## `GET /api/v1/health`
 
+The health and limits endpoints also answer `HEAD` (headers only), which uptime
+monitors and `curl -I` send.
+
 **200 OK**
 
 ```json
