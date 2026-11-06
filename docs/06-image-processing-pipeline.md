@@ -27,6 +27,15 @@ flowchart LR
   bits by their high byte, with a `tRNS` transparent gray kept as alpha. Pillow's
   `convert` would clip them at 255 instead, turning everything but black white. 16-bit
   color and gray-with-alpha PNGs are read as 8 bits by Pillow itself, the same way.
+- **Color profiles**: an image embedding an RGB or gray ICC profile other than sRGB —
+  an iPhone photo or Mac screenshot in Display P3, a photo in Adobe RGB, a scan in Gray
+  Gamma 2.2 — is converted to sRGB (LittleCMS via `PIL.ImageCms`, relative
+  colorimetric), as browsers render it. Read as sRGB its values give other colors
+  (P3's `#c86432` is `#d75d1f` on screen), so the palette would not match the image
+  the user sees; converted, the backend reads the same pixels Chrome draws. Images with
+  an sRGB profile (by its description) keep their values exactly, so a logo's brand
+  colors stay; CMYK profiles and unreadable ones are ignored. Converting adds about 0.1 s
+  to a 4096 × 4096 px photo.
 - Convert to `RGBA`.
 - Optional **upscaling** (`upscale=true` on `/quantize`): an image whose longer side is
   below 1024 px is enlarged with Lanczos by a whole factor `min(4, ⌈1024 / longest⌉)`

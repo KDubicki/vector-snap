@@ -9,7 +9,7 @@ from dataclasses import dataclass
 
 import numpy as np
 from numpy.typing import NDArray
-from PIL import Image, ImageOps, UnidentifiedImageError
+from PIL import Image, ImageCms, ImageOps, UnidentifiedImageError
 
 from app.core.errors import ImageTooLarge, InvalidImage, NotIndexedImage, UnsupportedMediaType
 
@@ -32,6 +32,9 @@ MAX_UPSCALE = 4
 
 # Label used for transparent pixels in label maps (palettes are limited to 255 entries).
 TRANSPARENT_LABEL = 255
+
+# What colors are converted to when an image embeds another color profile.
+SRGB_PROFILE = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB"))
 
 # Modes Pillow opens a 16-bit grayscale PNG in (a scan, a height map, a medical image).
 SIXTEEN_BIT_GRAY_MODES = {"I", "I;16", "I;16B", "I;16L", "I;16N"}
@@ -102,10 +105,49 @@ def _eight_bit(image: Image.Image) -> Image.Image:
     values = np.asarray(image).astype(np.uint32)
     gray = Image.fromarray((np.clip(values, 0, 0xFFFF) >> 8).astype(np.uint8), mode="L")
     transparent = image.info.get("transparency")
-    if not isinstance(transparent, int):
-        return gray
-    alpha = np.where(values == transparent, 0, 255).astype(np.uint8)
-    return Image.merge("LA", (gray, Image.fromarray(alpha, mode="L")))
+    eight_bit = gray
+    if isinstance(transparent, int):
+        alpha = np.where(values == transparent, 0, 255).astype(np.uint8)
+        eight_bit = Image.merge("LA", (gray, Image.fromarray(alpha, mode="L")))
+    if "icc_profile" in image.info:
+        eight_bit.info["icc_profile"] = image.info["icc_profile"]
+    return eight_bit
+
+
+def _to_srgb(image: Image.Image) -> Image.Image:
+    """The image's colors in sRGB, as a browser shows them, when it embeds another RGB
+    or gray color profile: an iPhone photo or a Mac screenshot in Display P3, a photo in
+    Adobe RGB, a scan in Gray Gamma 2.2. Read as sRGB, their values give other colors -
+    P3's #c86432 shows as #d75d1f - so the palette would not match the image.
+
+    Images without a profile, with an sRGB one (whose values are kept exactly: a logo's
+    brand colors), with a CMYK one (Pillow's own conversion) or with one that cannot be
+    read keep their values. Relative colorimetric, as browsers render such images.
+    """
+    icc = image.info.get("icc_profile")
+    if not icc:
+        return image
+    try:
+        profile = ImageCms.ImageCmsProfile(io.BytesIO(icc))
+        if "srgb" in ImageCms.getProfileDescription(profile).lower():
+            return image
+        space = profile.profile.xcolor_space.strip()
+        if space not in ("RGB", "GRAY"):
+            return image
+        with_alpha = image.convert("RGBA" if space == "RGB" else "LA")
+        colors = with_alpha.convert(with_alpha.mode[:-1])
+        converted = ImageCms.profileToProfile(
+            colors,
+            profile,
+            SRGB_PROFILE,
+            renderingIntent=ImageCms.Intent.RELATIVE_COLORIMETRIC,
+            outputMode="RGB",
+        )
+    except (OSError, ImageCms.PyCMSError):
+        return image
+    assert converted is not None  # inPlace=False returns the image
+    converted.putalpha(with_alpha.getchannel("A"))
+    return converted
 
 
 def upscale_factor(width: int, height: int, max_dimension: int) -> int:
@@ -124,7 +166,7 @@ def decode_image(data: bytes, max_dimension: int, *, upscale: bool = False) -> D
     """
     image = _open(data, max_dimension)
     is_indexed = image.mode == "P"
-    rgba = _eight_bit(ImageOps.exif_transpose(image)).convert("RGBA")
+    rgba = _to_srgb(_eight_bit(ImageOps.exif_transpose(image))).convert("RGBA")
     factor = upscale_factor(rgba.width, rgba.height, max_dimension) if upscale else 1
     if factor > 1:
         size = (rgba.width * factor, rgba.height * factor)

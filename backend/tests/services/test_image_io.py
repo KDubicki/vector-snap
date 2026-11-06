@@ -13,6 +13,7 @@ from app.services.image_io import (
     encode_indexed_png,
     upscale_factor,
 )
+from tests.icc import gray_profile, rgb_profile
 from tests.images import RED, encode, stripes, with_transparent_corner
 
 
@@ -282,3 +283,62 @@ def test_a_16_bit_grayscale_png_keeps_its_transparent_gray() -> None:
 
     assert decoded.alpha_mask[0].tolist() == [True, True, False]
     assert tuple(decoded.rgb[0, 1]) == (128, 128, 128)
+
+
+# A color profile whose values are linear light: 128 is sRGB's 188 (50% light).
+LINEAR = rgb_profile("Linear RGB", gamma=1.0)
+
+
+def _gray_and_red(icc: bytes, image_format: str = "PNG", mode: str = "RGB") -> bytes:
+    image = Image.new(mode, (2, 1), (128, 128, 128))
+    image.putpixel((1, 0), (255, 0, 0, 0) if mode == "RGBA" else (255, 0, 0))
+    return encode(image, image_format, icc_profile=icc)
+
+
+@pytest.mark.parametrize("image_format", ["PNG", "JPEG", "WEBP"])
+def test_converts_colors_of_another_profile_to_srgb(image_format: str) -> None:
+    params = {"quality": 100} if image_format == "JPEG" else {"lossless": True}
+    image = Image.new("RGB", (8, 8), (128, 128, 128))
+
+    decoded = decode_image(
+        encode(image, image_format, icc_profile=LINEAR, **params), max_dimension=64
+    )
+
+    assert np.abs(decoded.rgb.astype(int) - 188).max() <= 1
+
+
+def test_converting_keeps_transparency() -> None:
+    decoded = decode_image(_gray_and_red(LINEAR, mode="RGBA"), max_dimension=64)
+
+    assert decoded.alpha_mask.tolist() == [[True, False]]
+    assert np.abs(decoded.rgb[0, 0].astype(int) - 188).max() <= 1
+
+
+def test_converts_a_gray_profile() -> None:
+    data = encode(Image.new("L", (2, 2), 128), icc_profile=gray_profile("Gray linear"))
+
+    decoded = decode_image(data, max_dimension=64)
+
+    assert np.abs(decoded.rgb.astype(int) - 188).max() <= 1
+
+
+@pytest.mark.parametrize(
+    "icc",
+    [
+        rgb_profile("sRGB IEC61966-2.1", gamma=1.0),  # named sRGB: values kept exactly
+        b"not a color profile",
+    ],
+)
+def test_keeps_the_values_of_srgb_and_unreadable_profiles(icc: bytes) -> None:
+    decoded = decode_image(_gray_and_red(icc), max_dimension=64)
+
+    assert decoded.rgb.tolist() == [[[128, 128, 128], [255, 0, 0]]]
+
+
+def test_a_16_bit_grayscale_png_keeps_its_profile() -> None:
+    values = np.full((2, 2), 0x8000, dtype=np.uint16)
+    data = encode(Image.fromarray(values), "PNG", icc_profile=gray_profile("Gray linear"))
+
+    decoded = decode_image(data, max_dimension=64)
+
+    assert np.abs(decoded.rgb.astype(int) - 188).max() <= 1
