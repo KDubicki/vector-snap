@@ -45,7 +45,18 @@ the "microservice" deployment mode.
    - `location /api/` → `proxy_pass http://backend:8000` with
      `client_max_body_size` matching the backend upload limit.
    - Long-term caching for hashed assets, `no-cache` for `index.html`.
-   - Security headers (`X-Content-Type-Options`, `Referrer-Policy`, CSP).
+   - Security headers on the page and every file (`X-Content-Type-Options`,
+     `Referrer-Policy` and a `Content-Security-Policy`: only the app's own scripts,
+     styles and API calls, images also from `data:` and `blob:` URLs, no framing).
+     `add_header_inherit merge` keeps them in locations that add a header of their
+     own: nginx drops a server's `add_header` there by default, which left the page
+     and its scripts (`Cache-Control`) without any. `/api/` turns them off, as the
+     backend sends its own. When `VITE_API_BASE_URL` points to another origin, add
+     that origin to `connect-src`. The stack smoke test in CI checks them. Walked
+     through in Chromium (a large photo scaled down, the sample, palette preview,
+     editor, fragments, compare view, PNG and STL exports, both 3D previews): no
+     violations. The editor reads path data with paper.js `getPathData`, not
+     `exportSVG`, which set an inline `style` on a detached element on every edit.
 
 `VITE_API_BASE_URL` is a build-time variable (default `/api`). When the frontend is
 deployed against a remote backend, pass it as a build arg.

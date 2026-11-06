@@ -155,9 +155,19 @@ export function uniteShapes(paths: string[]): string {
   return pathData(united);
 }
 
+// The method behind `pathData` and behind the `d` that `exportSVG` writes; paper.d.ts
+// declares only the property, which has no precision.
+interface PathDataSource {
+  getPathData(matrix: null, precision: number): string;
+}
+
+/**
+ * The item's path data, as `exportSVG` would write it. Not through `exportSVG`: it sets
+ * a `style` attribute on a detached element, which the page's Content-Security-Policy
+ * reports as a violation on every edit (docs/09-containerization.md).
+ */
 function pathData(item: paper.PathItem): string {
-  const svg = item.exportSVG({ asString: true, precision: PATH_PRECISION }) as string;
-  return /\sd="([^"]+)"/.exec(svg)?.[1] ?? '';
+  return (item as unknown as PathDataSource).getPathData(null, PATH_PRECISION);
 }
 
 /** Path data transformed by an affine matrix. */

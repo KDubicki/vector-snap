@@ -149,6 +149,18 @@ jobs:
         run: |
           curl --fail --silent --show-error http://localhost:8080/ > /dev/null
           curl --fail --silent --show-error http://localhost:8080/api/v1/health
+      - name: Check security headers of the page and its scripts
+        run: |
+          script=$(curl --fail --silent http://localhost:8080/ | grep -o '/assets/[^"]*\.js' | head -n 1)
+          for path in / "$script"; do
+            headers=$(curl --fail --silent --head "http://localhost:8080$path")
+            for name in content-security-policy x-content-type-options referrer-policy; do
+              if ! grep -qi "^$name:" <<< "$headers"; then
+                echo "::error::$path is served without $name"
+                exit 1
+              fi
+            done
+          done
       - name: Service logs
         if: failure()
         run: docker compose logs --no-color
