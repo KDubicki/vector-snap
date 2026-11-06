@@ -68,7 +68,7 @@ class VectorizeResult:
 def quantize_image(
     data: bytes,
     *,
-    colors: int,
+    colors: int | Literal["auto"],
     algorithm: Algorithm,
     max_dimension: int,
     locked_colors: list[tuple[int, int, int]] | None = None,
@@ -79,6 +79,7 @@ def quantize_image(
     filaments: list[tuple[int, int, int]] | None = None,
     min_coverage: float = 0.0,
     merge_delta_e: float = 0.0,
+    color_range: tuple[int, int] = (2, 64),
 ) -> tuple[DecodedImage, QuantizationResult, list[MergedColor]]:
     """Decode and quantize an image; `smooth` > 0 then cleans up noisy color regions.
 
@@ -86,19 +87,29 @@ def quantize_image(
     picks the palette from the given filament colors. Colors closer than `merge_delta_e`
     (CIEDE2000) are then merged into one (`merge_similar_colors`), and colors covering
     less than `min_coverage` of the image into their nearest (`merge_small_colors`).
+    `colors="auto"` takes the count `suggest_color_count` gives within `color_range`
+    (at least the locked colors).
     """
     started = time.perf_counter()
     image = decode_image(data, max_dimension, upscale=upscale)
     decode_ms = _step("decode", started)
+    if isinstance(colors, int):
+        count = colors
+    else:
+        started = time.perf_counter()
+        low, high = color_range
+        suggested = suggest_color_count(image, min_colors=low, max_colors=high).colors
+        count = max(suggested, len(locked_colors or []))
+        _step("suggest", started)
     started = time.perf_counter()
     if algorithm == "filaments":
-        result = quantize_filaments(image, filaments or [], colors, locked_colors=locked_colors)
+        result = quantize_filaments(image, filaments or [], count, locked_colors=locked_colors)
     elif algorithm == "median_cut":
-        result = quantize_median_cut(image, colors, locked_colors=locked_colors)
+        result = quantize_median_cut(image, count, locked_colors=locked_colors)
     else:
         result = quantize_kmeans(
             image,
-            colors,
+            count,
             locked_colors=locked_colors,
             max_working_size=max_working_size,
             seed=seed,
@@ -112,7 +123,8 @@ def quantize_image(
         extra={
             "width": image.width,
             "height": image.height,
-            "colors": colors,
+            "colors": count,
+            "auto_colors": colors == "auto",
             "algorithm": algorithm,
             "locked_colors": len(locked_colors or []),
             "smooth": smooth,
@@ -194,14 +206,16 @@ def vectorize_image(
     max_dimension: int,
     options: TracingOptions,
     palette_override: list[tuple[int, int, int]] | None = None,
-    colors: int | None = None,
+    colors: int | Literal["auto"] | None = None,
     algorithm: Algorithm = "kmeans",
     transparent: list[int] | None = None,
     background: list[int] | None = None,
+    color_range: tuple[int, int] = (2, 64),
 ) -> VectorizeResult:
     """Trace an image to SVG.
 
-    With `colors` the image is quantized first (one-shot mode); otherwise it must be an
+    With `colors` the image is quantized first (one-shot mode; `auto` suggests the count
+    within `color_range`); otherwise it must be an
     indexed PNG, e.g. the one returned by `/quantize` (indexed mode). Palette indices in
     `transparent` are left out everywhere; those in `background` only where they reach the
     image border (`clear_border_regions`: a removed background, keeping the same color
@@ -211,7 +225,11 @@ def vectorize_image(
     decode_ms = None  # one-shot mode: quantize_image logs decoding and quantizing
     if colors is not None:
         _, quantized, _ = quantize_image(
-            data, colors=colors, algorithm=algorithm, max_dimension=max_dimension
+            data,
+            colors=colors,
+            algorithm=algorithm,
+            max_dimension=max_dimension,
+            color_range=color_range,
         )
         labels, palette = quantized.labels, quantized.palette
     else:

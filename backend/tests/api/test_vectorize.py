@@ -84,6 +84,19 @@ def test_one_shot_mode_quantizes_first(client: TestClient) -> None:
     assert len(response.json()["palette"]) == 4
 
 
+def test_one_shot_mode_suggests_the_color_count(client: TestClient) -> None:
+    response = _post(client, encode(stripes()), {"colors": "auto"})
+
+    assert response.status_code == 200
+    # Three flat colors: as many as /suggest-colors suggests.
+    assert [color["hex"] for color in response.json()["palette"]] == [
+        "#ff0000",
+        "#00a000",
+        "#0000ff",
+    ]
+    assert "suggest;dur=" in response.headers["server-timing"]
+
+
 def test_returns_raw_svg_when_requested(client: TestClient) -> None:
     response = _post(client, encode(noisy()), {"colors": "4"}, headers={"Accept": "image/svg+xml"})
 
@@ -96,6 +109,8 @@ def test_returns_raw_svg_when_requested(client: TestClient) -> None:
     "form",
     [
         {"colors": "100"},
+        {"colors": "0"},
+        {"colors": "many"},
         {"colors": "4", "palette": "nope"},
         {"colors": "4", "mode": "bezier"},
         {"colors": "4", "algorithm": "filaments"},

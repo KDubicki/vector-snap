@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, File, Form, Request, Response, UploadFile
 from fastapi.concurrency import run_in_threadpool
@@ -26,7 +26,13 @@ async def vectorize(
     settings: Annotated[Settings, Depends(get_settings)],
     image: Annotated[UploadFile, File(description="Indexed PNG from /quantize, or JPEG/PNG")],
     palette: Annotated[str | None, Form(description="JSON array of hex colors")] = None,
-    colors: Annotated[int | None, Form(ge=1)] = None,
+    colors: Annotated[
+        int | Literal["auto"] | None,
+        Form(
+            description="One-shot mode: palette size, or `auto` for the count "
+            "/suggest-colors suggests"
+        ),
+    ] = None,
     algorithm: Annotated[QuantizeAlgorithm, Form()] = QuantizeAlgorithm.KMEANS,
     mode: Annotated[TracingMode, Form()] = TracingMode.SPLINE,
     filter_speckle: Annotated[int, Form(ge=0, le=128)] = 4,
@@ -76,6 +82,7 @@ async def vectorize(
         algorithm="median_cut" if algorithm == QuantizeAlgorithm.MEDIAN_CUT else "kmeans",
         transparent=transparent_indices,
         background=background_indices,
+        color_range=(settings.min_colors, settings.max_colors),
     )
 
     if wants_svg(request):

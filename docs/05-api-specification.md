@@ -219,6 +219,8 @@ Converts an image to SVG. Two input modes are supported:
    `/quantize`. Its label map is used as-is. `palette` optionally overrides colors.
 2. **One-shot mode (microservice convenience).** `image` is any JPEG/PNG/WebP/AVIF and
    `colors` is provided — the backend quantizes internally and then vectorizes.
+   `colors=auto` uses the count [`/suggest-colors`](#post-apiv1suggest-colors) would
+   suggest, so a script gets a good SVG without choosing one.
 
 If `image` is not indexed and `colors` is omitted, the request fails with
 `422 INVALID_PARAMETERS`.
@@ -229,7 +231,7 @@ If `image` is not indexed and `colors` is omitted, the request fails with
 |-------|------|:--------:|---------|-------------|
 | `image` | file | ✅ | — | Indexed PNG (mode 1) or JPEG/PNG/WebP/AVIF (mode 2) |
 | `palette` | JSON string | | — | Array of hex colors, one per palette index, e.g. `["#000000", "#ffcc00"]`. Length MUST equal the palette size. Two entries with the same color are merged into one group. |
-| `colors` | int | mode 2 | — | Palette size for one-shot mode |
+| `colors` | int \| `auto` | mode 2 | — | Palette size for one-shot mode, `min_colors…max_colors`; `auto` = the count `/suggest-colors` suggests (Server-Timing reports it as `suggest`) |
 | `algorithm` | enum | | `kmeans` | One-shot mode only |
 | `mode` | enum | | `spline` | `spline` (smooth curves) \| `polygon` (straight segments) |
 | `filter_speckle` | int | | `4` | Discard regions smaller than this many px (side length) |
@@ -747,6 +749,10 @@ curl -s -F image=@logo.png -F colors=8 http://localhost:8000/api/v1/quantize | j
 curl -s -H 'Accept: image/svg+xml' \
      -F image=@photo.jpg -F colors=6 -F mode=polygon \
      http://localhost:8000/api/v1/vectorize -o out.svg
+
+# One-shot with the suggested color count
+curl -s -H 'Accept: image/svg+xml' -F image=@logo.png -F colors=auto \
+     http://localhost:8000/api/v1/vectorize -o logo.svg
 ```
 
 ## Versioning policy
