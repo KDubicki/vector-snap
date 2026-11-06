@@ -1,10 +1,11 @@
 import { useEffect, useState, type ChangeEvent, type DragEvent } from 'react';
+import { acceptAttribute, formatList, isSupportedImage } from '../lib/imageFormats';
 import { loadSampleImage } from '../lib/sample';
-
-const ACCEPTED_TYPES = ['image/jpeg', 'image/png'];
 
 interface ImageUploadProps {
   maxUploadMb: number;
+  /** Media types the backend reads (`supported_formats` of `/limits`). */
+  formats: string[];
   onSelect: (file: File) => void;
   onReject: (message: string) => void;
 }
@@ -24,14 +25,14 @@ function UploadIcon() {
   );
 }
 
-export function ImageUpload({ maxUploadMb, onSelect, onReject }: ImageUploadProps) {
+export function ImageUpload({ maxUploadMb, formats, onSelect, onReject }: ImageUploadProps) {
   const [dragging, setDragging] = useState(false);
   const [loadingSample, setLoadingSample] = useState(false);
 
   const accept = (file: File | undefined) => {
     if (!file) return;
-    if (ACCEPTED_TYPES.includes(file.type)) onSelect(file);
-    else onReject('Only JPEG and PNG images are supported.');
+    if (isSupportedImage(file, formats)) onSelect(file);
+    else onReject(`Only ${formatList(formats, 'and')} images are supported.`);
   };
 
   useEffect(() => {
@@ -74,18 +75,20 @@ export function ImageUpload({ maxUploadMb, onSelect, onReject }: ImageUploadProp
       onDrop={onDrop}
     >
       <UploadIcon />
-      <strong>{dragging ? 'Release to upload' : 'Drop a JPEG or PNG here'}</strong>
+      <strong>{dragging ? 'Release to upload' : 'Drop an image here'}</strong>
       <span>or paste an image from the clipboard</span>
       <label className="button primary upload__choose">
         Choose image
         <input
           className="visually-hidden"
           type="file"
-          accept={ACCEPTED_TYPES.join(',')}
+          accept={acceptAttribute(formats)}
           onChange={(event: ChangeEvent<HTMLInputElement>) => accept(event.target.files?.[0])}
         />
       </label>
-      <span className="hint">JPEG or PNG, up to {maxUploadMb} MB</span>
+      <span className="hint">
+        {formatList(formats)}, up to {maxUploadMb} MB
+      </span>
       <button
         type="button"
         className="link"

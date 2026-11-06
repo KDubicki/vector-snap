@@ -54,7 +54,7 @@ describe('app store', () => {
   });
 
   it('rejects files over the upload limit without changing step', () => {
-    useAppStore.setState({ limits: { min_colors: 2, max_colors: 64, max_upload_mb: 0 } });
+    useAppStore.setState({ limits: { ...store().limits, max_upload_mb: 0 } });
 
     store().selectFile(file);
 
@@ -69,6 +69,19 @@ describe('app store', () => {
 
     expect(store().limits.max_colors).toBe(4);
     expect(store().colors).toBe(4);
+  });
+
+  it('keeps the defaults of limits an older backend leaves out', async () => {
+    vi.stubGlobal('fetch', respond({ min_colors: 2, max_colors: 4, max_upload_mb: 5 }));
+
+    await store().loadLimits();
+
+    expect(store().limits.supported_formats).toEqual([
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'image/avif',
+    ]);
   });
 
   it('keeps default limits when the request fails', async () => {
@@ -265,7 +278,9 @@ describe('app store', () => {
   });
 
   it('applies the suggested color count, clamped to the limits and locked colors', async () => {
-    useAppStore.setState({ limits: { min_colors: 2, max_colors: 64, max_upload_mb: 10 } });
+    useAppStore.setState({
+      limits: { ...store().limits, min_colors: 2, max_colors: 64, max_upload_mb: 10 },
+    });
     store().selectFile(file);
     const fetchMock = respond({ colors: 70, target_delta_e: 5, errors: [] });
     vi.stubGlobal('fetch', fetchMock);
@@ -287,7 +302,9 @@ describe('app store', () => {
   });
 
   it('reports suggestion errors and clears the suggestion for a new file', async () => {
-    useAppStore.setState({ limits: { min_colors: 2, max_colors: 64, max_upload_mb: 10 } });
+    useAppStore.setState({
+      limits: { ...store().limits, min_colors: 2, max_colors: 64, max_upload_mb: 10 },
+    });
     store().selectFile(file);
     vi.stubGlobal(
       'fetch',

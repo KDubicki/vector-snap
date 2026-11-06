@@ -24,7 +24,7 @@ describe('App', () => {
     vi.stubGlobal('fetch', fetchResponses(LIMITS));
     render(<App />);
 
-    expect(await screen.findByText('JPEG or PNG, up to 5 MB')).toBeInTheDocument();
+    expect(await screen.findByText('JPEG, PNG, WebP or AVIF, up to 5 MB')).toBeInTheDocument();
     expect(screen.getByText('Upload').closest('li')).toHaveAttribute('aria-current', 'step');
     expect(screen.queryByRole('button', { name: /Colors/ })).not.toBeInTheDocument();
   });
@@ -38,7 +38,7 @@ describe('App', () => {
       new File(['gif'], 'a.gif', { type: 'image/gif' }),
       { applyAccept: false },
     );
-    expect(screen.getByRole('alert')).toHaveTextContent('Only JPEG and PNG');
+    expect(screen.getByRole('alert')).toHaveTextContent('Only JPEG, PNG, WebP and AVIF');
   });
 
   it('moves between reachable steps and warns before leaving with unsaved edits', async () => {

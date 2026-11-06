@@ -2,6 +2,7 @@
 import { createEvent, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { DEFAULT_FORMATS } from '../lib/imageFormats';
 import { DEFAULT_TRACING } from '../lib/tracing';
 import type { PaletteColor } from '../types/api';
 import { ColorCountSelector } from './ColorCountSelector';
@@ -19,16 +20,31 @@ describe('ImageUpload', () => {
   const renderUpload = () => {
     const onSelect = vi.fn();
     const onReject = vi.fn();
-    render(<ImageUpload maxUploadMb={10} onSelect={onSelect} onReject={onReject} />);
-    return { onSelect, onReject, zone: screen.getByText('Drop a JPEG or PNG here').parentElement! };
+    render(
+      <ImageUpload
+        maxUploadMb={10}
+        formats={DEFAULT_FORMATS}
+        onSelect={onSelect}
+        onReject={onReject}
+      />,
+    );
+    return { onSelect, onReject, zone: screen.getByText('Drop an image here').parentElement! };
   };
 
-  it('accepts JPEG and PNG files from the file picker', async () => {
+  it('accepts the formats the backend reads from the file picker', async () => {
     const { onSelect } = renderUpload();
+    const input = screen.getByLabelText('Choose image');
 
-    await userEvent.upload(screen.getByLabelText('Choose image'), png);
+    await userEvent.upload(input, png);
     expect(onSelect).toHaveBeenCalledWith(png);
-    expect(screen.getByText('JPEG or PNG, up to 10 MB')).toBeInTheDocument();
+    const webp = new File(['webp'], 'photo.webp', { type: 'image/webp' });
+    const avif = new File(['avif'], 'photo.avif', { type: 'image/avif' });
+    await userEvent.upload(input, webp);
+    await userEvent.upload(input, avif);
+    expect(onSelect).toHaveBeenCalledWith(webp);
+    expect(onSelect).toHaveBeenCalledWith(avif);
+    expect(screen.getByText('JPEG, PNG, WebP or AVIF, up to 10 MB')).toBeInTheDocument();
+    expect(input).toHaveAttribute('accept', expect.stringContaining('image/avif'));
   });
 
   it('rejects other file types', () => {
@@ -36,7 +52,7 @@ describe('ImageUpload', () => {
 
     fireEvent.change(screen.getByLabelText('Choose image'), { target: { files: [gif] } });
     expect(onSelect).not.toHaveBeenCalled();
-    expect(onReject).toHaveBeenCalledWith('Only JPEG and PNG images are supported.');
+    expect(onReject).toHaveBeenCalledWith('Only JPEG, PNG, WebP and AVIF images are supported.');
   });
 
   it('shows a drop target while dragging and takes the dropped file', () => {
@@ -45,7 +61,7 @@ describe('ImageUpload', () => {
     fireEvent.dragOver(zone);
     expect(screen.getByText('Release to upload')).toBeInTheDocument();
     fireEvent.dragLeave(zone, { relatedTarget: document.body });
-    expect(screen.getByText('Drop a JPEG or PNG here')).toBeInTheDocument();
+    expect(screen.getByText('Drop an image here')).toBeInTheDocument();
 
     fireEvent.drop(zone, { dataTransfer: { files: [png] } });
     expect(onSelect).toHaveBeenCalledWith(png);

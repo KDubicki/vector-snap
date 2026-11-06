@@ -8,7 +8,7 @@ Priority: **M** = must have (MVP), **S** = should have, **C** = could have.
 
 | ID | Requirement | Priority |
 |----|-------------|----------|
-| FR-01 | The user MUST be able to upload a JPEG or PNG image via file picker. | M |
+| FR-01 | The user MUST be able to upload a JPEG or PNG image via file picker (WebP and AVIF are accepted too). | M |
 | FR-02 | The user SHOULD be able to upload an image via drag & drop and clipboard paste. | S |
 | FR-03 | The system MUST validate file type by content (magic bytes), not only by extension. | M |
 | FR-04 | The system MUST reject files larger than the configured limit (default 10 MB) and images larger than the configured dimension (default 4096 px on the longer side). | M |

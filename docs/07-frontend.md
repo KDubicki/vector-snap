@@ -44,11 +44,15 @@ Status legend: ✅ implemented · 🔜 planned (see [Roadmap](11-roadmap.md)).
 
 ### Step 1 — Upload ✅
 
-- Drop zone, file picker and paste from clipboard; only JPEG/PNG are accepted (the
-  backend also reads WebP and AVIF; see `supported_formats` of `/limits`). The zone
-  highlights while a file is dragged over it ("Release to upload"); the file input is
-  visually hidden inside a styled "Choose image" button and stays keyboard reachable.
-- Accepted formats and the upload limit (`max_upload_mb`) are shown under the button.
+- Drop zone, file picker and paste from clipboard; the formats the backend reads are
+  accepted — `supported_formats` of `/limits`: JPEG, PNG, WebP and AVIF, which phones
+  and browsers save today (`src/lib/imageFormats.ts`; until `/limits` answers, this
+  version's four). A file is judged by its media type, or by its extension when the
+  system gives none (an AVIF on an older macOS); the picker's `accept` lists both. The
+  zone highlights while a file is dragged over it ("Release to upload"); the file input
+  is visually hidden inside a styled "Choose image" button and stays keyboard reachable.
+- Accepted formats and the upload limit (`max_upload_mb`) are shown under the button
+  (*JPEG, PNG, WebP or AVIF, up to 10 MB*), and the header names them too.
 - **Try a sample**: loads the bundled `public/sample.png` (a flat-color logo with
   anti-aliased edges, `src/lib/sample.ts`) as if it had been chosen, so the whole
   workflow can be tried without a file.

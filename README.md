@@ -1,6 +1,6 @@
 # VectorSnap
 
-VectorSnap converts raster images (JPEG / PNG; the API also reads WebP and AVIF) into
+VectorSnap converts raster images (JPEG, PNG, WebP and AVIF) into
 scalable vector graphics (SVG).
 Before vectorization the image can be reduced to a chosen number of colors, and the
 resulting palette can be edited. Once the SVG is generated, individual vector shapes
@@ -17,7 +17,7 @@ Both services are containerized and orchestrated with Docker Compose.
 
 ## Features
 
-- Upload JPEG / PNG images
+- Upload JPEG, PNG, WebP and AVIF images
 - Reduce the image to a selected number of colors (color quantization)
 - Preview and edit the generated palette before vectorization
 - Convert the (quantized) image to SVG

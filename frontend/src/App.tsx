@@ -8,6 +8,7 @@ import { ResultStep } from './components/ResultStep';
 import { ThemeToggle } from './components/ThemeToggle';
 import { useConfirm } from './components/useConfirm';
 import { useDiscardGuard } from './components/useDiscardGuard';
+import { formatList } from './lib/imageFormats';
 import { useAutosave } from './lib/useAutosave';
 import { hasUnsavedEdits } from './state/editorSlice';
 import { STEPS, reachableSteps, useAppStore, type Step } from './state/store';
@@ -38,6 +39,7 @@ export function App() {
   const step = useAppStore((s) => s.step);
   const error = useAppStore((s) => s.error);
   const maxUploadMb = useAppStore((s) => s.limits.max_upload_mb);
+  const formats = useAppStore((s) => s.limits.supported_formats);
   const reachable = useAppStore(useShallow(reachableSteps));
   const unsaved = useAppStore(hasUnsavedEdits);
   const { loadLimits, selectFile, goTo } = useAppStore.getState();
@@ -68,7 +70,7 @@ export function App() {
       <header className="app__header">
         <div>
           <h1>VectorSnap</h1>
-          <p>Convert JPEG / PNG images to SVG with full control over colors.</p>
+          <p>Convert {formatList(formats, 'and')} images to SVG with full control over colors.</p>
         </div>
         <div className="app__header-end">
           <nav aria-label="Steps">
@@ -114,6 +116,7 @@ export function App() {
       {step === 'upload' && (
         <ImageUpload
           maxUploadMb={maxUploadMb}
+          formats={formats}
           onSelect={(file) => void guard(() => selectFile(file), 'A new image replaces the SVG.')}
           onReject={(message) => useAppStore.setState({ error: message })}
         />

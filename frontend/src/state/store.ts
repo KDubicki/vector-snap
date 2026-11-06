@@ -8,6 +8,7 @@ import {
   saveFilamentLibrary,
   type FilamentLibrary,
 } from '../lib/filamentLibrary';
+import { DEFAULT_FORMATS } from '../lib/imageFormats';
 import { browserStorage } from '../lib/theme';
 import { DEFAULT_TRACING } from '../lib/tracing';
 import type {
@@ -59,7 +60,7 @@ export function reachableSteps(state: Pick<AppState, 'file' | 'vectorized' | 'ed
 /** Conversion workflow: upload, colors and palette, tracing (docs/07-frontend.md). */
 export interface WorkflowSlice {
   step: Step;
-  limits: Pick<Limits, 'min_colors' | 'max_colors' | 'max_upload_mb'>;
+  limits: Pick<Limits, 'min_colors' | 'max_colors' | 'max_upload_mb' | 'supported_formats'>;
   file: File | null;
   colors: number;
   algorithm: QuantizeAlgorithm;
@@ -120,7 +121,7 @@ export type AppState = WorkflowSlice & PaletteSlice & PrintSlice & EditorSlice &
 
 const initialState = {
   step: 'upload' as Step,
-  limits: { min_colors: 2, max_colors: 64, max_upload_mb: 10 },
+  limits: { min_colors: 2, max_colors: 64, max_upload_mb: 10, supported_formats: DEFAULT_FORMATS },
   file: null,
   colors: DEFAULT_COLORS,
   algorithm: 'kmeans' as QuantizeAlgorithm,
@@ -169,7 +170,8 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
     try {
       const limits = await getLimits();
       set((state) => ({
-        limits,
+        // A field an older backend leaves out keeps its default.
+        limits: { ...initialState.limits, ...limits },
         colors: Math.min(Math.max(state.colors, limits.min_colors), limits.max_colors),
       }));
     } catch {
