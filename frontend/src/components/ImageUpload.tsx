@@ -6,6 +6,8 @@ interface ImageUploadProps {
   maxUploadMb: number;
   /** Media types the backend reads (`supported_formats` of `/limits`). */
   formats: string[];
+  /** A chosen image is being read (or scaled down). */
+  busy?: boolean;
   onSelect: (file: File) => void;
   onReject: (message: string) => void;
 }
@@ -25,7 +27,13 @@ function UploadIcon() {
   );
 }
 
-export function ImageUpload({ maxUploadMb, formats, onSelect, onReject }: ImageUploadProps) {
+export function ImageUpload({
+  maxUploadMb,
+  formats,
+  busy = false,
+  onSelect,
+  onReject,
+}: ImageUploadProps) {
   const [dragging, setDragging] = useState(false);
   const [loadingSample, setLoadingSample] = useState(false);
 
@@ -64,6 +72,7 @@ export function ImageUpload({ maxUploadMb, formats, onSelect, onReject }: ImageU
   return (
     <div
       className={`upload${dragging ? ' upload--dragging' : ''}`}
+      aria-busy={busy}
       onDragOver={(event) => {
         event.preventDefault();
         setDragging(true);
@@ -86,8 +95,8 @@ export function ImageUpload({ maxUploadMb, formats, onSelect, onReject }: ImageU
           onChange={(event: ChangeEvent<HTMLInputElement>) => accept(event.target.files?.[0])}
         />
       </label>
-      <span className="hint">
-        {formatList(formats)}, up to {maxUploadMb} MB
+      <span className="hint" role="status">
+        {busy ? 'Reading the image…' : `${formatList(formats)}, up to ${maxUploadMb} MB`}
       </span>
       <button
         type="button"

@@ -62,6 +62,60 @@ describe('app store', () => {
     expect(store().error).toMatch('larger than 0 MB');
   });
 
+  it('scales an image over the limits down and says so', async () => {
+    useAppStore.setState({
+      limits: { ...store().limits, max_upload_mb: 10, max_image_dimension: 4096 },
+    });
+    const close = vi.fn();
+    vi.stubGlobal(
+      'createImageBitmap',
+      vi.fn().mockResolvedValue({ width: 8000, height: 4000, close }),
+    );
+    const getContext = vi
+      .spyOn(HTMLCanvasElement.prototype, 'getContext')
+      .mockReturnValue({ drawImage: vi.fn() } as never);
+    const toBlob = vi
+      .spyOn(HTMLCanvasElement.prototype, 'toBlob')
+      .mockImplementation((callback) => callback(new Blob(['small'], { type: 'image/png' })));
+    try {
+      await store().chooseImage(new File(['big'], 'poster.png', { type: 'image/png' }));
+    } finally {
+      getContext.mockRestore();
+      toBlob.mockRestore();
+    }
+
+    expect(store().step).toBe('palette');
+    expect(store().file).toMatchObject({ name: 'poster.png', size: 5 });
+    expect(store().preparingImage).toBe(false);
+    expect(store().notice).toBe(
+      'poster.png was scaled down from 8000 × 4000 to 4096 × 2048 px to fit the size limits ' +
+        'of the server.',
+    );
+    store().selectFile(file);
+    expect(store().notice).toBeNull();
+  });
+
+  it('takes the image chosen last when an earlier one is still being read', async () => {
+    useAppStore.setState({ limits: { ...store().limits, max_upload_mb: 10 } });
+    let finishFirst: (bitmap: unknown) => void = () => undefined;
+    vi.stubGlobal(
+      'createImageBitmap',
+      vi
+        .fn()
+        .mockReturnValueOnce(new Promise((resolve) => (finishFirst = resolve)))
+        .mockResolvedValueOnce({ width: 10, height: 10, close: vi.fn() }),
+    );
+    const first = new File(['1'], 'first.png', { type: 'image/png' });
+    const second = new File(['2'], 'second.png', { type: 'image/png' });
+
+    const choosingFirst = store().chooseImage(first);
+    await store().chooseImage(second);
+    finishFirst({ width: 10, height: 10, close: vi.fn() });
+    await choosingFirst;
+
+    expect(store().file).toBe(second);
+  });
+
   it('loads limits and clamps the color count', async () => {
     vi.stubGlobal('fetch', respond({ min_colors: 2, max_colors: 4, max_upload_mb: 5 }));
 

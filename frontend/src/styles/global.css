@@ -205,6 +205,15 @@ select {
   color: var(--color-error-text);
 }
 
+.notice {
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-muted);
+}
+
 .upload {
   display: flex;
   flex-direction: column;

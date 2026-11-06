@@ -38,11 +38,13 @@ function CheckIcon() {
 export function App() {
   const step = useAppStore((s) => s.step);
   const error = useAppStore((s) => s.error);
+  const notice = useAppStore((s) => s.notice);
+  const preparingImage = useAppStore((s) => s.preparingImage);
   const maxUploadMb = useAppStore((s) => s.limits.max_upload_mb);
   const formats = useAppStore((s) => s.limits.supported_formats);
   const reachable = useAppStore(useShallow(reachableSteps));
   const unsaved = useAppStore(hasUnsavedEdits);
-  const { loadLimits, selectFile, goTo } = useAppStore.getState();
+  const { loadLimits, chooseImage, goTo } = useAppStore.getState();
   const { confirm, dialog } = useConfirm();
   const guard = useDiscardGuard(confirm);
   useAutosave();
@@ -111,13 +113,21 @@ export function App() {
           {error}
         </div>
       )}
+      {notice && (
+        <div className="notice" role="status">
+          {notice}
+        </div>
+      )}
 
       {step === 'upload' && <ContinueSession />}
       {step === 'upload' && (
         <ImageUpload
           maxUploadMb={maxUploadMb}
           formats={formats}
-          onSelect={(file) => void guard(() => selectFile(file), 'A new image replaces the SVG.')}
+          busy={preparingImage}
+          onSelect={(file) =>
+            void guard(() => void chooseImage(file), 'A new image replaces the SVG.')
+          }
           onReject={(message) => useAppStore.setState({ error: message })}
         />
       )}

@@ -8,6 +8,7 @@ import {
   saveFilamentLibrary,
   type FilamentLibrary,
 } from '../lib/filamentLibrary';
+import { fitImage, type Resize } from '../lib/fitImage';
 import { DEFAULT_FORMATS } from '../lib/imageFormats';
 import { browserStorage } from '../lib/theme';
 import { DEFAULT_TRACING } from '../lib/tracing';
@@ -60,7 +61,10 @@ export function reachableSteps(state: Pick<AppState, 'file' | 'vectorized' | 'ed
 /** Conversion workflow: upload, colors and palette, tracing (docs/07-frontend.md). */
 export interface WorkflowSlice {
   step: Step;
-  limits: Pick<Limits, 'min_colors' | 'max_colors' | 'max_upload_mb' | 'supported_formats'>;
+  limits: Pick<
+    Limits,
+    'min_colors' | 'max_colors' | 'max_upload_mb' | 'max_image_dimension' | 'supported_formats'
+  >;
   file: File | null;
   colors: number;
   algorithm: QuantizeAlgorithm;
@@ -95,8 +99,14 @@ export interface WorkflowSlice {
   vectorized: VectorizeResponse | null;
   status: Status;
   error: string | null;
+  /** Something the user should know that is not an error (an image scaled down). */
+  notice: string | null;
+  /** A chosen image is being read (and scaled down if the backend would refuse it). */
+  preparingImage: boolean;
 
   loadLimits: () => Promise<void>;
+  /** Take a chosen image: scaled down first when it is over the limits (`fitImage`). */
+  chooseImage: (file: File) => Promise<void>;
   selectFile: (file: File) => void;
   setColors: (colors: number) => void;
   setAlgorithm: (algorithm: QuantizeAlgorithm) => void;
@@ -121,7 +131,13 @@ export type AppState = WorkflowSlice & PaletteSlice & PrintSlice & EditorSlice &
 
 const initialState = {
   step: 'upload' as Step,
-  limits: { min_colors: 2, max_colors: 64, max_upload_mb: 10, supported_formats: DEFAULT_FORMATS },
+  limits: {
+    min_colors: 2,
+    max_colors: 64,
+    max_upload_mb: 10,
+    max_image_dimension: 4096,
+    supported_formats: DEFAULT_FORMATS,
+  },
   file: null,
   colors: DEFAULT_COLORS,
   algorithm: 'kmeans' as QuantizeAlgorithm,
@@ -140,6 +156,8 @@ const initialState = {
   ...initialEditorState,
   status: 'idle' as Status,
   error: null,
+  notice: null,
+  preparingImage: false,
 };
 
 function isAbort(error: unknown): boolean {
@@ -150,6 +168,16 @@ let pending: AbortController | null = null;
 // Separate from `pending`: a suggestion must not abort quantization (or vice versa), since
 // an unchanged color count would never re-trigger the aborted quantization.
 let pendingSuggestion: AbortController | null = null;
+
+// The latest chosen image: one chosen while another is still being read wins.
+let choosing = 0;
+
+function resizeNotice(name: string, { width, height, toWidth, toHeight }: Resize): string {
+  return (
+    `${name} was scaled down from ${width} × ${height} to ${toWidth} × ${toHeight} px ` +
+    'to fit the size limits of the server.'
+  );
+}
 
 /** Abort the in-flight request (if any) and return a signal for the next one. */
 function nextSignal(): AbortSignal {
@@ -179,6 +207,22 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
     }
   },
 
+  chooseImage: async (file) => {
+    const token = (choosing += 1);
+    const { max_upload_mb, max_image_dimension } = get().limits;
+    set({ preparingImage: true });
+    const fitted = await fitImage(file, {
+      maxDimension: max_image_dimension,
+      maxBytes: max_upload_mb * 1024 * 1024,
+    });
+    if (token !== choosing) return;
+    set({ preparingImage: false });
+    get().selectFile(fitted.file);
+    if (fitted.resized && get().file === fitted.file) {
+      set({ notice: resizeNotice(file.name, fitted.resized) });
+    }
+  },
+
   selectFile: (file) => {
     const { max_upload_mb } = get().limits;
     if (file.size > max_upload_mb * 1024 * 1024) {
@@ -198,6 +242,7 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
       background: null,
       vectorized: null,
       error: null,
+      notice: null,
     });
   },
 

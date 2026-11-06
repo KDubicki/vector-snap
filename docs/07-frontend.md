@@ -56,8 +56,23 @@ Status legend: ✅ implemented · 🔜 planned (see [Roadmap](11-roadmap.md)).
 - **Try a sample**: loads the bundled `public/sample.png` (a flat-color logo with
   anti-aliased edges, `src/lib/sample.ts`) as if it had been chosen, so the whole
   workflow can be tried without a file.
-- File size is checked against `GET /api/v1/limits` (loaded on startup, defaults used if
-  unavailable); the backend remains authoritative — its error message is shown inline.
+- **Images over the limits are scaled down in the browser** (`fitImage`,
+  `src/lib/fitImage.ts`) instead of refused: a phone photo is often larger than
+  `max_image_dimension` (a 48 MP photo is 8064 × 6048 px) or `max_upload_mb`, and a
+  design needs far fewer pixels. The chosen file is decoded (`createImageBitmap`, which
+  applies the EXIF orientation and converts colors to sRGB, as the backend would); when
+  its longer side or its size is over the limits it is drawn onto a canvas with the
+  longer side at `max_image_dimension`, then 25 % smaller per try (up to 6) while the
+  file is still over `max_upload_mb`. A JPEG stays a JPEG (quality 0.92); other formats
+  become PNG, which keeps transparency and flat colors exact. A notice says what
+  happened (*photo.jpg was scaled down from 6000 × 4000 to 4096 × 2731 px to fit the size
+  limits of the server*); "Reading the image…" shows meanwhile, and of two images chosen
+  quickly the last one wins. A 21 MB 6000 × 4000 px JPEG goes up as a 4.7 MB 4096 ×
+  2731 px one. An image the browser cannot decode or draw (out of memory), or that never
+  fits, goes up as chosen.
+- File size is then checked against `GET /api/v1/limits` (loaded on startup, defaults
+  used if unavailable); the backend remains authoritative — its error message is shown
+  inline.
 
 #### Autosave
 
