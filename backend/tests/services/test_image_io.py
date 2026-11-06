@@ -258,3 +258,27 @@ def test_an_animated_webp_is_read_as_its_first_frame() -> None:
 def test_the_webp_size_limit_holds() -> None:
     with pytest.raises(ImageTooLarge):
         decode_image(encode(Image.new("RGB", (100, 10)), "WEBP"), max_dimension=64)
+
+
+def _gray16(transparency: int | None = None) -> bytes:
+    """A 16-bit grayscale PNG: black, mid gray (0x8000) and white, left to right."""
+    values = np.array([[0, 0x8000, 0xFFFF]] * 2, dtype=np.uint16)
+    image = Image.fromarray(values)
+    if transparency is None:
+        return encode(image)
+    return encode(image, "PNG", transparency=transparency)
+
+
+def test_decodes_16_bit_grayscale_pngs() -> None:
+    decoded = decode_image(_gray16(), max_dimension=64)
+
+    # Scaled to 8 bits, not clipped at 255 (which made every pixel but black white).
+    assert [tuple(pixel) for pixel in decoded.rgb[0]] == [(0, 0, 0), (128, 128, 128), (255,) * 3]
+    assert decoded.alpha_mask.all()
+
+
+def test_a_16_bit_grayscale_png_keeps_its_transparent_gray() -> None:
+    decoded = decode_image(_gray16(transparency=0xFFFF), max_dimension=64)
+
+    assert decoded.alpha_mask[0].tolist() == [True, True, False]
+    assert tuple(decoded.rgb[0, 1]) == (128, 128, 128)

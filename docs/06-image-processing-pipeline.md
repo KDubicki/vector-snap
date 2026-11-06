@@ -15,7 +15,7 @@ flowchart LR
 ## 1. Decode & validate (`services/image_io.py`)
 
 1. Enforce byte limit while reading the upload stream.
-2. Open with Pillow; reject if `format not in {"JPEG", "PNG"}` → `415`.
+2. Open with Pillow; reject if `format not in {"JPEG", "PNG", "WEBP", "AVIF"}` → `415`.
 3. Check `width`, `height` ≤ `MAX_IMAGE_DIMENSION` → otherwise `422 IMAGE_TOO_LARGE`.
 4. `Image.MAX_IMAGE_PIXELS` is set globally as a decompression-bomb guard.
 5. Call `img.load()` inside `try` to surface truncated/corrupt files as `422 INVALID_IMAGE`.
@@ -23,6 +23,10 @@ flowchart LR
 ## 2. Normalize
 
 - Apply `ImageOps.exif_transpose` (JPEG orientation).
+- **16-bit grayscale PNGs** (scans, height maps; Pillow mode `I;16`) are scaled to 8
+  bits by their high byte, with a `tRNS` transparent gray kept as alpha. Pillow's
+  `convert` would clip them at 255 instead, turning everything but black white. 16-bit
+  color and gray-with-alpha PNGs are read as 8 bits by Pillow itself, the same way.
 - Convert to `RGBA`.
 - Optional **upscaling** (`upscale=true` on `/quantize`): an image whose longer side is
   below 1024 px is enlarged with Lanczos by a whole factor `min(4, ⌈1024 / longest⌉)`

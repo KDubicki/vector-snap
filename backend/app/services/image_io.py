@@ -33,6 +33,9 @@ MAX_UPSCALE = 4
 # Label used for transparent pixels in label maps (palettes are limited to 255 entries).
 TRANSPARENT_LABEL = 255
 
+# Modes Pillow opens a 16-bit grayscale PNG in (a scan, a height map, a medical image).
+SIXTEEN_BIT_GRAY_MODES = {"I", "I;16", "I;16B", "I;16L", "I;16N"}
+
 
 @dataclass(frozen=True)
 class DecodedImage:
@@ -87,6 +90,24 @@ def _open(data: bytes, max_dimension: int) -> Image.Image:
     return image
 
 
+def _eight_bit(image: Image.Image) -> Image.Image:
+    """A 16-bit grayscale image as 8-bit grayscale, its transparent gray kept as alpha.
+
+    `convert("RGBA")` clips 16-bit values at 255 instead of scaling them, which turns
+    every pixel but the darkest white. Pillow reads 16-bit color and gray-with-alpha PNGs
+    as 8 bits already, the same way: the high byte.
+    """
+    if image.mode not in SIXTEEN_BIT_GRAY_MODES:
+        return image
+    values = np.asarray(image).astype(np.uint32)
+    gray = Image.fromarray((np.clip(values, 0, 0xFFFF) >> 8).astype(np.uint8), mode="L")
+    transparent = image.info.get("transparency")
+    if not isinstance(transparent, int):
+        return gray
+    alpha = np.where(values == transparent, 0, 255).astype(np.uint8)
+    return Image.merge("LA", (gray, Image.fromarray(alpha, mode="L")))
+
+
 def upscale_factor(width: int, height: int, max_dimension: int) -> int:
     """Whole factor that brings the longer side to at least UPSCALE_TARGET (1 = keep)."""
     longest = max(width, height)
@@ -103,7 +124,7 @@ def decode_image(data: bytes, max_dimension: int, *, upscale: bool = False) -> D
     """
     image = _open(data, max_dimension)
     is_indexed = image.mode == "P"
-    rgba = ImageOps.exif_transpose(image).convert("RGBA")
+    rgba = _eight_bit(ImageOps.exif_transpose(image)).convert("RGBA")
     factor = upscale_factor(rgba.width, rgba.height, max_dimension) if upscale else 1
     if factor > 1:
         size = (rgba.width * factor, rgba.height * factor)
