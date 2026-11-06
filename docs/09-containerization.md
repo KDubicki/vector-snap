@@ -39,12 +39,20 @@ the "microservice" deployment mode.
 
 ## Frontend image (`frontend/Dockerfile`)
 
-1. **build** — `npm ci && npm run build` producing `dist/`.
+1. **build** — `npm ci && npm run build` producing `dist/`, plus a `.gz` copy of
+   every text file over 1 KB (`gzip -9 -k`).
 2. **runtime** — `nginx:alpine` serving `dist/` with `frontend/nginx.conf`:
    - SPA fallback (`try_files $uri /index.html`).
    - `location /api/` → `proxy_pass http://backend:8000` with
      `client_max_body_size` matching the backend upload limit.
    - Long-term caching for hashed assets, `no-cache` for `index.html`.
+   - **Compression**: `gzip_static` sends the build's `.gz` copies to browsers that
+     accept gzip (`Vary: Accept-Encoding`), compressed once at level 9 instead of on
+     every request; `gzip on` covers other text. The first visit downloads the main
+     script as about 250 KB instead of 770 KB and the 3D preview's (three.js) as
+     about 150 KB instead of 595 KB. Proxied API answers are left to the backend,
+     which compresses large ones itself (`gzip_proxied` stays off). The stack smoke
+     test in CI checks that the main script comes compressed.
    - Security headers on the page and every file (`X-Content-Type-Options`,
      `Referrer-Policy` and a `Content-Security-Policy`: only the app's own scripts,
      styles and API calls, images also from `data:` and `blob:` URLs, no framing).
