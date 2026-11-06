@@ -29,17 +29,48 @@ export class ApiError extends Error {
   }
 }
 
-/** Message to show for a failed request (`ApiError` carries the backend's message). */
+/** No answer came at all: offline, or the server is down or refused the connection. */
+export const UNREACHABLE_MESSAGE =
+  'Cannot reach the VectorSnap server. Check your connection and try again.';
+
+/** Whether no answer came from the backend itself (no network, or a proxy's 502–504). */
+export function isUnreachable(error: unknown): boolean {
+  return (
+    error instanceof ApiError &&
+    (error.code === 'NETWORK_ERROR' || error.code === 'SERVER_UNAVAILABLE')
+  );
+}
+
+/**
+ * Message to show for a failed request (`ApiError` carries the backend's message). An
+ * unexpected server error (500) adds its request id, which its message asks to quote
+ * and which finds it in the backend's log.
+ */
 export function errorMessage(error: unknown, fallback = 'Unexpected error'): string {
+  if (error instanceof ApiError && error.status === 500 && error.requestId) {
+    return `${error.message} Request id: ${error.requestId}`;
+  }
   return error instanceof Error ? error.message : fallback;
+}
+
+// A proxy in front of the backend (nginx, Vite) answers these itself, without the error
+// envelope, when the backend is down, restarting or too slow.
+const GATEWAY_STATUSES = [502, 503, 504];
+
+function statusMessage(response: Response): string {
+  const status = `${response.status}${response.statusText ? ` ${response.statusText}` : ''}`;
+  return GATEWAY_STATUSES.includes(response.status)
+    ? `The VectorSnap server is not responding (${status}). Try again in a moment.`
+    : `The request failed (${status}).`;
 }
 
 async function toApiError(response: Response): Promise<ApiError> {
   const body = (await response.json().catch(() => null)) as ApiErrorBody | null;
+  const gateway = !body?.error && GATEWAY_STATUSES.includes(response.status);
   return new ApiError(
     response.status,
-    body?.error.code ?? 'UNKNOWN_ERROR',
-    body?.error.message ?? response.statusText,
+    body?.error.code ?? (gateway ? 'SERVER_UNAVAILABLE' : 'UNKNOWN_ERROR'),
+    body?.error.message ?? statusMessage(response),
     body?.request_id ?? response.headers.get('X-Request-ID'),
   );
 }
@@ -93,7 +124,15 @@ async function isServerBusy(response: Response): Promise<boolean> {
  */
 async function send(url: string, init?: RequestInit): Promise<Response> {
   for (let retry = 0; ; retry += 1) {
-    const response = await fetch(url, init);
+    let response: Response;
+    try {
+      response = await fetch(url, init);
+    } catch (error) {
+      // fetch rejects (a TypeError: "Failed to fetch", "Load failed") when no answer came
+      // at all; its message says nothing to people. An abort stays an abort.
+      if ((error as { name?: unknown } | null)?.name === 'AbortError') throw error;
+      throw new ApiError(0, 'NETWORK_ERROR', UNREACHABLE_MESSAGE, null);
+    }
     if (retry === BUSY_RETRIES || !(await isServerBusy(response))) return response;
     await wait(retryAfterSeconds(response.headers.get('Retry-After')), init?.signal);
   }

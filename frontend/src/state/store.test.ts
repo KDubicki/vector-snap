@@ -139,11 +139,23 @@ describe('app store', () => {
   });
 
   it('keeps default limits when the request fails', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
+    vi.stubGlobal('fetch', respond({ error: { code: 'X', message: 'Odd', details: {} } }, 500));
 
     await store().loadLimits();
 
     expect(store().colors).toBe(DEFAULT_COLORS);
+    expect(store().error).toBeNull();
+  });
+
+  it('says at once when the server cannot be reached', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
+
+    await store().loadLimits();
+
+    expect(store().colors).toBe(DEFAULT_COLORS);
+    expect(store().error).toBe(
+      'Cannot reach the VectorSnap server. Check your connection and try again.',
+    );
   });
 
   it('quantizes the selected file and resets overrides', async () => {
@@ -470,11 +482,13 @@ describe('app store', () => {
 
   it('reports vectorization errors and stays on the palette step', async () => {
     useAppStore.setState({ quantized, step: 'palette' });
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Network down')));
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
 
     await store().runVectorize();
 
-    expect(store().error).toBe('Network down');
+    expect(store().error).toBe(
+      'Cannot reach the VectorSnap server. Check your connection and try again.',
+    );
     expect(store().step).toBe('palette');
   });
 

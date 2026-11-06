@@ -612,6 +612,18 @@ interface FragmentsSlice {
 
 - Thin typed wrapper over `fetch`; base URL from `VITE_API_BASE_URL` (default `/api`).
 - Converts the error envelope into a typed `ApiError` (`code`, `message`, `requestId`).
+- **Unreachable server**: when no answer comes at all (offline, the server down or
+  refusing connections) `fetch` rejects with a `TypeError` whose message ("Failed to
+  fetch", "Load failed") says nothing to people; it becomes `NETWORK_ERROR` with *Cannot
+  reach the VectorSnap server. Check your connection and try again.* A proxy's own 502,
+  503 or 504 without the error envelope (nginx or Vite while the backend is down,
+  restarting or too slow) becomes `SERVER_UNAVAILABLE`: *The VectorSnap server is not
+  responding (502 Bad Gateway). Try again in a moment.*; other answers without the
+  envelope name their status. Either is shown on startup too, when `/limits` fails that
+  way, before an image is chosen. Aborts stay aborts.
+- `errorMessage` adds the request id to an unexpected server error (500):
+  *The server failed to process the request. Quote the request id when reporting it.
+  Request id: 3f2a…* — the id the backend logs it under.
 - All calls accept an `AbortSignal`.
 - **Busy server**: an answer `503 SERVER_BUSY` (every processing slot taken and the
   backend's queue timed out, see [05](05-api-specification.md#overview)) is sent again

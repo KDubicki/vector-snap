@@ -7,8 +7,10 @@ import {
   exportLithophane,
   getFilamentPlan,
   getLimits,
+  isUnreachable,
   quantize,
   retryAfterSeconds,
+  UNREACHABLE_MESSAGE,
   suggestColors,
   vectorize,
 } from './client';
@@ -198,9 +200,9 @@ describe('api client', () => {
     expect(error).toMatchObject({ status: 413, code: 'FILE_TOO_LARGE', requestId: 'req-1' });
   });
 
-  it('falls back to HTTP status when the error body is not JSON', async () => {
+  it('says the server is not responding when a proxy answers for it', async () => {
     mockFetch(
-      new Response('Bad Gateway', {
+      new Response('<html>Bad Gateway</html>', {
         status: 502,
         statusText: 'Bad Gateway',
         headers: { 'X-Request-ID': 'req-2' },
@@ -211,10 +213,36 @@ describe('api client', () => {
 
     expect(error).toMatchObject({
       status: 502,
-      code: 'UNKNOWN_ERROR',
-      message: 'Bad Gateway',
+      code: 'SERVER_UNAVAILABLE',
+      message: 'The VectorSnap server is not responding (502 Bad Gateway). Try again in a moment.',
       requestId: 'req-2',
     });
+    expect(isUnreachable(error)).toBe(true);
+  });
+
+  it('falls back to the HTTP status for other answers without the envelope', async () => {
+    mockFetch(new Response('nope', { status: 404, statusText: 'Not Found' }));
+
+    await expect(getLimits()).rejects.toMatchObject({
+      code: 'UNKNOWN_ERROR',
+      message: 'The request failed (404 Not Found).',
+    });
+  });
+
+  it('says the server cannot be reached when no answer comes', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
+
+    const error = await quantize(new Blob(['img']), { colors: 4 }).catch((e: unknown) => e);
+
+    expect(error).toMatchObject({ status: 0, code: 'NETWORK_ERROR', message: UNREACHABLE_MESSAGE });
+    expect(isUnreachable(error)).toBe(true);
+  });
+
+  it('lets an aborted request stay an abort', async () => {
+    const abort = new DOMException('The operation was aborted.', 'AbortError');
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(abort));
+
+    await expect(getLimits()).rejects.toBe(abort);
   });
 
   it('requests the filament plan with the 3d export options', async () => {
@@ -302,7 +330,11 @@ describe('api client', () => {
   });
 
   it('turns errors into messages with a fallback', () => {
-    expect(errorMessage(new ApiError(422, 'INVALID_SVG', 'Bad SVG', null))).toBe('Bad SVG');
+    expect(errorMessage(new ApiError(422, 'INVALID_SVG', 'Bad SVG', 'req-3'))).toBe('Bad SVG');
+    // An unexpected server error names its request id, to quote when reporting it.
+    expect(errorMessage(new ApiError(500, 'INTERNAL_ERROR', 'The server failed.', 'req-4'))).toBe(
+      'The server failed. Request id: req-4',
+    );
     expect(errorMessage(new Error('offline'), 'Export failed')).toBe('offline');
     expect(errorMessage('boom', 'Export failed')).toBe('Export failed');
     expect(errorMessage(undefined)).toBe('Unexpected error');

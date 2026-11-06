@@ -1,5 +1,12 @@
 import { create } from 'zustand';
-import { errorMessage, getLimits, quantize, suggestColors, vectorize } from '../api/client';
+import {
+  errorMessage,
+  getLimits,
+  isUnreachable,
+  quantize,
+  suggestColors,
+  vectorize,
+} from '../api/client';
 import { base64ToBlob } from '../lib/base64';
 import { finalPalette } from '../lib/color';
 import {
@@ -202,8 +209,10 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
         limits: { ...initialState.limits, ...limits },
         colors: Math.min(Math.max(state.colors, limits.min_colors), limits.max_colors),
       }));
-    } catch {
-      // Keep defaults; the backend still validates every request.
+    } catch (error) {
+      // Keep defaults; the backend still validates every request. A server that cannot
+      // be reached is said at once, before an image is chosen.
+      if (isUnreachable(error)) set({ error: errorMessage(error) });
     }
   },
 
