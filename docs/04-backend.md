@@ -112,20 +112,23 @@ backend/
 ## Configuration
 
 All settings are read from environment variables prefixed with `VECTORSNAP_`
-(see [`.env.example`](../.env.example)).
+(see [`.env.example`](../.env.example)). A value the server cannot run with stops it
+at start with an error naming the setting (`app/core/config.py`), instead of failing
+requests later: a palette of more than 255 colors, `MIN_COLORS` above `MAX_COLORS`,
+a limit of 0, an unknown log level, an origin that is not `scheme://host[:port]`.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `VECTORSNAP_ENV` | `development` | `development` / `production` — controls docs exposure and log format |
-| `VECTORSNAP_LOG_LEVEL` | `info` | Python log level |
-| `VECTORSNAP_MAX_UPLOAD_MB` | `10` | Max request file size |
+| `VECTORSNAP_LOG_LEVEL` | `info` | `debug`, `info`, `warning`, `error` or `critical`, in any case |
+| `VECTORSNAP_MAX_UPLOAD_MB` | `10` | Max request file size (at least 1) |
 | `VECTORSNAP_MAX_IMAGE_DIMENSION` | `4096` | Max width/height in pixels |
-| `VECTORSNAP_MIN_COLORS` | `2` | Lower bound for `colors` |
-| `VECTORSNAP_MAX_COLORS` | `64` | Upper bound for `colors` |
+| `VECTORSNAP_MIN_COLORS` | `2` | Lower bound for `colors` (at least 1) |
+| `VECTORSNAP_MAX_COLORS` | `64` | Upper bound for `colors`, at most 255: a palette index is one byte and 255 marks transparent pixels |
 | `VECTORSNAP_MAX_SVG_SHAPES` | `20000` | Shapes an uploaded SVG may hold (`/svg/*`, `/export/*`); more → `413 SVG_TOO_COMPLEX` |
 | `VECTORSNAP_MAX_CONCURRENT_JOBS` | `4` | Processing (POST) requests a worker runs at once; more wait for a slot ([concurrency](#concurrency)) |
 | `VECTORSNAP_QUEUE_TIMEOUT_S` | `30` | Seconds a request waits for a slot before `503 SERVER_BUSY`; `0` = answer at once |
-| `VECTORSNAP_CORS_ORIGINS` | `http://localhost:5173` | Comma-separated allowed origins |
+| `VECTORSNAP_CORS_ORIGINS` | `http://localhost:5173` | Comma-separated allowed origins, `scheme://host[:port]` or `*`; a trailing `/` (copied from the address bar) is dropped, as it would never match |
 | `UVICORN_WORKERS` | `1` | Worker processes in the container |
 | `UVICORN_TIMEOUT_GRACEFUL_SHUTDOWN` | `50` | Seconds requests in progress may take to finish once the container is stopped ([09](09-containerization.md)) |
 
