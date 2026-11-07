@@ -218,6 +218,17 @@ retries instead of piling up. `GET` requests (health checks, `/limits`) and CORS
 preflights never wait. A client sending several requests together only sees the later
 ones queue for a moment.
 
+A waiting request is **read while it waits**: it starts at once when a slot frees, and a
+client that disconnects meanwhile is noticed. Its request is then dropped instead of
+processed for nobody: the frontend aborts a palette preview it no longer needs when a
+slider moves on, and nginx closes the connection to the backend when the browser leaves.
+The access log shows it as `499` (nginx's "client closed request", nobody receives it)
+after a `client left while waiting for a processing slot` line. On uvicorn with one slot
+and 4 s requests, a third request whose predecessor was aborted while queued finished
+after 6 s instead of 10 s. A request that already holds a slot runs to its end: its
+work in the thread pool cannot be stopped. Waiting bodies are held in memory, at most
+`VECTORSNAP_MAX_UPLOAD_MB` plus 4 MB each; one over the limit is refused while it waits.
+
 Size the limit to memory, not cores: quantizing or tracing a 4096 × 4096 image peaks at
 about 1.2 GB, so the default of 4 can take some 5 GB at worst. Keep
 `VECTORSNAP_QUEUE_TIMEOUT_S` plus the slowest request below the proxy timeout (nginx:

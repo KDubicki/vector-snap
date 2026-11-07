@@ -1,12 +1,16 @@
+import logging
 from collections.abc import AsyncIterator
-from dataclasses import dataclass
+from contextlib import asynccontextmanager
+from dataclasses import dataclass, field
 
 import anyio
 import httpx
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from starlette.types import Message, Scope
 
-from app.core.concurrency import RETRY_AFTER_S, ProcessingSlots
+from app.core.body_limit import FORM_FIELDS_ALLOWANCE
+from app.core.concurrency import CLIENT_CLOSED_REQUEST, RETRY_AFTER_S, ProcessingSlots
 from app.core.config import Settings
 from app.core.errors import InvalidParameters
 from app.main import create_app
@@ -20,6 +24,7 @@ class Server:
     client: httpx.AsyncClient
     started: anyio.Event
     finish: anyio.Event
+    echoed: list[bytes] = field(default_factory=list)  # bodies the echo route read
 
     @property
     def slots(self) -> ProcessingSlots:
@@ -38,12 +43,12 @@ class Server:
                 await anyio.sleep(0.005)
 
 
-@pytest.fixture
-async def server(request: pytest.FixtureRequest) -> AsyncIterator[Server]:
-    """The app with one processing slot and a slow route holding it until `finish`."""
-    queue_timeout_s = getattr(request, "param", 5.0)
-    app = create_app(Settings(max_concurrent_jobs=1, queue_timeout_s=queue_timeout_s))
+@asynccontextmanager
+async def serve(settings: Settings) -> AsyncIterator[Server]:
+    """The app with a slow route holding a slot until `finish`."""
+    app = create_app(settings)
     started, finish = anyio.Event(), anyio.Event()
+    echoed: list[bytes] = []
 
     @app.post("/api/v1/test/slow")
     async def slow() -> dict[str, str]:
@@ -59,9 +64,23 @@ async def server(request: pytest.FixtureRequest) -> AsyncIterator[Server]:
     async def broken() -> None:
         raise InvalidParameters("Broken on purpose.")
 
+    @app.post("/api/v1/test/echo")
+    async def echo(request: Request) -> dict[str, int]:
+        body = await request.body()
+        echoed.append(body)
+        return {"bytes": len(body)}
+
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-        yield Server(app, client, started, finish)
+        yield Server(app, client, started, finish, echoed)
+
+
+@pytest.fixture
+async def server(request: pytest.FixtureRequest) -> AsyncIterator[Server]:
+    """One processing slot; the queue timeout is the parameter (5 s by default)."""
+    queue_timeout_s = getattr(request, "param", 5.0)
+    async with serve(Settings(max_concurrent_jobs=1, queue_timeout_s=queue_timeout_s)) as server:
+        yield server
 
 
 async def test_requests_beyond_the_limit_wait_for_a_slot(server: Server) -> None:
@@ -161,4 +180,103 @@ async def test_a_failed_request_frees_its_slot(server: Server) -> None:
 
     assert broken.status_code == 422
     assert quick.status_code == 200
+    assert server.slots.busy == 0
+
+
+def _post_scope(path: str) -> Scope:
+    return {
+        "type": "http",
+        "asgi": {"version": "3.0"},
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": path,
+        "raw_path": path.encode(),
+        "query_string": b"",
+        "root_path": "",
+        "headers": [(b"host", b"test"), (b"content-length", b"4")],
+        "client": ("127.0.0.1", 50000),
+        "server": ("test", 80),
+    }
+
+
+async def test_a_request_whose_client_leaves_while_it_waits_is_dropped(
+    server: Server, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.INFO)
+    left = anyio.Event()
+    sent: list[Message] = []
+    body_read = False
+
+    async def receive() -> Message:
+        nonlocal body_read
+        if not body_read:
+            body_read = True
+            return {"type": "http.request", "body": b"body", "more_body": False}
+        await left.wait()  # the frontend aborts a preview it no longer needs
+        return {"type": "http.disconnect"}
+
+    async def send(message: Message) -> None:
+        sent.append(message)
+
+    async with anyio.create_task_group() as tasks:
+        tasks.start_soon(server.client.post, "/api/v1/test/slow")
+        await server.until_started()
+        tasks.start_soon(server.app, _post_scope("/api/v1/test/echo"), receive, send)
+        await server.until(busy=1, waiting=1)
+        left.set()
+        # Out of the queue at once, without waiting for the slot.
+        await server.until(busy=1, waiting=0)
+        server.finish.set()
+
+    assert server.echoed == []
+    assert sent[0]["status"] == CLIENT_CLOSED_REQUEST
+    assert server.slots.busy == 0
+    assert "client left while waiting for a processing slot" in caplog.text
+    assert "POST /api/v1/test/echo 499" in caplog.text
+
+
+async def test_a_waiting_request_is_read_meanwhile_and_reaches_its_route(server: Server) -> None:
+    payload = bytes(range(256)) * 4096
+    results: dict[str, httpx.Response] = {}
+
+    async def chunks() -> AsyncIterator[bytes]:
+        for start in range(0, len(payload), 64 * 1024):
+            yield payload[start : start + 64 * 1024]
+
+    async def post_echo() -> None:
+        results["echo"] = await server.client.post("/api/v1/test/echo", content=chunks())
+
+    async with anyio.create_task_group() as tasks:
+        tasks.start_soon(server.client.post, "/api/v1/test/slow")
+        await server.until_started()
+        tasks.start_soon(post_echo)
+        await server.until(busy=1, waiting=1)
+        assert server.echoed == []
+        server.finish.set()
+
+    assert results["echo"].json() == {"bytes": len(payload)}
+    assert server.echoed == [payload]
+    assert (server.slots.busy, server.slots.waiting) == (0, 0)
+
+
+async def test_a_body_over_the_limit_is_refused_while_it_waits() -> None:
+    async def too_much() -> AsyncIterator[bytes]:
+        chunk = b"x" * (1024 * 1024)
+        for _ in range(1 + FORM_FIELDS_ALLOWANCE // len(chunk) + 1):
+            yield chunk
+
+    settings = Settings(max_concurrent_jobs=1, queue_timeout_s=5.0, max_upload_mb=1)
+    async with serve(settings) as server, anyio.create_task_group() as tasks:
+        tasks.start_soon(server.client.post, "/api/v1/test/slow")
+        await server.until_started()
+
+        with anyio.fail_after(2):
+            response = await server.client.post("/api/v1/test/echo", content=too_much())
+        assert (server.slots.busy, server.slots.waiting) == (1, 0)
+        server.finish.set()
+
+    assert response.status_code == 413
+    assert response.json()["error"]["code"] == "FILE_TOO_LARGE"
+    assert server.echoed == []
     assert server.slots.busy == 0
