@@ -249,6 +249,23 @@ compressed responses through unchanged.
   (`jobs`: `running`, `waiting`, `limit`; see [Concurrency](#concurrency)). It stays
   ready while every slot is busy, so a busy service queues requests instead of leaving
   the load balancer.
+- `GET /metrics` — Prometheus metrics of the worker process, in the text format
+  (`app/core/metrics.py`, no client library). At the root, outside `/api/`, so nginx
+  does not serve it to browsers: scrape the backend on port 8000 from inside the
+  deployment. Not in the OpenAPI schema.
+  - `vectorsnap_requests_total{method, route, status}` — requests answered. `route` is
+    the API path (`/api/v1/quantize`); `other` for unknown paths (404), CORS preflights
+    and processing requests refused before routing: `413` over the upload limit,
+    `503` busy, `499` client left while queued ([Concurrency](#concurrency)).
+  - `vectorsnap_request_duration_seconds{method, route}` — histogram, 10 ms to 120 s.
+  - `vectorsnap_queue_wait_seconds` — histogram of processing requests' wait for a slot.
+  - `vectorsnap_jobs_running`, `vectorsnap_jobs_waiting`, `vectorsnap_jobs_limit` — the
+    processing load, as the readiness probe reports it.
+  - `vectorsnap_info{version}` — always 1.
+
+  Counters belong to the worker process that answers the scrape: with
+  `UVICORN_WORKERS` above 1 each scrape sees one worker, so scale with containers of
+  one worker and scrape each (as for the readiness probe's load).
 - Every request gets an `X-Request-ID` (taken from the incoming header or generated) that
   is echoed in the response and included in every log line. An incoming id is kept only
   when it is 1–128 characters of `A–Z a–z 0–9 . _ : -` (nginx's `$request_id`, a UUID, a

@@ -16,6 +16,8 @@ from typing import Any
 
 from fastapi import Request, Response
 
+from app.core.metrics import Metrics, route_label
+
 REQUEST_ID_HEADER = "X-Request-ID"
 HEALTH_PREFIX = "/api/v1/health"
 # An incoming X-Request-ID is kept when it looks like an id a proxy or client makes
@@ -145,6 +147,12 @@ async def request_id_middleware(
         )
         return response
     finally:
+        elapsed = time.perf_counter() - started
+        metrics: Metrics | None = getattr(request.app.state, "metrics", None)
+        if metrics is not None:
+            metrics_route = route_label(request.scope)
+            queue_s = timings["queue"] / 1000 if "queue" in timings else None
+            metrics.observe(request.method, metrics_route, status, elapsed, queue_s)
         # Health checks run every few seconds; keep them out of normal logs.
         level = logging.DEBUG if request.url.path.startswith(HEALTH_PREFIX) else logging.INFO
         access_logger.log(
@@ -157,7 +165,7 @@ async def request_id_middleware(
                 "method": request.method,
                 "path": request.url.path,
                 "status": status,
-                "duration_ms": round((time.perf_counter() - started) * 1000),
+                "duration_ms": round(elapsed * 1000),
                 **({"queue_ms": round(timings["queue"])} if "queue" in timings else {}),
             },
         )

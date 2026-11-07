@@ -73,7 +73,9 @@ deployed against a remote backend, pass it as a build arg.
 
 `docker-compose.yml` at the repository root:
 
-- `backend` — built from `./backend`, reads `.env`, healthcheck on `/api/v1/health`.
+- `backend` — built from `./backend`, reads `.env`, healthcheck on `/api/v1/health`;
+  Prometheus scrapes `http://backend:8000/metrics` inside the network (nginx proxies
+  only `/api/`, so the metrics are not public through the frontend).
 - `frontend` — built from `./frontend`, `depends_on: backend (service_healthy)`.
 - Both on a private bridge network `vectorsnap`.
 

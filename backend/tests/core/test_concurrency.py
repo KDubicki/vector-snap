@@ -232,6 +232,9 @@ async def test_a_request_whose_client_leaves_while_it_waits_is_dropped(
     assert server.echoed == []
     assert sent[0]["status"] == CLIENT_CLOSED_REQUEST
     assert server.slots.busy == 0
+    metrics = (await server.client.get("/metrics")).text
+    # Refused before routing: no route label, the status tells.
+    assert 'method="POST",route="other",status="499"} 1' in metrics
     assert "client left while waiting for a processing slot" in caplog.text
     assert "POST /api/v1/test/echo 499" in caplog.text
 

@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from starlette.middleware.gzip import DEFAULT_EXCLUDED_CONTENT_TYPES, GZipMiddleware
 
 from app import __version__
@@ -9,6 +10,7 @@ from app.core.concurrency import ProcessingLimitMiddleware, ProcessingSlots
 from app.core.config import Settings, get_settings
 from app.core.errors import UnhandledErrorMiddleware, register_exception_handlers
 from app.core.logging import configure_logging, request_id_middleware
+from app.core.metrics import CONTENT_TYPE, Metrics
 from app.core.security import SecurityHeadersMiddleware
 
 # Responses smaller than this are sent as they are: gzip saves too little on them.
@@ -57,6 +59,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.middleware("http")(request_id_middleware)
     register_exception_handlers(app)
     app.include_router(api_router)
+
+    # For Prometheus inside the deployment: at the root, outside /api/, so nginx does
+    # not serve it to browsers. Per worker process, like the readiness probe's load.
+    metrics = Metrics()
+    app.state.metrics = metrics
+
+    @app.get("/metrics", include_in_schema=False)
+    async def prometheus_metrics() -> Response:
+        return Response(metrics.render(slots, __version__), media_type=CONTENT_TYPE)
+
     return app
 
 
