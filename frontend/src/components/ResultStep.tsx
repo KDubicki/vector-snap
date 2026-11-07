@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { serializeSvg } from '../editor/export';
 import { shapeCount } from '../editor/model';
 import { exportFileName } from '../lib/exportFormats';
+import { isSvgFile } from '../lib/openSvg';
 import { useObjectUrl } from '../lib/useObjectUrl';
 import { useAppStore } from '../state/store';
 import { CompareView } from './CompareView';
@@ -30,6 +31,8 @@ export function ResultStep() {
   const url = useObjectUrl(blob);
   const originalUrl = useObjectUrl(file);
   const [view, setView] = useState<'edit' | 'compare'>('edit');
+  // An opened SVG was not traced, and has no image to go back to colors with.
+  const traced = file === null || !isSvgFile(file);
 
   if (!vectorized || !editor || !blob) return null;
 
@@ -67,8 +70,12 @@ export function ResultStep() {
           <dd>{shapeCount(editor)}</dd>
           <dt>File size</dt>
           <dd>{(blob.size / 1024).toFixed(1)} KB</dd>
-          <dt>Tracing</dt>
-          <dd>{vectorized.stats.duration_ms} ms</dd>
+          {traced && (
+            <>
+              <dt>Tracing</dt>
+              <dd>{vectorized.stats.duration_ms} ms</dd>
+            </>
+          )}
         </dl>
         <ShapeInspector />
         <SmallShapesSelector />
@@ -97,9 +104,11 @@ export function ResultStep() {
           )}
         </div>
         <div className="panel__links">
-          <button type="button" className="link" onClick={() => goTo('palette')}>
-            Back to colors
-          </button>
+          {traced && (
+            <button type="button" className="link" onClick={() => goTo('palette')}>
+              Back to colors
+            </button>
+          )}
           <button
             type="button"
             className="link"

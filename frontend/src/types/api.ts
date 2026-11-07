@@ -116,6 +116,17 @@ export interface ModelSize {
 }
 
 /** Outlines with fewer points (`POST /svg/simplify`). */
+/** An SVG from another tool in the contract (`POST /svg/import`). */
+export interface SvgImportResponse {
+  svg: string;
+  width: number;
+  height: number;
+  colors: number;
+  shapes: number;
+  /** What was left out or changed, by kind (strokes, text, images, gradients, …). */
+  ignored: Record<string, number>;
+}
+
 export interface SvgSimplifyResponse {
   svg: string;
   /** Ids of the shapes that lost points. */

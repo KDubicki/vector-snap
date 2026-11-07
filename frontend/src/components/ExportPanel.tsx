@@ -14,6 +14,7 @@ import {
   type ExportValues,
 } from '../lib/exportFormats';
 import { layerHeightsJson, validateColorHeights, type ColorHeight } from '../lib/colorHeights';
+import { isSvgFile } from '../lib/openSvg';
 import { rasterSize, svgToPng } from '../lib/raster';
 import { backgroundGroup, excludedColors, usedColorsError } from '../lib/usedColors';
 import { useExport } from '../lib/useExport';
@@ -40,8 +41,16 @@ function SectionBadge({ invalid, changed }: { invalid: number; changed: number }
 export function ExportPanel() {
   const editor = useAppStore((s) => s.editor);
   const file = useAppStore((s) => s.file);
+  // A lithophane is made from the original image, which an opened SVG does not have.
+  const formats = useMemo(
+    () =>
+      file && isSvgFile(file)
+        ? EXPORT_FORMATS.filter((item) => item.source !== 'image')
+        : EXPORT_FORMATS,
+    [file],
+  );
   const [formatId, setFormatId] = useState(EXPORT_FORMATS[0].id);
-  const format = EXPORT_FORMATS.find((item) => item.id === formatId) ?? EXPORT_FORMATS[0];
+  const format = formats.find((item) => item.id === formatId) ?? formats[0];
   const [values, setValues] = useState<Record<string, ExportValues>>({});
   const current = values[format.id] ?? defaultValues(format);
   const errors = useMemo(() => validate(format, current), [format, current]);
@@ -184,7 +193,7 @@ export function ExportPanel() {
     <details className="field export">
       <summary>Export to other formats</summary>
       <div className="segmented" role="radiogroup" aria-label="Export format">
-        {EXPORT_FORMATS.map((item) => (
+        {formats.map((item) => (
           <button
             key={item.id}
             type="button"

@@ -43,8 +43,15 @@ describe('ImageUpload', () => {
     await userEvent.upload(input, avif);
     expect(onSelect).toHaveBeenCalledWith(webp);
     expect(onSelect).toHaveBeenCalledWith(avif);
-    expect(screen.getByText('JPEG, PNG, WebP, AVIF, GIF or BMP, up to 10 MB')).toBeInTheDocument();
+    expect(
+      screen.getByText('JPEG, PNG, WebP, AVIF, GIF or BMP, up to 10 MB — or an SVG to edit'),
+    ).toBeInTheDocument();
     expect(input).toHaveAttribute('accept', expect.stringContaining('image/avif'));
+    // An SVG opens in the editor.
+    const svg = new File(['<svg/>'], 'logo.svg', { type: 'image/svg+xml' });
+    await userEvent.upload(input, svg);
+    expect(onSelect).toHaveBeenCalledWith(svg);
+    expect(input).toHaveAttribute('accept', expect.stringContaining('image/svg+xml,'));
   });
 
   it('rejects other file types', () => {
@@ -53,7 +60,7 @@ describe('ImageUpload', () => {
     fireEvent.change(screen.getByLabelText('Choose image'), { target: { files: [tiff] } });
     expect(onSelect).not.toHaveBeenCalled();
     expect(onReject).toHaveBeenCalledWith(
-      'Only JPEG, PNG, WebP, AVIF, GIF and BMP images are supported.',
+      'Only JPEG, PNG, WebP, AVIF, GIF and BMP images and SVG files are supported.',
     );
   });
 

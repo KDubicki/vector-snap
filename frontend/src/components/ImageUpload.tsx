@@ -1,10 +1,12 @@
 import { useEffect, useState, type ChangeEvent, type DragEvent } from 'react';
 import { acceptAttribute, formatList, isSupportedImage } from '../lib/imageFormats';
+import { isSvgFile, SVG_TYPE } from '../lib/openSvg';
 import { loadSampleImage } from '../lib/sample';
 
 interface ImageUploadProps {
   maxUploadMb: number;
-  /** Media types the backend reads (`supported_formats` of `/limits`). */
+  /** Media types the backend reads (`supported_formats` of `/limits`); an SVG file is
+   * taken too, and opens in the editor. */
   formats: string[];
   /** A chosen image is being read (or scaled down). */
   busy?: boolean;
@@ -39,8 +41,8 @@ export function ImageUpload({
 
   const accept = (file: File | undefined) => {
     if (!file) return;
-    if (isSupportedImage(file, formats)) onSelect(file);
-    else onReject(`Only ${formatList(formats, 'and')} images are supported.`);
+    if (isSupportedImage(file, formats) || isSvgFile(file)) onSelect(file);
+    else onReject(`Only ${formatList(formats, 'and')} images and SVG files are supported.`);
   };
 
   useEffect(() => {
@@ -91,12 +93,14 @@ export function ImageUpload({
         <input
           className="visually-hidden"
           type="file"
-          accept={acceptAttribute(formats)}
+          accept={acceptAttribute([...formats, SVG_TYPE])}
           onChange={(event: ChangeEvent<HTMLInputElement>) => accept(event.target.files?.[0])}
         />
       </label>
       <span className="hint" role="status">
-        {busy ? 'Reading the image…' : `${formatList(formats)}, up to ${maxUploadMb} MB`}
+        {busy
+          ? 'Reading the image…'
+          : `${formatList(formats)}, up to ${maxUploadMb} MB — or an SVG to edit`}
       </span>
       <button
         type="button"

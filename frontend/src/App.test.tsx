@@ -25,7 +25,7 @@ describe('App', () => {
     render(<App />);
 
     expect(
-      await screen.findByText('JPEG, PNG, WebP, AVIF, GIF or BMP, up to 5 MB'),
+      await screen.findByText('JPEG, PNG, WebP, AVIF, GIF or BMP, up to 5 MB — or an SVG to edit'),
     ).toBeInTheDocument();
     expect(screen.getByText('Upload').closest('li')).toHaveAttribute('aria-current', 'step');
     expect(screen.queryByRole('button', { name: /Colors/ })).not.toBeInTheDocument();

@@ -2,12 +2,14 @@ import { create } from 'zustand';
 import {
   errorMessage,
   getLimits,
+  importSvg,
   isUnreachable,
   quantize,
   suggestColors,
   vectorize,
 } from '../api/client';
 import { base64ToBlob } from '../lib/base64';
+import { shapeCount } from '../editor/model';
 import { finalPalette } from '../lib/color';
 import {
   ownedColors,
@@ -17,6 +19,7 @@ import {
 } from '../lib/filamentLibrary';
 import { fitImage, type Resize } from '../lib/fitImage';
 import { DEFAULT_FORMATS, uploadFormats } from '../lib/imageFormats';
+import { importNotice, isOwnSvg, isSvgFile } from '../lib/openSvg';
 import { browserStorage } from '../lib/theme';
 import { DEFAULT_TRACING } from '../lib/tracing';
 import type {
@@ -58,7 +61,8 @@ export function reachableSteps(state: Pick<AppState, 'file' | 'vectorized' | 'ed
   return STEPS.filter(
     (step) =>
       step === 'upload' ||
-      (step === 'palette' && state.file !== null) ||
+      // An opened SVG has no image to reduce to colors.
+      (step === 'palette' && state.file !== null && !isSvgFile(state.file)) ||
       ((step === 'result' || step === 'print') &&
         state.vectorized !== null &&
         state.editor !== null),
@@ -112,8 +116,12 @@ export interface WorkflowSlice {
   preparingImage: boolean;
 
   loadLimits: () => Promise<void>;
-  /** Take a chosen image: scaled down first when it is over the limits (`fitImage`). */
+  /** Take a chosen image: scaled down first when it is over the limits (`fitImage`);
+   * an SVG opens in the editor (`openSvg`). */
   chooseImage: (file: File) => Promise<void>;
+  /** Open an SVG in the editor: VectorSnap's own as it is, another tool's through
+   * `/svg/import` (color areas), with a notice of what it left out. */
+  openSvg: (file: File) => Promise<void>;
   selectFile: (file: File) => void;
   setColors: (colors: number) => void;
   setAlgorithm: (algorithm: QuantizeAlgorithm) => void;
@@ -218,6 +226,7 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
   },
 
   chooseImage: async (file) => {
+    if (isSvgFile(file)) return get().openSvg(file);
     const token = (choosing += 1);
     const { max_upload_mb, max_image_dimension } = get().limits;
     set({ preparingImage: true });
@@ -230,6 +239,61 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
     get().selectFile(fitted.file);
     if (fitted.resized && get().file === fitted.file) {
       set({ notice: resizeNotice(file.name, fitted.resized) });
+    }
+  },
+
+  openSvg: async (file) => {
+    const token = (choosing += 1);
+    const { max_upload_mb } = get().limits;
+    if (file.size > max_upload_mb * 1024 * 1024) {
+      set({ error: `File is larger than ${max_upload_mb} MB.` });
+      return;
+    }
+    pending?.abort();
+    pendingSuggestion?.abort();
+    set({ preparingImage: true, error: null, notice: null });
+    const started = performance.now();
+    try {
+      const text = await file.text();
+      const imported = isOwnSvg(text) ? null : await importSvg(file);
+      if (token !== choosing) return;
+      const svg = imported?.svg ?? text;
+      const opened = openDocument(svg);
+      const { editor } = opened;
+      if (!editor) throw new Error('The SVG could not be opened.');
+      set((state) => ({
+        file,
+        preparingImage: false,
+        suggesting: false,
+        quantized: null,
+        quantizedFor: null,
+        suggestedColors: null,
+        overrides: {},
+        transparent: [],
+        background: null,
+        vectorized: {
+          width: editor.width,
+          height: editor.height,
+          palette: [],
+          stats: {
+            paths: shapeCount(editor),
+            bytes: svg.length,
+            duration_ms: Math.round(performance.now() - started),
+          },
+          svg,
+        },
+        ...opened,
+        // Palette indices and shape ids belong to the previous design.
+        print: { ...state.print, colorRaise: {}, excluded: [], shapeRaise: {} },
+        printUndo: null,
+        step: 'result',
+        status: 'idle',
+        error: null,
+        notice: imported ? importNotice(file.name, imported.ignored) : null,
+      }));
+    } catch (error) {
+      if (token !== choosing) return;
+      set({ preparingImage: false, error: errorMessage(error) });
     }
   },
 

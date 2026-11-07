@@ -46,6 +46,64 @@ describe('app store', () => {
   beforeEach(() => store().reset());
   afterEach(() => vi.unstubAllGlobals());
 
+  it('opens a VectorSnap SVG in the editor as it is', async () => {
+    const fetch = vi.fn();
+    vi.stubGlobal('fetch', fetch);
+    const own = vectorized.svg.replace('<svg ', '<svg data-generator="vectorsnap/0.1.0" ');
+    const svg = new File([own], 'design.svg', { type: 'image/svg+xml' });
+
+    await store().chooseImage(svg);
+
+    expect(fetch).not.toHaveBeenCalled();
+    expect(store().step).toBe('result');
+    expect(store().file).toBe(svg);
+    expect(store().vectorized?.svg).toBe(own);
+    expect(store().editor?.groups[0].shapes.map((shape) => shape.id)).toEqual(['p-0-0', 'p-0-1']);
+    expect(store().notice).toBeNull();
+    // There is no image to reduce to colors.
+    expect(reachableSteps(store())).toEqual(['upload', 'result', 'print']);
+  });
+
+  it('brings an SVG from another tool into the editor through the import', async () => {
+    const imported = vectorized.svg;
+    const fetch = respond({
+      svg: imported,
+      width: 20,
+      height: 10,
+      colors: 1,
+      shapes: 2,
+      ignored: { strokes: 1 },
+    });
+    vi.stubGlobal('fetch', fetch);
+    const inkscape = new File(['<svg xmlns="http://www.w3.org/2000/svg"/>'], 'logo.svg', {
+      type: 'image/svg+xml',
+    });
+
+    await store().chooseImage(inkscape);
+
+    expect(fetch.mock.calls[0][0]).toBe('/api/v1/svg/import');
+    expect((fetch.mock.calls[0][1].body as FormData).get('svg')).toBeInstanceOf(Blob);
+    expect(store().step).toBe('result');
+    expect(store().vectorized?.svg).toBe(imported);
+    expect(store().notice).toBe('logo.svg was opened as color areas: left out 1 outline (stroke).');
+  });
+
+  it('stays on the upload step when an SVG cannot be imported', async () => {
+    vi.stubGlobal(
+      'fetch',
+      respond(
+        { error: { code: 'INVALID_SVG', message: 'SVG contains no filled shapes.', details: {} } },
+        422,
+      ),
+    );
+
+    await store().chooseImage(new File(['<svg/>'], 'lines.svg', { type: 'image/svg+xml' }));
+
+    expect(store().step).toBe('upload');
+    expect(store().error).toBe('SVG contains no filled shapes.');
+    expect(store().preparingImage).toBe(false);
+  });
+
   it('moves to the palette step when a file is selected', () => {
     store().selectFile(file);
 

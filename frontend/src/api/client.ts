@@ -8,6 +8,7 @@ import type {
   PrintCheck,
   QuantizeParams,
   QuantizeResponse,
+  SvgImportResponse,
   SvgSimplifyResponse,
   TracingOptions,
   VectorizeResponse,
@@ -184,6 +185,13 @@ function exportForm(svg: string, options: Record<string, string | number | boole
   form.append('svg', new Blob([svg], { type: 'image/svg+xml' }), 'document.svg');
   for (const [key, value] of Object.entries(options)) form.append(key, String(value));
   return form;
+}
+
+/** An SVG from another tool brought into the contract: color areas, by color. */
+export function importSvg(file: Blob, signal?: AbortSignal): Promise<SvgImportResponse> {
+  const body = new FormData();
+  body.append('svg', file, 'design.svg');
+  return request<SvgImportResponse>('/svg/import', { method: 'POST', body, signal });
 }
 
 /** Outlines of `ids` (every shape without) with fewer points, within `tolerance` px. */

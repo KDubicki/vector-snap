@@ -54,7 +54,19 @@ Status legend: ✅ implemented · 🔜 planned (see [Roadmap](11-roadmap.md)).
   zone highlights while a file is dragged over it ("Release to upload"); the file input
   is visually hidden inside a styled "Choose image" button and stays keyboard reachable.
 - Accepted formats and the upload limit (`max_upload_mb`) are shown under the button
-  (*JPEG, PNG, WebP, AVIF, GIF or BMP, up to 10 MB*), and the header names them too.
+  (*JPEG, PNG, WebP, AVIF, GIF or BMP, up to 10 MB — or an SVG to edit*), and the
+  header names them too.
+- **Open an SVG** (`openSvg` in the store, `src/lib/openSvg.ts`): an SVG file chosen,
+  dropped or pasted skips colors and tracing and opens in the editor. A VectorSnap
+  design (`data-generator="vectorsnap…"` with color layers, e.g. an earlier download)
+  opens as it is, keeping its layers and ids, without a request. Any other SVG —
+  Inkscape, Illustrator, Figma, an icon — goes through
+  [`POST /svg/import`](05-api-specification.md#post-apiv1svgimport), which turns it
+  into color areas; a notice says what it left out (*logo.svg was opened as color
+  areas: left out 2 outlines (strokes), 1 text; filled 1 gradient with its average
+  color.*). The colors step is not offered (there is no image to reduce), nor is the
+  lithophane, which is made from the original image; *Compare with original* shows
+  the SVG file. The session keeps it like an image, so it can be continued.
 - **Try a sample**: loads the bundled `public/sample.png` (a flat-color logo with
   anti-aliased edges, `src/lib/sample.ts`) as if it had been chosen, so the whole
   workflow can be tried without a file.
