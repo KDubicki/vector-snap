@@ -280,3 +280,47 @@ async def test_a_body_over_the_limit_is_refused_while_it_waits() -> None:
     assert response.json()["error"]["code"] == "FILE_TOO_LARGE"
     assert server.echoed == []
     assert server.slots.busy == 0
+
+
+async def test_a_slot_freed_while_the_body_arrives_loses_none_of_it(server: Server) -> None:
+    """The slot frees while a body chunk is on its way: a transport may take a chunk
+    before it hands it over, and lose it if that `receive()` is cancelled (on GitHub's
+    runners the echo got 960 of 1024 KB)."""
+    arrive = anyio.Event()
+    calls = 0
+    sent: list[Message] = []
+
+    async def receive() -> Message:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return {"type": "http.request", "body": b"a" * 10, "more_body": True}
+        if calls == 2:
+            chunk = b"b" * 10  # taken from the network, not handed over yet
+            await arrive.wait()
+            return {"type": "http.request", "body": chunk, "more_body": True}
+        if calls == 3:
+            return {"type": "http.request", "body": b"c" * 10, "more_body": False}
+        await anyio.sleep_forever()  # the client stays until it has its answer
+        raise AssertionError
+
+    async def send(message: Message) -> None:
+        sent.append(message)
+
+    scope = _post_scope("/api/v1/test/echo")
+    scope["headers"] = [(b"host", b"test"), (b"content-length", b"30")]
+    async with anyio.create_task_group() as tasks:
+        tasks.start_soon(server.client.post, "/api/v1/test/slow")
+        await server.until_started()
+        tasks.start_soon(server.app, scope, receive, send)
+        await server.until(busy=1, waiting=1)
+        server.finish.set()  # the slot frees while the second chunk is on its way
+        await server.until(busy=1, waiting=0)
+        await anyio.sleep(0.05)
+        arrive.set()
+        with anyio.fail_after(2):
+            while not any(message.get("type") == "http.response.body" for message in sent):
+                await anyio.sleep(0.005)
+
+    assert server.echoed == [b"a" * 10 + b"b" * 10 + b"c" * 10]
+    assert sent[0]["status"] == 200

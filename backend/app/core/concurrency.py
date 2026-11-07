@@ -13,9 +13,8 @@ when a slider moves on) is dropped instead of processed for nobody.
 """
 
 import logging
+import math
 import time
-from collections import deque
-from dataclasses import dataclass
 
 import anyio
 from starlette.requests import Request
@@ -75,11 +74,42 @@ class ProcessingSlots:
         self._semaphore.release()
 
 
-@dataclass
-class _Waited:
-    acquired: bool  # a slot came free
-    left: bool  # the client disconnected first
-    read: deque[Message]  # the request's messages read while waiting
+class _Reader:
+    """The only reader of a queued request, from its arrival until it is answered.
+
+    What it reads waits here for the app, so the end of the wait never cuts the body
+    short: a `receive()` in progress is not cancelled while the request still needs its
+    message (ASGI does not promise that cancelling one keeps it; test transports lose
+    it). Once the body is in, the next message a server gives is the disconnect: that is
+    how a client that left is noticed.
+    """
+
+    def __init__(self, receive: Receive) -> None:
+        self._receive = receive
+        self._messages_in, self._messages_out = anyio.create_memory_object_stream[Message](math.inf)
+        self.ended = anyio.Event()  # the client disconnected, or reading failed
+        self.failure: Exception | None = None  # a body over the upload limit
+
+    async def run(self) -> None:
+        try:
+            while True:
+                message = await self._receive()
+                self._messages_in.send_nowait(message)
+                if message["type"] == "http.disconnect":
+                    break
+        except Exception as error:  # raised again to the app (BodySizeLimitMiddleware)
+            self.failure = error
+        self._messages_in.close()
+        self.ended.set()
+
+    async def receive(self) -> Message:
+        """The request's next message, for the app."""
+        try:
+            return await self._messages_out.receive()
+        except anyio.EndOfStream:
+            if self.failure is not None:
+                raise self.failure from None
+            return {"type": "http.disconnect"}
 
 
 class ProcessingLimitMiddleware:
@@ -98,33 +128,19 @@ class ProcessingLimitMiddleware:
             record_timing("queue", (time.perf_counter() - waiting) * 1000)
             await self._run(scope, receive, send)
             return
-        waited = await self._wait(receive)
-        queue_ms = (time.perf_counter() - waiting) * 1000
-        record_timing("queue", queue_ms)
-        if waited.left:
-            if waited.acquired:
-                self.slots.release()
-            logger.info(
-                "client left while waiting for a processing slot",
-                extra={"path": scope["path"], "queue_ms": round(queue_ms)},
-            )
-            await Response(status_code=CLIENT_CLOSED_REQUEST)(scope, receive, send)
-            return
-        if not waited.acquired:
-            busy = ServerBusy(
-                f"The server is busy: all {self.slots.limit} processing slots are taken. "
-                f"Try again in {RETRY_AFTER_S} seconds.",
-                {"max_concurrent_jobs": self.slots.limit, "retry_after_s": RETRY_AFTER_S},
-            )
-            response = error_response(Request(scope), busy)
-            response.headers["Retry-After"] = str(RETRY_AFTER_S)
-            await response(scope, receive, send)
-            return
 
-        async def replay() -> Message:
-            return waited.read.popleft() if waited.read else await receive()
-
-        await self._run(scope, replay, send)
+        reader = _Reader(receive)
+        error: Exception | None = None
+        async with anyio.create_task_group() as tasks:
+            tasks.start_soon(reader.run)
+            try:
+                await self._queued(scope, reader, send, waiting)
+            except Exception as exc:  # raised below, outside the task group (unwrapped)
+                error = exc
+            finally:
+                tasks.cancel_scope.cancel()  # the request is answered: stop reading it
+        if error is not None:
+            raise error
 
     async def _run(self, scope: Scope, receive: Receive, send: Send) -> None:
         """Run the request in the slot it holds."""
@@ -133,42 +149,50 @@ class ProcessingLimitMiddleware:
         finally:
             self.slots.release()
 
-    async def _wait(self, receive: Receive) -> _Waited:
-        """Wait for a slot while reading the request, until a slot comes free, the
-        queue timeout passes or the client disconnects.
+    async def _queued(self, scope: Scope, reader: _Reader, send: Send, waiting: float) -> None:
+        """Wait for a slot while `reader` reads the request, then run it, or answer that
+        the server is busy, or drop it when its client left."""
+        acquired = await self._acquire_unless(reader.ended)
+        queue_ms = (time.perf_counter() - waiting) * 1000
+        record_timing("queue", queue_ms)
+        if reader.ended.is_set():  # the client left, or its body was over the limit
+            if acquired:
+                self.slots.release()
+            if reader.failure is not None:
+                raise reader.failure
+            logger.info(
+                "client left while waiting for a processing slot",
+                extra={"path": scope["path"], "queue_ms": round(queue_ms)},
+            )
+            await Response(status_code=CLIENT_CLOSED_REQUEST)(scope, reader.receive, send)
+            return
+        if not acquired:
+            busy = ServerBusy(
+                f"The server is busy: all {self.slots.limit} processing slots are taken. "
+                f"Try again in {RETRY_AFTER_S} seconds.",
+                {"max_concurrent_jobs": self.slots.limit, "retry_after_s": RETRY_AFTER_S},
+            )
+            response = error_response(Request(scope), busy)
+            response.headers["Retry-After"] = str(RETRY_AFTER_S)
+            await response(scope, reader.receive, send)
+            return
+        await self._run(scope, reader.receive, send)
 
-        Once its body is in, the next message a server gives is the disconnect, so
-        reading on is how a client that left is noticed. A body over the upload limit
-        fails the read (`BodySizeLimitMiddleware`): that error is raised here, the
-        slot not kept.
-        """
-        waited = _Waited(acquired=False, left=False, read=deque())
-        failure: Exception | None = None
-
+    async def _acquire_unless(self, ended: anyio.Event) -> bool:
+        """Wait for a slot (up to the queue timeout) unless `ended` is set first; True
+        when a slot was taken."""
+        acquired = False
         async with anyio.create_task_group() as tasks:
 
-            async def read_request() -> None:
-                nonlocal failure
-                try:
-                    while True:
-                        message = await receive()
-                        if message["type"] == "http.disconnect":
-                            waited.left = True
-                            break
-                        waited.read.append(message)
-                except Exception as error:
-                    failure = error
+            async def take() -> None:
+                nonlocal acquired
+                acquired = await self.slots.acquire()
                 tasks.cancel_scope.cancel()
 
-            async def wait_for_slot() -> None:
-                waited.acquired = await self.slots.acquire()
+            async def watch() -> None:
+                await ended.wait()
                 tasks.cancel_scope.cancel()
 
-            tasks.start_soon(read_request)
-            tasks.start_soon(wait_for_slot)
-
-        if failure is not None:
-            if waited.acquired:
-                self.slots.release()
-            raise failure
-        return waited
+            tasks.start_soon(take)
+            tasks.start_soon(watch)
+        return acquired
