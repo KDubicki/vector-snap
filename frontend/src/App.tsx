@@ -12,6 +12,7 @@ import { formatList } from './lib/imageFormats';
 import { useAutosave } from './lib/useAutosave';
 import { hasUnsavedEdits } from './state/editorSlice';
 import { STEPS, reachableSteps, useAppStore, type Step } from './state/store';
+import { useServerBusy } from './lib/useServerBusy';
 
 const STEP_LABELS: Record<Step, string> = {
   upload: 'Upload',
@@ -39,6 +40,7 @@ export function App() {
   const step = useAppStore((s) => s.step);
   const error = useAppStore((s) => s.error);
   const notice = useAppStore((s) => s.notice);
+  const busyRetryIn = useServerBusy();
   const preparingImage = useAppStore((s) => s.preparingImage);
   const maxUploadMb = useAppStore((s) => s.limits.max_upload_mb);
   const formats = useAppStore((s) => s.limits.supported_formats);
@@ -116,6 +118,11 @@ export function App() {
       {notice && (
         <div className="notice" role="status">
           {notice}
+        </div>
+      )}
+      {busyRetryIn !== null && (
+        <div className="notice" role="status">
+          The server is busy with other conversions; trying again in {busyRetryIn} s…
         </div>
       )}
 

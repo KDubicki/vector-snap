@@ -8,6 +8,7 @@ import {
   getFilamentPlan,
   getLimits,
   isUnreachable,
+  onServerBusy,
   quantize,
   retryAfterSeconds,
   UNREACHABLE_MESSAGE,
@@ -283,6 +284,53 @@ describe('api client', () => {
       expect(fetchMock).toHaveBeenCalledTimes(3);
       // The same form goes again.
       expect(fetchMock.mock.calls[2][1]).toBe(fetchMock.mock.calls[0][1]);
+    });
+
+    it('tells who follows it while requests wait for the busy server', async () => {
+      vi.useFakeTimers();
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(busy('3'))
+        .mockResolvedValueOnce(busy('7'))
+        .mockResolvedValueOnce(jsonResponse({ colors: 5, target_delta_e: 5, errors: [] }));
+      vi.stubGlobal('fetch', fetchMock);
+      const events: [number, number][] = [];
+      const stop = onServerBusy((waiting, seconds) => events.push([waiting, seconds]));
+
+      const suggestion = suggestColors(new Blob(['img']));
+      await vi.advanceTimersByTimeAsync(10_000);
+      await suggestion;
+      stop();
+
+      // Waiting from the first busy answer until the request went through.
+      expect(events).toEqual([
+        [1, 3],
+        [1, 7],
+        [0, 0],
+      ]);
+    });
+
+    it('stops counting a request that gave up or was aborted', async () => {
+      vi.useFakeTimers();
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockImplementation(() => Promise.resolve(busy())),
+      );
+      const events: number[] = [];
+      const stop = onServerBusy((waiting) => events.push(waiting));
+      const controller = new AbortController();
+
+      const gaveUp = exportFile('stl', '<svg/>', {}).catch(() => null);
+      const aborted = getLimits(controller.signal).catch(() => null);
+      await vi.advanceTimersByTimeAsync(1000);
+      controller.abort();
+      await vi.advanceTimersByTimeAsync(BUSY_RETRIES * 5000);
+      await Promise.all([gaveUp, aborted]);
+      stop();
+
+      expect(events[0]).toBe(1);
+      expect(Math.max(...events)).toBe(2);
+      expect(events[events.length - 1]).toBe(0);
     });
 
     it('gives up with the backend error after the last retry', async () => {

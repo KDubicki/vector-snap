@@ -647,7 +647,12 @@ interface FragmentsSlice {
   form goes again; aborting the signal (a newer quantization) ends the wait at once.
   Other 503 answers (a proxy's) are not retried. Checked against a backend with one slot
   and no queue: *503 → 5 s → 503 → 5 s → 200*, and the palette appeared without an
-  error.
+  error. From the first busy answer until the request is done, the page says why
+  nothing happens yet: *The server is busy with other conversions; trying again in
+  5 s…* (`onServerBusy` in the client, `useServerBusy`; one notice for every request
+  waiting, gone when the last one went through, gave up or was aborted). Checked in
+  Chromium with the only slot held by other quantizations: shown after 1.9 s, gone
+  with the palette at 7.2 s.
 - TypeScript types in `src/types/api.ts` mirror the OpenAPI schema; generating them with
   `openapi-typescript` is planned once the API stabilizes.
 

@@ -109,6 +109,27 @@ function wait(seconds: number, signal?: AbortSignal | null): Promise<void> {
   });
 }
 
+/** Told how many requests wait for a busy server, and in how many seconds the latest
+ * one is sent again; `waiting` 0 when none waits any more. */
+export type BusyListener = (waiting: number, retryInSeconds: number) => void;
+
+const busyListeners = new Set<BusyListener>();
+let waitingForServer = 0;
+
+/** Follow the requests waiting for a busy server, so the page can say why nothing
+ * happens yet; returns the function that stops following. */
+export function onServerBusy(listener: BusyListener): () => void {
+  busyListeners.add(listener);
+  return () => {
+    busyListeners.delete(listener);
+  };
+}
+
+function reportBusy(change: number, retryInSeconds: number) {
+  waitingForServer += change;
+  busyListeners.forEach((listener) => listener(waitingForServer, retryInSeconds));
+}
+
 async function isServerBusy(response: Response): Promise<boolean> {
   if (response.status !== 503) return false;
   const body = (await response
@@ -121,9 +142,26 @@ async function isServerBusy(response: Response): Promise<boolean> {
 /**
  * `fetch`, sent again up to `BUSY_RETRIES` times while the backend answers `503
  * SERVER_BUSY`, after the `Retry-After` it gives: a moment of heavy load then costs a
- * wait instead of an error. Aborting the signal stops the wait too.
+ * wait instead of an error. Aborting the signal stops the wait too. From the first busy
+ * answer until the request is done, it counts as waiting (`onServerBusy`).
  */
 async function send(url: string, init?: RequestInit): Promise<Response> {
+  let waiting = false;
+  try {
+    return await sendUntilServed(url, init, (seconds) => {
+      reportBusy(waiting ? 0 : 1, seconds);
+      waiting = true;
+    });
+  } finally {
+    if (waiting) reportBusy(-1, 0);
+  }
+}
+
+async function sendUntilServed(
+  url: string,
+  init: RequestInit | undefined,
+  onBusy: (retryInSeconds: number) => void,
+): Promise<Response> {
   for (let retry = 0; ; retry += 1) {
     let response: Response;
     try {
@@ -135,7 +173,9 @@ async function send(url: string, init?: RequestInit): Promise<Response> {
       throw new ApiError(0, 'NETWORK_ERROR', UNREACHABLE_MESSAGE, null);
     }
     if (retry === BUSY_RETRIES || !(await isServerBusy(response))) return response;
-    await wait(retryAfterSeconds(response.headers.get('Retry-After')), init?.signal);
+    const seconds = retryAfterSeconds(response.headers.get('Retry-After'));
+    onBusy(seconds);
+    await wait(seconds, init?.signal);
   }
 }
 
