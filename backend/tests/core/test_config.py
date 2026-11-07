@@ -1,9 +1,19 @@
+import os
 from typing import Any
 
 import pytest
 from pydantic import ValidationError
 
 from app.core.config import Settings
+
+
+@pytest.fixture(autouse=True)
+def _no_settings_in_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The settings as written here: a developer's or CI's VECTORSNAP_* variables (act
+    passes the repository's .env to its containers) would change them."""
+    for name in list(os.environ):
+        if name.startswith("VECTORSNAP_"):
+            monkeypatch.delenv(name)
 
 
 def _settings(**values: Any) -> Settings:
