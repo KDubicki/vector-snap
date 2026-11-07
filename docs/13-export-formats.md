@@ -36,13 +36,17 @@ takes the uploaded JPEG/PNG/WebP/AVIF as `image` instead.
 
 1. **Parse** the contract with lxml (no entity resolution, no network, no huge trees).
    Groups (`<g data-palette-index fill>`) become layers bottom to top; paths keep their
-   own `fill` if set.
+   own `fill` if set. The size is the `viewBox`, or `width`/`height` in an absolute unit
+   (px, mm, cm, in, pt, pc); shapes of a `viewBox` not at `0 0` are moved to it.
 2. **Path data** is read with svgelements — all SVG commands, absolute and relative
-   (the editor writes Paper.js path data such as `h`, `v`, `c`).
+   (the editor writes Paper.js path data such as `h`, `v`, `c`). Data it cannot read,
+   and coordinates beyond ±10,000,000 px (on which Shapely and the exporters overflow),
+   are `422 INVALID_SVG` instead of a server error.
 3. **Flatten** curves to polylines where a format needs polygons: quadratic and cubic
    Béziers are evaluated vectorized with NumPy; the number of samples comes from the
    control-polygon length (an upper bound of the arc length) and a tolerance of
-   0.25 px. Arcs are converted to cubic curves first.
+   0.25 px, at most 10,000 per curve (a curve kilometres long gets them farther
+   apart instead of millions). Arcs are converted to cubic curves first.
 4. **Polygons** are built with Shapely using even-odd semantics (rings inside rings are
    holes), which matches how the tracer encodes holes.
 

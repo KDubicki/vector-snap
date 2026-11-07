@@ -24,6 +24,28 @@ _HEX_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 
 # Maximum distance between a curve and its polyline approximation, in document px.
 DEFAULT_TOLERANCE = 0.25
+# Points one curve is sampled with at most: a curve thousands of px long gets them
+# farther apart instead of millions of them (memory and time).
+MAX_CURVE_SAMPLES = 10_000
+
+# px per unit of an absolute SVG length (CSS: 96 px to the inch). A size in %, em or
+# ex depends on where the SVG is shown, so a document sized that way needs a viewBox.
+_UNITS = {
+    "": 1.0,
+    "px": 1.0,
+    "in": 96.0,
+    "cm": 96 / 2.54,
+    "mm": 96 / 25.4,
+    "q": 96 / 101.6,
+    "pt": 96 / 72,
+    "pc": 16.0,
+}
+_LENGTH_RE = re.compile(r"^\s*([+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)\s*([a-zA-Z]*)\s*$")
+# Coordinates and sizes beyond this many px (2.6 km at 96 dpi) are an error, not a
+# document: Shapely and the exporters overflow on them (1e999 reads as infinity).
+MAX_COORDINATE = 1e7
+# Characters of path data quoted in an error.
+_EXCERPT = 40
 
 
 @dataclass(frozen=True)
@@ -51,8 +73,66 @@ def _color(value: str | None, fallback: str) -> str:
     return value.lower() if value and _HEX_RE.match(value) else fallback
 
 
+def _length(value: str) -> float:
+    """An absolute SVG length in px: `200`, `200px`, `52.9mm`, `2in`."""
+    match = _LENGTH_RE.match(value)
+    if not match or match[2].lower() not in _UNITS:
+        raise InvalidSvg(
+            f"SVG size {value!r} is not a length in px, mm, cm, in, pt or pc: give the "
+            "document a viewBox."
+        )
+    length = float(match[1]) * _UNITS[match[2].lower()]
+    if abs(length) > MAX_COORDINATE:
+        raise InvalidSvg(f"SVG size {value!r} is beyond {MAX_COORDINATE:,.0f} px.")
+    return length
+
+
+def _view_box(value: str) -> tuple[float, float, float, float] | None:
+    """min-x, min-y, width and height of a viewBox, None without one."""
+    parts = [part for part in re.split(r"[\s,]+", value.strip()) if part]
+    if not parts:
+        return None
+    try:
+        numbers = [float(part) for part in parts]
+    except ValueError:
+        numbers = []
+    if len(numbers) != 4 or not all(abs(number) <= MAX_COORDINATE for number in numbers):
+        raise InvalidSvg(
+            f"viewBox {value!r} is not four numbers within {MAX_COORDINATE:,.0f}: min-x, "
+            "min-y, width and height."
+        )
+    return numbers[0], numbers[1], numbers[2], numbers[3]
+
+
+def _palette_index(value: str | None, position: int) -> int:
+    try:
+        return int(value) if value is not None else position
+    except ValueError:
+        return position
+
+
+def parse_path(d: str) -> svgelements.Path:
+    """Path data read by svgelements; data it cannot read is an invalid SVG."""
+    try:
+        return svgelements.Path(d)
+    except ValueError as exc:  # a command short of its numbers, a non-number
+        excerpt = d if len(d) <= _EXCERPT else d[:_EXCERPT] + "…"
+        raise InvalidSvg(f"Path data cannot be read: {excerpt!r}.") from exc
+
+
+def _moved(d: str, dx: float, dy: float) -> str:
+    path = parse_path(d)
+    path *= svgelements.Matrix.translate(dx, dy)
+    return str(path.d())
+
+
 def parse_svg(data: bytes) -> VectorDocument:
-    """Parse an SVG document in the VectorSnap contract."""
+    """Parse an SVG document in the VectorSnap contract.
+
+    Without a viewBox the size comes from `width` and `height`, in px or another
+    absolute unit (Inkscape's `210mm`). A viewBox that does not start at 0,0 moves the
+    shapes so it does: the document's coordinates always start at the top left corner.
+    """
     parser = etree.XMLParser(
         resolve_entities=False, no_network=True, remove_comments=True, huge_tree=False
     )
@@ -63,10 +143,14 @@ def parse_svg(data: bytes) -> VectorDocument:
     if root.tag != f"{{{SVG_NS}}}svg":
         raise InvalidSvg("Document is not an SVG.")
 
-    view_box = [float(v) for v in re.split(r"[\s,]+", root.get("viewBox", "").strip()) if v]
-    width = view_box[2] if len(view_box) == 4 else float(root.get("width", "0") or 0)
-    height = view_box[3] if len(view_box) == 4 else float(root.get("height", "0") or 0)
-    if width <= 0 or height <= 0:
+    view_box = _view_box(root.get("viewBox", ""))
+    if view_box is not None:
+        left, top, width, height = view_box
+    else:
+        left = top = 0.0
+        width = _length(root.get("width") or "0")
+        height = _length(root.get("height") or "0")
+    if not (width > 0 and height > 0):
         raise InvalidSvg("SVG must define a positive viewBox or width/height.")
 
     layers: list[VectorLayer] = []
@@ -76,13 +160,13 @@ def parse_svg(data: bytes) -> VectorDocument:
             VectorShape(
                 id=path.get("id") or f"p-{position}-{sequence}",
                 fill=_color(path.get("fill"), group_fill),
-                d=path.get("d", ""),
+                d=_moved(path.get("d", ""), -left, -top) if left or top else path.get("d", ""),
             )
             for sequence, path in enumerate(group.iterchildren(f"{{{SVG_NS}}}path"))
             if path.get("d")
         ]
         if shapes:
-            index = int(group.get("data-palette-index", position))
+            index = _palette_index(group.get("data-palette-index"), position)
             layers.append(VectorLayer(palette_index=index, fill=group_fill, shapes=shapes))
 
     if not layers:
@@ -96,7 +180,8 @@ def _bezier_points(controls: NDArray[np.float64], tolerance: float) -> NDArray[n
     The control polygon is never shorter than the curve, so it bounds the sample count.
     """
     length = float(np.linalg.norm(np.diff(controls, axis=0), axis=1).sum())
-    t = np.linspace(0.0, 1.0, max(2, math.ceil(length / tolerance)) + 1)[1:, None]
+    samples = min(MAX_CURVE_SAMPLES, max(2, math.ceil(length / tolerance)))
+    t = np.linspace(0.0, 1.0, samples + 1)[1:, None]
     if len(controls) == 3:
         p0, p1, p2 = controls
         return np.asarray((1 - t) ** 2 * p0 + 2 * (1 - t) * t * p1 + t**2 * p2)
@@ -107,13 +192,16 @@ def _bezier_points(controls: NDArray[np.float64], tolerance: float) -> NDArray[n
 
 
 def _xy(point: svgelements.Point) -> tuple[float, float]:
-    return (float(point.x), float(point.y))
+    x, y = float(point.x), float(point.y)
+    if not (abs(x) <= MAX_COORDINATE and abs(y) <= MAX_COORDINATE):  # also NaN
+        raise InvalidSvg(f"Path data has coordinates beyond {MAX_COORDINATE:,.0f} px.")
+    return (x, y)
 
 
 def flatten(d: str, tolerance: float = DEFAULT_TOLERANCE) -> list[NDArray[np.float64]]:
     """Approximate each subpath of a path by a closed polyline (N x 2, without repeat)."""
     rings: list[NDArray[np.float64]] = []
-    for subpath in svgelements.Path(d).as_subpaths():
+    for subpath in parse_path(d).as_subpaths():
         chunks: list[NDArray[np.float64]] = []
         for segment in svgelements.Path(subpath):
             if isinstance(segment, (svgelements.Move, svgelements.Line, svgelements.Close)):
@@ -151,7 +239,7 @@ def curve_path(d: str) -> list[PathCommand]:
     so formats with only cubic curves (PDF, PostScript) keep the exact shape.
     """
     commands: list[PathCommand] = []
-    for segment in svgelements.Path(d):
+    for segment in parse_path(d):
         if isinstance(segment, svgelements.Move):
             commands.append(("M", [_xy(segment.end)]))
         elif isinstance(segment, svgelements.Close):

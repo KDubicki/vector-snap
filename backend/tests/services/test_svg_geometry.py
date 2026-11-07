@@ -3,7 +3,15 @@ import math
 import pytest
 
 from app.core.errors import InvalidSvg
-from app.services.svg_geometry import curve_path, flatten, parse_svg, polygons, to_polygon
+from app.services.svg_geometry import (
+    MAX_CURVE_SAMPLES,
+    curve_path,
+    flatten,
+    parse_svg,
+    polygons,
+    shape_outline,
+    to_polygon,
+)
 from tests.vectors import SVG_NS, contract_svg
 
 SQUARE = "M0,0 L10,0 L10,10 L0,10 Z"
@@ -50,6 +58,88 @@ def test_shape_fill_overrides_group_fill_and_empty_groups_are_skipped() -> None:
 def test_rejects_invalid_documents(data: bytes, message: str) -> None:
     with pytest.raises(InvalidSvg, match=message):
         parse_svg(data)
+
+
+def _sized(attributes: str, d: str = SQUARE, group: str = 'fill="#000000"') -> bytes:
+    return f'<svg xmlns="{SVG_NS}" {attributes}><g {group}><path d="{d}"/></g></svg>'.encode()
+
+
+@pytest.mark.parametrize(
+    ("width", "height", "expected"),
+    [
+        ("200", "100", (200, 100)),
+        ("200px", " 100px ", (200, 100)),
+        ("25.4mm", "2.54cm", (96, 96)),
+        ("1in", "72pt", (96, 96)),
+        ("6pc", "1e1Q", (96, 96 / 101.6 * 10)),
+    ],
+)
+def test_reads_a_size_in_absolute_units_without_a_viewbox(
+    width: str, height: str, expected: tuple[float, float]
+) -> None:
+    document = parse_svg(_sized(f'width="{width}" height="{height}"'))
+
+    assert (document.width, document.height) == pytest.approx(expected)
+
+
+def test_a_viewbox_wins_over_a_relative_size() -> None:
+    document = parse_svg(_sized('width="100%" height="100%" viewBox="0 0 20 10"'))
+
+    assert (document.width, document.height) == (20, 10)
+
+
+@pytest.mark.parametrize(
+    ("attributes", "message"),
+    [
+        ('width="100%" height="100%"', "not a length"),
+        ('width="10em" height="10"', "not a length"),
+        ('width="2e7" height="10"', "beyond 10,000,000 px"),
+        ('viewBox="0 0 a b"', "not four numbers"),
+        ('viewBox="0 0 10"', "not four numbers"),
+        ('viewBox="0 0 nan 10"', "not four numbers"),
+        ('viewBox="0 0 1e999 10"', "not four numbers"),
+        ('viewBox="0 0 -10 10"', "positive"),
+    ],
+)
+def test_rejects_sizes_it_cannot_read(attributes: str, message: str) -> None:
+    with pytest.raises(InvalidSvg, match=message):
+        parse_svg(_sized(attributes))
+
+
+def test_moves_the_shapes_of_a_viewbox_not_at_the_origin() -> None:
+    document = parse_svg(_sized('viewBox="-10 -5 20 10"', d="m-10,-5 h10 v10 h-10 z"))
+
+    assert (document.width, document.height) == (20, 10)
+    assert shape_outline(document.layers[0].shapes[0]).bounds == pytest.approx((0, 0, 10, 10))
+
+
+def test_a_palette_index_that_is_not_a_number_is_the_group_position() -> None:
+    document = parse_svg(_sized('viewBox="0 0 10 10"', group='data-palette-index="red"'))
+
+    assert document.layers[0].palette_index == 0
+
+
+@pytest.mark.parametrize(
+    ("d", "message"),
+    [
+        ("M0,0 Q", "cannot be read"),
+        ("M0,0 L5", "cannot be read"),
+        ("M nan,0 L1,1 Z", "cannot be read"),
+        ("M0,0 L1e999,0 L5,5 Z", "beyond 10,000,000 px"),
+        ("M0,0 C0,0 2e7,0 5,5 Z", "beyond 10,000,000 px"),
+    ],
+)
+def test_path_data_it_cannot_read_is_an_invalid_svg(d: str, message: str) -> None:
+    with pytest.raises(InvalidSvg, match=message):
+        flatten(d)
+    with pytest.raises(InvalidSvg, match=message):
+        curve_path(d)
+
+
+def test_samples_a_very_long_curve_with_a_bounded_number_of_points() -> None:
+    (ring,) = flatten("M0,0 C0,1000000 1000000,1000000 1000000,0 Z")
+
+    assert len(ring) <= MAX_CURVE_SAMPLES + 1
 
 
 def test_does_not_resolve_external_entities() -> None:

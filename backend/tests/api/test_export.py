@@ -256,6 +256,20 @@ def test_rejects_invalid_svg(client: TestClient) -> None:
     assert response.json()["error"]["code"] == "INVALID_SVG"
 
 
+@pytest.mark.parametrize("fmt", ["stl", "png", "pdf"])
+def test_rejects_path_data_it_cannot_read(client: TestClient, fmt: str) -> None:
+    svg = contract_svg(10, 10, [("#ff0000", ["M0,0 Q"])])
+
+    response = _post(client, fmt, data=svg)
+
+    assert response.status_code == 422
+    error = response.json()["error"]
+    assert (error["code"], error["message"]) == (
+        "INVALID_SVG",
+        "Path data cannot be read: 'M0,0 Q'.",
+    )
+
+
 def test_exports_dxf(client: TestClient) -> None:
     response = _post(client, "dxf", {"width_mm": "40", "fill": "true"})
 

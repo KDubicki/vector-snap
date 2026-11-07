@@ -21,6 +21,29 @@ def test_documents_that_cannot_be_read_are_errors() -> None:
         assert [problem.code for problem in result.problems] == ["invalid_svg"]
 
 
+def test_path_data_that_cannot_be_read_is_an_error() -> None:
+    data = (
+        f'<svg {NS} viewBox="0 0 10 10"><g data-palette-index="0" fill="#ff0000">'
+        '<path id="ok" d="M0,0 h5 v5 h-5 z"/><path id="cut" d="M0,0 Q"/>'
+        '<path id="far" d="M0,0 L1e999,0 L5,5 Z"/></g></svg>'
+    ).encode()
+
+    result = validate_svg(data)
+
+    assert not result.valid
+    assert result.problems[0].code == "invalid_path_data"
+    assert result.problems[0].ids == ["cut", "far"]
+
+
+def test_a_palette_index_that_is_not_a_whole_number_is_reported() -> None:
+    data = (
+        f'<svg {NS} viewBox="0 0 10 10"><g data-palette-index="1.5" fill="#ff0000">'
+        '<path id="a" d="M0,0 h5 v5 h-5 z"/></g></svg>'
+    ).encode()
+
+    assert _codes(data) == ["group_without_index"]
+
+
 def test_reports_what_the_parser_repairs_or_leaves_out() -> None:
     data = f"""<svg {NS} viewBox="0 0 10 10">
       <rect width="5" height="5"/>

@@ -16,7 +16,7 @@ from lxml import etree
 from shapely import box
 
 from app.core.errors import InvalidSvg
-from app.services.svg_geometry import SVG_NS, parse_svg, shape_outline
+from app.services.svg_geometry import MAX_COORDINATE, SVG_NS, parse_svg, shape_outline
 
 Severity = Literal["error", "warning"]
 _HEX_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
@@ -91,13 +91,17 @@ def validate_svg(data: bytes, max_shapes: int | None = None) -> Validation:
                 f"{len(no_fill)} color group(s) without a #rrggbb fill: read as black.",
             )
         )
-    no_index = [group for group in groups if group.get("data-palette-index") is None]
+    no_index = [
+        group
+        for group in groups
+        if not re.fullmatch(r"[+-]?\d+", (group.get("data-palette-index") or "").strip())
+    ]
     if no_index:
         problems.append(
             _warning(
                 "group_without_index",
-                f"{len(no_index)} color group(s) without data-palette-index: numbered by "
-                "their position.",
+                f"{len(no_index)} color group(s) without a whole-number data-palette-index: "
+                "numbered by their position.",
             )
         )
     indices = Counter(layer.palette_index for layer in document.layers)
@@ -137,9 +141,14 @@ def validate_svg(data: bytes, max_shapes: int | None = None) -> Validation:
     page = box(0, 0, document.width, document.height)
     empty: list[str] = []
     outside: list[str] = []
+    unreadable: list[str] = []
     for layer in document.layers:
         for shape in layer.shapes:
-            outline = shape_outline(shape)
+            try:
+                outline = shape_outline(shape)
+            except InvalidSvg:
+                unreadable.append(shape.id)
+                continue
             if outline.is_empty or outline.area <= 0:
                 empty.append(shape.id)
             elif not page.covers(outline):
@@ -160,6 +169,18 @@ def validate_svg(data: bytes, max_shapes: int | None = None) -> Validation:
                 "the SVG view cuts them off.",
                 outside,
             )
+        )
+    if unreadable:
+        problems.insert(
+            0,
+            Problem(
+                "error",
+                "invalid_path_data",
+                f"{len(unreadable)} shape(s) with path data that cannot be read (a command "
+                f"short of its numbers, a value that is not a number or beyond "
+                f"{MAX_COORDINATE:,.0f} px): edits and exports fail.",
+                unreadable[:MAX_LISTED_IDS],
+            ),
         )
     shapes = sum(len(layer.shapes) for layer in document.layers)
     if max_shapes is not None and shapes > max_shapes:

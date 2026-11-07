@@ -18,7 +18,7 @@ from numpy.typing import NDArray
 from shapely import Polygon, STRtree, contains, points, prepare
 
 from app.services.svg_document import edit_shapes
-from app.services.svg_geometry import VectorDocument, VectorShape, flatten
+from app.services.svg_geometry import VectorDocument, VectorShape, flatten, parse_path
 
 # A hole counts as empty while other shapes cover less than this share of it.
 EMPTY_SHARE = 0.5
@@ -34,7 +34,7 @@ class FilledHoles:
 def _subpaths(d: str) -> list[tuple[str, Polygon | None]]:
     """Each subpath's path data and its outline (None for one without area)."""
     result: list[tuple[str, Polygon | None]] = []
-    for subpath in svgelements.Path(d).as_subpaths():
+    for subpath in parse_path(d).as_subpaths():
         data = svgelements.Path(subpath).d()
         rings = flatten(data)
         result.append((data, Polygon(rings[0]) if rings else None))

@@ -330,7 +330,16 @@ FastAPI 0.149 and later read a missing `bool` form field as an unchecked checkbo
 | `png` | `image/png` | `width_px` (16–4096, default 1024), `background` (`transparent` \| `#rrggbb`), `dpi` (72–1200, 300) |
 
 Errors: `413 FILE_TOO_LARGE`, `422 INVALID_SVG` (not well-formed, not SVG, no
-viewBox/size, no shapes), `422 VALIDATION_ERROR` (options out of range).
+viewBox/size, no shapes, path data that cannot be read), `422 VALIDATION_ERROR`
+(options out of range).
+
+**SVGs from other tools.** Without a `viewBox` the size comes from `width` and
+`height` in px or another absolute unit (`210mm`, `8.5in`, `612pt`, also `cm` and `pc`;
+96 px to the inch); a size in `%` or `em` needs a `viewBox`. A `viewBox` that does not
+start at `0 0` moves the shapes so it does. Path data that cannot be read (a command
+short of its numbers, a value that is not a number) and coordinates or sizes beyond
+±10,000,000 px are `422 INVALID_SVG` naming the problem; `data-palette-index` that is
+not a whole number counts as the group's position.
 
 ---
 
@@ -670,11 +679,12 @@ exports would fail on (**errors**) or silently repair and leave out (**warnings*
 
 | `code` | Severity | Meaning |
 |--------|----------|---------|
-| `invalid_svg` | error | Not well-formed XML, not an SVG, no viewBox/size, or no shapes |
+| `invalid_svg` | error | Not well-formed XML, not an SVG, no viewBox/size (or one that cannot be read), or no shapes |
+| `invalid_path_data` | error | Shapes whose path data cannot be read (a command short of its numbers, a value that is not a number or beyond ±10,000,000 px) |
 | `too_many_shapes` | error | More shapes than `max_svg_shapes` (see [limits](#get-apiv1limits)) |
 | `ignored_elements` | warning | Elements other than `<g>` color groups of `<path>`s (`<rect>`, `<text>`, …) are left out |
 | `group_without_fill` | warning | A group without a `#rrggbb` fill is read as black |
-| `group_without_index` | warning | A group without `data-palette-index` is numbered by its position |
+| `group_without_index` | warning | A group without a whole-number `data-palette-index` is numbered by its position |
 | `duplicate_palette_index` | warning | Groups sharing a palette index (colors are chosen and printed per index) |
 | `path_without_data` | warning | Paths without `d` are left out |
 | `path_without_id` | warning | Paths without an id get `p-<group>-<n>` |
