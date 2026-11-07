@@ -31,6 +31,10 @@ class MergedColorModel(BaseModel):
 class QuantizeResponse(BaseModel):
     width: int
     height: int
+    colors: int = Field(
+        description="Palette size quantized to: `colors` as sent, or the count `auto` "
+        "chose. The palette can hold fewer (fewer distinct colors, merges)"
+    )
     palette: list[PaletteColor]
     has_transparency: bool
     background_index: int | None = Field(

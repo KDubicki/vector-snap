@@ -1,5 +1,5 @@
 import base64
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 from fastapi.concurrency import run_in_threadpool
@@ -35,7 +35,13 @@ MAX_FILAMENT_CANDIDATES = 128
 async def quantize(
     settings: Annotated[Settings, Depends(get_settings)],
     image: Annotated[UploadFile, File(description="JPEG or PNG image")],
-    colors: Annotated[int, Form(ge=1, description="Target palette size")],
+    colors: Annotated[
+        int | Literal["auto"],
+        Form(
+            description="Target palette size, or `auto` for the count /suggest-colors "
+            "gives (at least the locked colors)"
+        ),
+    ],
     algorithm: Annotated[QuantizeAlgorithm, Form()] = QuantizeAlgorithm.KMEANS,
     locked_colors: Annotated[str, Form(description="JSON array of hex colors")] = "[]",
     max_working_size: Annotated[int, Form(ge=64)] = 1024,
@@ -91,7 +97,7 @@ async def quantize(
             f"At most {MAX_FILAMENT_CANDIDATES} filament colors.", {"field": "filaments"}
         )
 
-    decoded, result, merged = await run_in_threadpool(
+    quantized = await run_in_threadpool(
         quantize_image,
         data,
         colors=colors,
@@ -105,12 +111,15 @@ async def quantize(
         filaments=filament_colors,
         min_coverage=min_coverage,
         merge_delta_e=merge_delta_e,
+        color_range=(settings.min_colors, settings.max_colors),
     )
+    decoded, result = quantized.image, quantized.result
     png = await run_in_threadpool(to_indexed_png, result)
 
     return QuantizeResponse(
         width=decoded.width,
         height=decoded.height,
+        colors=quantized.colors,
         palette=palette_colors(result.palette, result.coverage),
         has_transparency=result.has_transparency,
         background_index=background_index(result.labels),
@@ -122,7 +131,7 @@ async def quantize(
                 reason=item.reason,
                 delta_e=item.delta_e,
             )
-            for item in merged
+            for item in quantized.merged
         ],
         image=EncodedImage(data=base64.b64encode(png).decode("ascii")),
     )

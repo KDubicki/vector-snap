@@ -55,6 +55,14 @@ def _step(name: str, started: float) -> int:
 
 
 @dataclass(frozen=True)
+class QuantizedImage:
+    image: DecodedImage
+    result: QuantizationResult
+    merged: list[MergedColor]
+    colors: int  # the palette size quantized to: `colors`, or the count `auto` chose
+
+
+@dataclass(frozen=True)
 class VectorizeResult:
     svg: str
     width: int
@@ -80,7 +88,7 @@ def quantize_image(
     min_coverage: float = 0.0,
     merge_delta_e: float = 0.0,
     color_range: tuple[int, int] = (2, 64),
-) -> tuple[DecodedImage, QuantizationResult, list[MergedColor]]:
+) -> QuantizedImage:
     """Decode and quantize an image; `smooth` > 0 then cleans up noisy color regions.
 
     `upscale` enlarges small images first (see `decode_image`). The `filaments` algorithm
@@ -134,7 +142,7 @@ def quantize_image(
             "quantize_ms": _step("quantize", started),
         },
     )
-    return image, result, merged
+    return QuantizedImage(image, result, merged, count)
 
 
 def suggest_colors(
@@ -224,13 +232,13 @@ def vectorize_image(
     started = time.perf_counter()
     decode_ms = None  # one-shot mode: quantize_image logs decoding and quantizing
     if colors is not None:
-        _, quantized, _ = quantize_image(
+        quantized = quantize_image(
             data,
             colors=colors,
             algorithm=algorithm,
             max_dimension=max_dimension,
             color_range=color_range,
-        )
+        ).result
         labels, palette = quantized.labels, quantized.palette
     else:
         try:

@@ -117,12 +117,26 @@ def test_quantizing_logs_the_input_parameters_and_step_durations(
     assert isinstance(fields["decode_ms"], int) and isinstance(fields["quantize_ms"], int)
 
 
+def test_auto_quantizes_to_at_least_the_locked_colors() -> None:
+    locked = [(17, 17, 17), (34, 34, 34), (51, 51, 51), (68, 68, 68)]
+
+    quantized = quantize_image(
+        encode(stripes()),
+        colors="auto",
+        algorithm="kmeans",
+        max_dimension=4096,
+        locked_colors=locked,
+    )
+
+    assert quantized.colors == 4
+
+
 def test_vectorizing_an_indexed_png_logs_decoding_and_tracing(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    _, quantized, _ = quantize_image(
+    quantized = quantize_image(
         encode(stripes()), colors=3, algorithm="kmeans", max_dimension=4096
-    )
+    ).result
     caplog.set_level(logging.INFO, logger="app.services.pipeline")
 
     result = vectorize_image(

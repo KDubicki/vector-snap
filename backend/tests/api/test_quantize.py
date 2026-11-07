@@ -139,12 +139,36 @@ def test_quantize_rejects_invalid_smoothing(client: TestClient, smooth: str) -> 
     assert response.status_code == 422
 
 
+def test_quantize_reports_the_color_count_it_was_given(client: TestClient) -> None:
+    response = _post(client, encode(stripes()), colors="8")
+
+    body = response.json()
+    assert (body["colors"], len(body["palette"])) == (8, 3)
+
+
+def test_quantize_chooses_the_color_count_with_auto(client: TestClient) -> None:
+    response = _post(client, encode(stripes()), colors="auto")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["colors"] == 3
+    assert [c["hex"] for c in body["palette"]] == ["#ff0000", "#00a000", "#0000ff"]
+    assert "suggest;dur=" in response.headers["Server-Timing"]
+
+
 @pytest.mark.parametrize("colors", ["1", "65"])
 def test_quantize_rejects_color_count_out_of_range(client: TestClient, colors: str) -> None:
     response = _post(client, encode(stripes()), colors=colors)
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "INVALID_PARAMETERS"
+
+
+def test_quantize_rejects_a_color_count_that_is_not_a_number(client: TestClient) -> None:
+    response = _post(client, encode(stripes()), colors="many")
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
 
 
 def test_quantize_requires_colors(client: TestClient) -> None:

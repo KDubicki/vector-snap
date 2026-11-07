@@ -120,7 +120,7 @@ Reduces the image to `colors` representative colors.
 | Field | Type | Required | Default | Description |
 |-------|------|:--------:|---------|-------------|
 | `image` | file | ✅ | — | JPEG, PNG, WebP or AVIF (format read from the content; an animated WebP/AVIF is read as its first frame) |
-| `colors` | int | ✅ | — | Target palette size, `min_colors ≤ colors ≤ max_colors` |
+| `colors` | int \| `auto` | ✅ | — | Target palette size, `min_colors ≤ colors ≤ max_colors`, or `auto` for the count [`/suggest-colors`](#post-apiv1suggest-colors) gives (at least the locked colors), in one request |
 | `algorithm` | enum | | `kmeans` | `kmeans` \| `median_cut` \| `filaments` (palette chosen from `filaments`) |
 | `locked_colors` | JSON string | | `[]` | Hex colors that MUST be part of the palette, e.g. `["#ff0000"]` (counts toward `colors`); honored by every algorithm |
 | `filaments` | JSON string | with `filaments` | `[]` | Available filament colors (up to 128), e.g. `["#ffffff", "#000000", "#c12e1f"]`; the best `colors` of them become the palette, unused ones are left out (`422 INVALID_PARAMETERS` when missing) |
@@ -137,6 +137,7 @@ Reduces the image to `colors` representative colors.
 {
   "width": 800,
   "height": 600,
+  "colors": 2,
   "palette": [
     {"index": 0, "hex": "#1d2b53", "rgb": [29, 43, 83], "coverage": 0.412},
     {"index": 1, "hex": "#ff004d", "rgb": [255, 0, 77], "coverage": 0.133}
@@ -155,6 +156,8 @@ Reduces the image to `colors` representative colors.
 }
 ```
 
+- `colors` is the palette size quantized to: `colors` as sent, or the count `auto`
+  chose (`Server-Timing` then has a `suggest` step).
 - `palette` is sorted by `coverage` descending; `index` equals the PNG palette index.
 - `merged` lists the colors merged away — `similar` ones (`merge_delta_e`) first, then
   `small` ones (`min_coverage`) — with the palette color their pixels now have (after
