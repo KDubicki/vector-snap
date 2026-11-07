@@ -200,8 +200,15 @@ def _xy(point: svgelements.Point) -> tuple[float, float]:
 
 def flatten(d: str, tolerance: float = DEFAULT_TOLERANCE) -> list[NDArray[np.float64]]:
     """Approximate each subpath of a path by a closed polyline (N x 2, without repeat)."""
+    return flatten_path(parse_path(d), tolerance)
+
+
+def flatten_path(
+    path: svgelements.Path, tolerance: float = DEFAULT_TOLERANCE
+) -> list[NDArray[np.float64]]:
+    """`flatten` of a path svgelements has read already."""
     rings: list[NDArray[np.float64]] = []
-    for subpath in parse_path(d).as_subpaths():
+    for subpath in path.as_subpaths():
         chunks: list[NDArray[np.float64]] = []
         for segment in svgelements.Path(subpath):
             if isinstance(segment, (svgelements.Move, svgelements.Line, svgelements.Close)):

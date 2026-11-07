@@ -62,6 +62,7 @@ total, in milliseconds ([04 — Observability](04-backend.md#observability)).
 | `POST` | `/api/v1/svg/reorder` | Reorder the color layers, given or sorted ([details](#post-apiv1svgreorder)) |
 | `POST` | `/api/v1/svg/batch` | Several edits in one request, as JSON steps ([details](#post-apiv1svgbatch)) |
 | `POST` | `/api/v1/svg/validate` | Check an SVG against the contract: errors and warnings ([details](#post-apiv1svgvalidate)) |
+| `POST` | `/api/v1/svg/import` | Bring an SVG from another tool into the contract ([details](#post-apiv1svgimport)) |
 | `POST` | `/api/v1/svg/stats` | Colors, shapes, coverage and specks of a document ([details](#post-apiv1svgstats)) |
 | `POST` | `/api/v1/svg/merge` | Unite shapes into the largest of them, as the editor's merge ([details](#post-apiv1svgmerge)) |
 
@@ -698,6 +699,38 @@ exports would fail on (**errors**) or silently repair and leave out (**warnings*
 | `shape_outside_viewbox` | warning | Shapes reaching beyond the viewBox: exports keep them, the SVG view cuts them off |
 
 `valid` is true without errors. `ids` lists up to 50 shapes concerned.
+
+### `POST /api/v1/svg/import`
+
+Converts an SVG made by another tool — Inkscape, Illustrator, Figma, an icon set — into
+the contract, so it can be edited, recolored and exported like a traced image
+(`app/services/svg_import.py`). Form field `svg`; the answer also comes as the SVG itself
+with `Accept: image/svg+xml`.
+
+- The document is read as a browser draws it (svgelements): `width`/`height` in mm or
+  in, the `viewBox`, transforms, `<use>` copies, CSS classes and `style`, `currentColor`;
+  rectangles, circles, ellipses, polygons and paths, with their `fill-rule`. Sizes come
+  out in px (96 per inch: 100 mm is 377.95 px).
+- Every filled shape is cut to what shows of it (later shapes painted over it are
+  removed), and the visible parts of each fill color become one color layer, in the
+  order the colors first appear. Flattened that way the layers never overlap, so their
+  order and the 3D print's heights cannot hide one color under another. Curves become
+  polygons with points 1/1000 of the document's longer side apart.
+- Left out and counted in `ignored`: `strokes` (outlines are not areas; the fill of a
+  stroked shape is kept), `text`, `images`, `invisible` (opacity 0, hidden), `unfilled`,
+  `no_area`. A gradient fill becomes the average of its stop colors (`gradients`).
+- Entities are never resolved and nothing is fetched. More than `max_svg_shapes` filled
+  shapes, read or resulting (a covered shape can fall apart into pieces), is
+  `413 SVG_TOO_COMPLEX`; a document without a filled area is `422 INVALID_SVG`. A few
+  hundred shapes take well under a second, 10,000 abutting ones about 4 s.
+
+```json
+{
+  "svg": "<svg ...>...</svg>", "width": 377.95, "height": 188.98,
+  "colors": 4, "shapes": 7,
+  "ignored": { "gradients": 1, "strokes": 2, "text": 1 }
+}
+```
 
 ### `POST /api/v1/svg/stats`
 

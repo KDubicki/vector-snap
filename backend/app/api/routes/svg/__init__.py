@@ -6,13 +6,14 @@ and scripts. See docs/05-api-specification.md#svg.
 - `shapes`: delete, merge, transform and simplify shapes.
 - `document`: crop the document, reorder its color layers.
 - `info`: statistics of a document, contract check.
+- `importer`: bring an SVG from another tool into the contract.
 - `batch`: several of the edits in one request.
 """
 
 from fastapi import APIRouter
 
-from app.api.routes.svg import batch, colors, cuts, document, info, shapes
+from app.api.routes.svg import batch, colors, cuts, document, importer, info, shapes
 
 router = APIRouter(prefix="/svg", tags=["svg"])
-for module in (colors, cuts, shapes, document, info, batch):
+for module in (colors, cuts, shapes, document, info, importer, batch):
     router.include_router(module.router)

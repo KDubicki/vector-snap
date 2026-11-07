@@ -414,3 +414,50 @@ def test_validates_an_svg(client: TestClient) -> None:
     assert broken.status_code == 200
     assert broken.json()["valid"] is False
     assert broken.json()["problems"][0]["code"] == "invalid_svg"
+
+
+def test_imports_an_svg_from_another_tool(client: TestClient) -> None:
+    svg = (
+        b'<svg xmlns="http://www.w3.org/2000/svg" width="20mm" height="10mm" '
+        b'viewBox="0 0 20 10"><rect width="20" height="10" fill="white"/>'
+        b'<circle cx="5" cy="5" r="4" fill="#c00" stroke="#000"/><text>Logo</text></svg>'
+    )
+
+    response = client.post("/api/v1/svg/import", files={"svg": ("logo.svg", svg, "image/svg+xml")})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert (body["colors"], body["shapes"]) == (2, 2)
+    assert body["ignored"] == {"strokes": 1, "text": 1}
+    assert body["width"] == pytest.approx(20 * 96 / 25.4)
+    assert 'data-palette-index="1" fill="#cc0000"' in body["svg"]
+    # What it gives back, every other endpoint takes.
+    stats = client.post(
+        "/api/v1/svg/stats", files={"svg": ("logo.svg", body["svg"].encode(), "image/svg+xml")}
+    )
+    assert stats.json()["colors"] == 2
+
+
+def test_import_answers_with_the_svg_itself_on_request(client: TestClient) -> None:
+    svg = (
+        b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">'
+        b'<rect width="5" height="5"/></svg>'
+    )
+
+    response = client.post(
+        "/api/v1/svg/import",
+        files={"svg": ("a.svg", svg, "image/svg+xml")},
+        headers={"Accept": "image/svg+xml"},
+    )
+
+    assert response.headers["content-type"].startswith("image/svg+xml")
+    assert response.text.startswith("<svg")
+
+
+def test_import_rejects_an_svg_without_filled_shapes(client: TestClient) -> None:
+    svg = b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><text>Hi</text></svg>'
+
+    response = client.post("/api/v1/svg/import", files={"svg": ("a.svg", svg, "image/svg+xml")})
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "INVALID_SVG"

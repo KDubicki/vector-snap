@@ -208,3 +208,15 @@ def parse_layer_order(raw: str, field: str) -> list[int]:
             {"field": field},
         )
     return values
+
+
+class SvgImportResponse(BaseModel):
+    svg: str
+    width: float = Field(gt=0, description="Document width, px (96 per inch: 210 mm is 793.7)")
+    height: float = Field(gt=0)
+    colors: int = Field(description="Color layers, in the order the colors first appear")
+    shapes: int = Field(description="Shapes of the contract: the visible parts of each color")
+    ignored: dict[str, int] = Field(
+        description="What was left out or changed, by kind: strokes, text, images, invisible, "
+        "unfilled, no_area; gradients (each kept as its average color)"
+    )
