@@ -45,7 +45,10 @@ the "microservice" deployment mode.
    - SPA fallback (`try_files $uri /index.html`).
    - `location /api/` → `proxy_pass http://backend:8000` with
      `client_max_body_size` matching the backend upload limit.
-   - Long-term caching for hashed assets, `no-cache` for `index.html`.
+   - Long-term caching for hashed assets — one `Cache-Control: public,
+     max-age=31536000, immutable` (nginx's `expires` beside `add_header` used to send
+     two `Cache-Control` headers and an `Expires`) — and `no-cache` for `index.html`.
+     The stack smoke test in CI checks both.
    - **Compression**: `gzip_static` sends the build's `.gz` copies to browsers that
      accept gzip (`Vary: Accept-Encoding`), compressed once at level 9 instead of on
      every request; `gzip on` covers other text. The first visit downloads the main
