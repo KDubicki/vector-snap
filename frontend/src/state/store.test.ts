@@ -135,7 +135,25 @@ describe('app store', () => {
       'image/png',
       'image/webp',
       'image/avif',
+      'image/gif',
+      'image/bmp',
     ]);
+  });
+
+  it('takes the formats of the backend that a browser can show', async () => {
+    vi.stubGlobal(
+      'fetch',
+      respond({
+        min_colors: 2,
+        max_colors: 4,
+        max_upload_mb: 5,
+        supported_formats: ['image/png', 'image/tiff', 'image/gif'],
+      }),
+    );
+
+    await store().loadLimits();
+
+    expect(store().limits.supported_formats).toEqual(['image/png', 'image/gif']);
   });
 
   it('keeps default limits when the request fails', async () => {

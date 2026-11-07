@@ -9,7 +9,7 @@ small, well-defined set of flat colors is preferable to a photorealistic trace.
 
 ## Goals
 
-1. **Raster → vector conversion.** Produce clean, compact SVG output from JPEG, PNG, WebP or AVIF input.
+1. **Raster → vector conversion.** Produce clean, compact SVG output from JPEG, PNG, WebP, AVIF, GIF, BMP or TIFF input.
 2. **Palette control.** Let the user reduce the image to an exact number of colors
    *before* tracing, and adjust those colors manually.
 3. **Post-trace editing.** Allow the user to split individual vector shapes into
@@ -30,7 +30,7 @@ small, well-defined set of flat colors is preferable to a photorealistic trace.
 
 ```mermaid
 flowchart LR
-    A[Upload JPEG/PNG/WebP/AVIF] --> B[Choose number of colors]
+    A[Upload JPEG/PNG/WebP/AVIF/GIF/BMP] --> B[Choose number of colors]
     B --> C[Preview quantized image + palette]
     C --> D{Adjust colors?}
     D -- yes --> E[Edit palette entries] --> C

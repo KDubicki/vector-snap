@@ -16,7 +16,7 @@ import {
   type FilamentLibrary,
 } from '../lib/filamentLibrary';
 import { fitImage, type Resize } from '../lib/fitImage';
-import { DEFAULT_FORMATS } from '../lib/imageFormats';
+import { DEFAULT_FORMATS, uploadFormats } from '../lib/imageFormats';
 import { browserStorage } from '../lib/theme';
 import { DEFAULT_TRACING } from '../lib/tracing';
 import type {
@@ -204,9 +204,10 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
   loadLimits: async () => {
     try {
       const limits = await getLimits();
+      // A field an older backend leaves out keeps its default.
+      const merged = { ...initialState.limits, ...limits };
       set((state) => ({
-        // A field an older backend leaves out keeps its default.
-        limits: { ...initialState.limits, ...limits },
+        limits: { ...merged, supported_formats: uploadFormats(merged.supported_formats) },
         colors: Math.min(Math.max(state.colors, limits.min_colors), limits.max_colors),
       }));
     } catch (error) {

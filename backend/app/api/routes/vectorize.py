@@ -24,7 +24,12 @@ router = APIRouter(tags=["processing"])
 async def vectorize(
     request: Request,
     settings: Annotated[Settings, Depends(get_settings)],
-    image: Annotated[UploadFile, File(description="Indexed PNG from /quantize, or JPEG/PNG")],
+    image: Annotated[
+        UploadFile,
+        File(
+            description="Indexed PNG from /quantize, or a JPEG, PNG, WebP, AVIF, GIF, BMP or TIFF"
+        ),
+    ],
     palette: Annotated[str | None, Form(description="JSON array of hex colors")] = None,
     colors: Annotated[
         int | Literal["auto"] | None,

@@ -105,7 +105,8 @@ of the load balancer and fail all of them.
   "min_colors": 2,
   "max_colors": 64,
   "max_svg_shapes": 20000,
-  "supported_formats": ["image/jpeg", "image/png", "image/webp", "image/avif"]
+  "supported_formats": ["image/jpeg", "image/png", "image/webp", "image/avif", "image/gif",
+                        "image/bmp", "image/tiff"]
 }
 ```
 
@@ -119,7 +120,7 @@ Reduces the image to `colors` representative colors.
 
 | Field | Type | Required | Default | Description |
 |-------|------|:--------:|---------|-------------|
-| `image` | file | ✅ | — | JPEG, PNG, WebP or AVIF (format read from the content; an animated WebP/AVIF is read as its first frame) |
+| `image` | file | ✅ | — | JPEG, PNG, WebP, AVIF, GIF, BMP or TIFF (format read from the content; an animated WebP, AVIF or GIF is read as its first frame, a TIFF of several pages as its first page; 16 bits per channel are read as 8, a TIFF of 32-bit floating point values is `422 INVALID_IMAGE`) |
 | `colors` | int \| `auto` | ✅ | — | Target palette size, `min_colors ≤ colors ≤ max_colors`, or `auto` for the count [`/suggest-colors`](#post-apiv1suggest-colors) gives (at least the locked colors), in one request |
 | `algorithm` | enum | | `kmeans` | `kmeans` \| `median_cut` \| `filaments` (palette chosen from `filaments`) |
 | `locked_colors` | JSON string | | `[]` | Hex colors that MUST be part of the palette, e.g. `["#ff0000"]` (counts toward `colors`); honored by every algorithm |
@@ -190,7 +191,7 @@ below a target, see [06 §3](06-image-processing-pipeline.md#color-count-suggest
 
 | Field | Type | Required | Description |
 |-------|------|:--------:|-------------|
-| `image` | file | ✅ | JPEG, PNG, WebP or AVIF |
+| `image` | file | ✅ | JPEG, PNG, WebP, AVIF, GIF, BMP or TIFF |
 
 ### Response — 200 OK
 
@@ -222,8 +223,9 @@ below a target, see [06 §3](06-image-processing-pipeline.md#color-count-suggest
 Converts an image to SVG. Two input modes are supported:
 
 1. **Indexed mode (used by the frontend).** `image` is the indexed PNG returned by
-   `/quantize`. Its label map is used as-is. `palette` optionally overrides colors.
-2. **One-shot mode (microservice convenience).** `image` is any JPEG/PNG/WebP/AVIF and
+   `/quantize` (or another palette image: a GIF of pixel art, up to 254 colors). Its
+   label map is used as-is. `palette` optionally overrides colors.
+2. **One-shot mode (microservice convenience).** `image` is any supported image and
    `colors` is provided — the backend quantizes internally and then vectorizes.
    `colors=auto` uses the count [`/suggest-colors`](#post-apiv1suggest-colors) would
    suggest, so a script gets a good SVG without choosing one.
@@ -235,7 +237,7 @@ If `image` is not indexed and `colors` is omitted, the request fails with
 
 | Field | Type | Required | Default | Description |
 |-------|------|:--------:|---------|-------------|
-| `image` | file | ✅ | — | Indexed PNG (mode 1) or JPEG/PNG/WebP/AVIF (mode 2) |
+| `image` | file | ✅ | — | Indexed PNG or GIF (mode 1) or JPEG, PNG, WebP, AVIF, GIF, BMP or TIFF (mode 2) |
 | `palette` | JSON string | | — | Array of hex colors, one per palette index, e.g. `["#000000", "#ffcc00"]`. Length MUST equal the palette size. Two entries with the same color are merged into one group. |
 | `colors` | int \| `auto` | mode 2 | — | Palette size for one-shot mode, `min_colors…max_colors`; `auto` = the count `/suggest-colors` suggests (Server-Timing reports it as `suggest`) |
 | `algorithm` | enum | | `kmeans` | One-shot mode only |
@@ -325,7 +327,7 @@ FastAPI 0.149 and later read a missing `bool` form field as an unchecked checkbo
 | `palette` | `text/plain`, `application/octet-stream`, `text/css`, `application/json` | `palette_format` (`gpl` \| `ase` \| `css` \| `json`, default `gpl`), `title` (1–100 characters, `VectorSnap`; the GPL name) |
 | `coloring-page` | `application/pdf` | `page` (`a4` \| `letter`, default `a4`), `margin_mm` (0–50, 12), `line_mm` (0.1–3, 0.4), `numbers` (bool, true: paint by numbers), `exclude_colors` (JSON `[index, ...]`, left white) |
 | `stencil` | `image/svg+xml`, `image/vnd.dxf` | `stencil_format` (`svg` \| `dxf`, default `svg`), `width_mm` (0–10000, 100), `margin_mm` (1–100, 10), `bridge_mm` (0.2–20, 1.5), `bridges` (`horizontal` \| `vertical` \| `both`), `per_color` (bool, false: a ZIP of one stencil per color, `stencil-<n>-<rrggbb>.<format>`), `exclude_colors` (JSON `[index, ...]`); header `X-Stencil-Bridges`: bridges added |
-| `lithophane` | `model/stl` | Takes `image` (the JPEG/PNG/WebP/AVIF upload) instead of `svg`. `width_mm` (0–1000, default 100), `min_thickness_mm` (0.2–10, 0.8), `max_thickness_mm` (0.2–20, 3; > `min_thickness_mm`), `resolution_mm` (0.05–5, 0.2; at most 1,000,000 grid points), `frame_mm` (0–50, 0), `invert` (bool, false) |
+| `lithophane` | `model/stl` | Takes `image` (the uploaded image) instead of `svg`. `width_mm` (0–1000, default 100), `min_thickness_mm` (0.2–10, 0.8), `max_thickness_mm` (0.2–20, 3; > `min_thickness_mm`), `resolution_mm` (0.05–5, 0.2; at most 1,000,000 grid points), `frame_mm` (0–50, 0), `invert` (bool, false) |
 | `dxf` | `image/vnd.dxf` | `width_mm` (0–10000, default 100), `fill` (bool, false) |
 | `pdf` | `application/pdf` | `page` (`fit` \| `a4` \| `letter`, default `fit`), `width_mm` (0–10000, 100), `margin_mm` (0–100, 10) |
 | `eps` | `application/postscript` | `width_mm` (0–10000, default 100), `margin_mm` (0–100, 0) |

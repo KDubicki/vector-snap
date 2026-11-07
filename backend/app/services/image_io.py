@@ -14,12 +14,17 @@ from PIL import Image, ImageCms, ImageOps, UnidentifiedImageError
 from app.core.errors import ImageTooLarge, InvalidImage, NotIndexedImage, UnsupportedMediaType
 
 # Pillow format name -> media type. WebP and AVIF are what phones, browsers and image
-# CDNs save today; an animated one is read as its first frame.
+# CDNs save today; GIF holds pixel art and old logos; BMP and TIFF come from scanners,
+# Windows tools and print work. An animated image is read as its first frame, a TIFF
+# with several pages as its first page.
 SUPPORTED_FORMATS = {
     "JPEG": "image/jpeg",
     "PNG": "image/png",
     "WEBP": "image/webp",
     "AVIF": "image/avif",
+    "GIF": "image/gif",
+    "BMP": "image/bmp",
+    "TIFF": "image/tiff",
 }
 
 # Pixels with alpha below this threshold are treated as fully transparent.
@@ -165,6 +170,12 @@ def decode_image(data: bytes, max_dimension: int, *, upscale: bool = False) -> D
     pixel stairs, so traced outlines - and 3D model walls - follow the intended shape.
     """
     image = _open(data, max_dimension)
+    if image.mode == "F":
+        # A TIFF of measurements (heights, a scientific scan): no range says which value
+        # is black and which white, and `convert` would make it all black.
+        raise InvalidImage(
+            "Image stores 32-bit floating point values; save it with 8 or 16 bits per channel."
+        )
     is_indexed = image.mode == "P"
     rgba = _to_srgb(_eight_bit(ImageOps.exif_transpose(image))).convert("RGBA")
     factor = upscale_factor(rgba.width, rgba.height, max_dimension) if upscale else 1

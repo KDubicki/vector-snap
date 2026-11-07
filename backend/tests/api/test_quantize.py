@@ -251,8 +251,17 @@ def test_quantize_to_filaments_needs_valid_filaments(
     assert response.status_code == 422
 
 
-@pytest.mark.parametrize(("image_format", "params"), [("WEBP", {"lossless": True}), ("AVIF", {})])
-def test_quantize_reads_webp_and_avif(
+@pytest.mark.parametrize(
+    ("image_format", "params"),
+    [
+        ("WEBP", {"lossless": True}),
+        ("AVIF", {}),
+        ("GIF", {}),
+        ("BMP", {}),
+        ("TIFF", {"compression": "tiff_lzw"}),
+    ],
+)
+def test_quantize_reads_every_supported_format(
     client: TestClient, image_format: str, params: dict[str, object]
 ) -> None:
     image = Image.new("RGB", (40, 20), (255, 255, 255))

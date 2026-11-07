@@ -34,7 +34,7 @@ MAX_FILAMENT_CANDIDATES = 128
 @router.post("/quantize", response_model=QuantizeResponse)
 async def quantize(
     settings: Annotated[Settings, Depends(get_settings)],
-    image: Annotated[UploadFile, File(description="JPEG or PNG image")],
+    image: Annotated[UploadFile, File(description="JPEG, PNG, WebP, AVIF, GIF, BMP or TIFF image")],
     colors: Annotated[
         int | Literal["auto"],
         Form(
@@ -140,7 +140,7 @@ async def quantize(
 @router.post("/suggest-colors", response_model=ColorSuggestionResponse)
 async def suggest_color_count(
     settings: Annotated[Settings, Depends(get_settings)],
-    image: Annotated[UploadFile, File(description="JPEG or PNG image")],
+    image: Annotated[UploadFile, File(description="JPEG, PNG, WebP, AVIF, GIF, BMP or TIFF image")],
 ) -> ColorSuggestionResponse:
     """Suggest a palette size: the fewest colors whose mean error stays below the target."""
     data = await read_upload(image, settings)

@@ -24,7 +24,9 @@ describe('App', () => {
     vi.stubGlobal('fetch', fetchResponses(LIMITS));
     render(<App />);
 
-    expect(await screen.findByText('JPEG, PNG, WebP or AVIF, up to 5 MB')).toBeInTheDocument();
+    expect(
+      await screen.findByText('JPEG, PNG, WebP, AVIF, GIF or BMP, up to 5 MB'),
+    ).toBeInTheDocument();
     expect(screen.getByText('Upload').closest('li')).toHaveAttribute('aria-current', 'step');
     expect(screen.queryByRole('button', { name: /Colors/ })).not.toBeInTheDocument();
   });
@@ -35,10 +37,10 @@ describe('App', () => {
 
     await userEvent.upload(
       screen.getByLabelText('Choose image'),
-      new File(['gif'], 'a.gif', { type: 'image/gif' }),
+      new File(['tiff'], 'scan.tif', { type: 'image/tiff' }),
       { applyAccept: false },
     );
-    expect(screen.getByRole('alert')).toHaveTextContent('Only JPEG, PNG, WebP and AVIF');
+    expect(screen.getByRole('alert')).toHaveTextContent('Only JPEG, PNG, WebP, AVIF, GIF and BMP');
   });
 
   it('moves between reachable steps and warns before leaving with unsaved edits', async () => {

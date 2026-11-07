@@ -96,7 +96,9 @@ async def export_to_tiles(
 )
 async def export_to_lithophane(
     settings: Annotated[Settings, Depends(get_settings)],
-    image: Annotated[UploadFile, File(description="JPEG or PNG image (the original upload)")],
+    image: Annotated[
+        UploadFile, File(description="The original upload: JPEG, PNG, WebP, AVIF, GIF, BMP or TIFF")
+    ],
     width_mm: Annotated[float, Form(gt=0, le=1000, description="Image width")] = 100.0,
     min_thickness_mm: Annotated[
         float, Form(ge=0.2, le=10, description="Thickness of the brightest areas")

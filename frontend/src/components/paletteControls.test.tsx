@@ -12,7 +12,7 @@ import { PaletteEditor } from './PaletteEditor';
 import { TracingOptionsPanel } from './TracingOptionsPanel';
 
 const png = new File(['png'], 'logo.png', { type: 'image/png' });
-const gif = new File(['gif'], 'logo.gif', { type: 'image/gif' });
+const tiff = new File(['tiff'], 'scan.tif', { type: 'image/tiff' });
 
 describe('ImageUpload', () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -43,16 +43,18 @@ describe('ImageUpload', () => {
     await userEvent.upload(input, avif);
     expect(onSelect).toHaveBeenCalledWith(webp);
     expect(onSelect).toHaveBeenCalledWith(avif);
-    expect(screen.getByText('JPEG, PNG, WebP or AVIF, up to 10 MB')).toBeInTheDocument();
+    expect(screen.getByText('JPEG, PNG, WebP, AVIF, GIF or BMP, up to 10 MB')).toBeInTheDocument();
     expect(input).toHaveAttribute('accept', expect.stringContaining('image/avif'));
   });
 
   it('rejects other file types', () => {
     const { onSelect, onReject } = renderUpload();
 
-    fireEvent.change(screen.getByLabelText('Choose image'), { target: { files: [gif] } });
+    fireEvent.change(screen.getByLabelText('Choose image'), { target: { files: [tiff] } });
     expect(onSelect).not.toHaveBeenCalled();
-    expect(onReject).toHaveBeenCalledWith('Only JPEG, PNG, WebP and AVIF images are supported.');
+    expect(onReject).toHaveBeenCalledWith(
+      'Only JPEG, PNG, WebP, AVIF, GIF and BMP images are supported.',
+    );
   });
 
   it('shows a drop target while dragging and takes the dropped file', () => {

@@ -57,7 +57,7 @@ def test_applies_jpeg_exif_orientation() -> None:
 
 def test_rejects_unsupported_format() -> None:
     with pytest.raises(UnsupportedMediaType):
-        decode_image(encode(Image.new("RGB", (4, 4)), "GIF"), max_dimension=64)
+        decode_image(encode(Image.new("RGB", (4, 4)), "PPM"), max_dimension=64)
 
 
 def test_rejects_non_image_bytes() -> None:
@@ -254,6 +254,68 @@ def test_an_animated_webp_is_read_as_its_first_frame() -> None:
     decoded = decode_image(buffer.getvalue(), max_dimension=64)
 
     assert tuple(decoded.rgb[0, 0]) == (255, 0, 0)
+
+
+def _paletted(labels: list[list[int]], colors: list[tuple[int, int, int]]) -> Image.Image:
+    image = Image.fromarray(np.array(labels, dtype=np.uint8), mode="P")
+    image.putpalette([value for color in colors for value in color])
+    return image
+
+
+def test_decodes_a_gif_and_its_transparent_color() -> None:
+    image = _paletted([[0, 1, 2], [2, 1, 0]], [RED, (0, 0, 255), (0, 0, 0)])
+
+    decoded = decode_image(encode(image, "GIF", transparency=2), max_dimension=64)
+
+    assert decoded.rgb[0, :2].tolist() == [[255, 0, 0], [0, 0, 255]]
+    assert decoded.alpha_mask.tolist() == [[True, True, False], [False, True, True]]
+
+
+def test_a_gif_is_read_as_an_indexed_image() -> None:
+    image = _paletted([[0, 1, 2], [2, 1, 0]], [RED, (0, 0, 255), (0, 0, 0)])
+
+    indexed = decode_indexed_png(encode(image, "GIF", transparency=2), max_dimension=64)
+
+    assert indexed.labels.tolist() == [[0, 1, TRANSPARENT_LABEL], [TRANSPARENT_LABEL, 1, 0]]
+    assert indexed.palette.tolist() == [[255, 0, 0], [0, 0, 255]]
+
+
+@pytest.mark.parametrize(
+    ("image_format", "params"),
+    [
+        ("BMP", {}),
+        ("TIFF", {}),
+        ("TIFF", {"compression": "tiff_lzw"}),
+        ("TIFF", {"compression": "tiff_adobe_deflate"}),
+    ],
+)
+def test_decodes_bmp_and_tiff_exactly(image_format: str, params: dict[str, object]) -> None:
+    decoded = decode_image(encode(stripes(), image_format, **params), max_dimension=64)
+
+    assert decoded.rgb[0, [0, 6, 9]].tolist() == [[255, 0, 0], [0, 160, 0], [0, 0, 255]]
+
+
+def test_a_tiff_with_several_pages_is_read_as_its_first_page() -> None:
+    pages = [Image.new("RGB", (8, 8), color) for color in (RED, (0, 0, 255))]
+    buffer = io.BytesIO()
+    pages[0].save(buffer, "TIFF", save_all=True, append_images=pages[1:])
+
+    assert tuple(decode_image(buffer.getvalue(), max_dimension=64).rgb[0, 0]) == RED
+
+
+def test_decodes_a_16_bit_grayscale_tiff() -> None:
+    image = Image.fromarray(np.array([[0, 32768, 65535]], dtype=np.uint16))
+
+    decoded = decode_image(encode(image, "TIFF"), max_dimension=64)
+
+    assert decoded.rgb[0, :, 0].tolist() == [0, 128, 255]
+
+
+def test_refuses_a_tiff_of_floating_point_values() -> None:
+    image = Image.fromarray(np.full((4, 4), 0.5, dtype=np.float32))
+
+    with pytest.raises(InvalidImage, match="floating point"):
+        decode_image(encode(image, "TIFF"), max_dimension=64)
 
 
 def test_the_webp_size_limit_holds() -> None:

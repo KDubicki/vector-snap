@@ -24,7 +24,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(
         title="VectorSnap API",
         version=__version__,
-        description="Stateless service converting raster images (JPEG/PNG) to SVG.",
+        description="Stateless service converting raster images (JPEG, PNG, WebP, AVIF, GIF, BMP, "
+        "TIFF) to SVG.",
         docs_url=None if settings.is_production else "/docs",
         redoc_url=None if settings.is_production else "/redoc",
     )
