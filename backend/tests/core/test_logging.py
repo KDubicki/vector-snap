@@ -99,7 +99,19 @@ def test_logs_one_access_line_per_request_with_its_duration(
     assert record.__dict__["status"] == response.status_code == 422
     assert record.__dict__["request_id"] == "req-42"
     assert isinstance(record.__dict__["duration_ms"], int)
+    assert record.__dict__["error"] == "VALIDATION_ERROR"  # the error envelope's code
     assert request_id_var.get() == "-"  # reset after the request
+
+
+def test_a_request_answered_without_an_error_logs_no_error_code(
+    client: TestClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.INFO)
+
+    client.get("/api/v1/limits")
+
+    [record] = _access(caplog)
+    assert "error" not in record.__dict__
 
 
 def test_health_checks_are_logged_at_debug_level(
@@ -125,7 +137,9 @@ def test_requests_that_crash_are_logged_as_500(caplog: pytest.LogCaptureFixture)
     response = TestClient(app, raise_server_exceptions=False).get("/boom")
 
     assert response.status_code == 500
-    assert [r.__dict__["status"] for r in _access(caplog)] == [500]
+    assert [(r.__dict__["status"], r.__dict__["error"]) for r in _access(caplog)] == [
+        (500, "INTERNAL_ERROR")
+    ]
 
 
 @pytest.mark.parametrize(

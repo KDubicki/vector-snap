@@ -152,13 +152,25 @@ class Metrics:
 
     def __init__(self) -> None:
         self.requests: Counter[tuple[str, str, int]] = Counter()
+        self.errors: Counter[tuple[str, str]] = Counter()  # by route and error code
         self.durations: dict[tuple[str, str], Histogram] = {}
         self.queue = Histogram(QUEUE_BUCKETS)
 
     def observe(
-        self, method: str, route: str, status: int, seconds: float, queue_s: float | None
+        self,
+        method: str,
+        route: str,
+        status: int,
+        seconds: float,
+        queue_s: float | None,
+        *,
+        error: str | None = None,
     ) -> None:
+        """Count a request; `error` is the code of the error envelope it was answered
+        with."""
         self.requests[(method, route, status)] += 1
+        if error is not None:
+            self.errors[(route, error)] += 1
         key = (method, route)
         if key not in self.durations:
             self.durations[key] = Histogram(DURATION_BUCKETS)
@@ -178,6 +190,15 @@ class Metrics:
         for (method, route, status), count in sorted(self.requests.items()):
             labels = {"method": method, "route": route, "status": str(status)}
             lines.append(f"vectorsnap_requests_total{_labels(labels)} {count}")
+        lines += [
+            "# HELP vectorsnap_errors_total Requests answered with an error, by route and "
+            "the error's code (INVALID_SVG, IMAGE_TOO_LARGE, SERVER_BUSY, ...).",
+            "# TYPE vectorsnap_errors_total counter",
+        ]
+        for (route, code), count in sorted(self.errors.items()):
+            lines.append(
+                f"vectorsnap_errors_total{_labels({'route': route, 'code': code})} {count}"
+            )
         lines += [
             "# HELP vectorsnap_request_duration_seconds Time to answer a request.",
             "# TYPE vectorsnap_request_duration_seconds histogram",

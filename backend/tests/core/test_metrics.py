@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 
+from app.core.config import Settings
 from app.core.metrics import CONTENT_TYPE, Histogram, process_lines, route_label
 from app.main import create_app
 from tests.images import encode, stripes
@@ -49,6 +50,24 @@ def test_counts_requests_by_route_and_status() -> None:
     assert _value(text, "vectorsnap_jobs_waiting") == 0
     assert _value(text, "vectorsnap_jobs_limit") == 4
     assert _value(text, 'vectorsnap_info{version="0.1.0"}') == 1
+
+
+def test_counts_errors_by_route_and_code() -> None:
+    client = TestClient(create_app(Settings(max_upload_mb=1)))
+    for _ in range(2):
+        client.post("/api/v1/svg/stats", files={"svg": ("a.svg", b"<svg", "image/svg+xml")})
+    client.get("/no/such/page")
+    # Refused before routing, by the body size limit.
+    client.post("/api/v1/svg/stats", files={"svg": ("a.svg", b"x" * 6 * 2**20, "image/svg+xml")})
+    client.get("/api/v1/health")
+
+    text = client.get("/metrics").text
+
+    stats = 'route="/api/v1/svg/stats"'
+    assert _value(text, f'vectorsnap_errors_total{{{stats},code="INVALID_SVG"}}') == 2
+    assert _value(text, 'vectorsnap_errors_total{route="other",code="NOT_FOUND"}') == 1
+    assert _value(text, 'vectorsnap_errors_total{route="other",code="FILE_TOO_LARGE"}') == 1
+    assert 'route="/api/v1/health",code' not in text
 
 
 def test_reports_the_resources_of_the_process() -> None:

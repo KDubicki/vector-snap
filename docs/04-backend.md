@@ -257,6 +257,10 @@ compressed responses through unchanged.
     the API path (`/api/v1/quantize`); `other` for unknown paths (404), CORS preflights
     and processing requests refused before routing: `413` over the upload limit,
     `503` busy, `499` client left while queued ([Concurrency](#concurrency)).
+  - `vectorsnap_errors_total{route, code}` — requests answered with an error, by the
+    `code` of the error envelope (`INVALID_SVG`, `IMAGE_TOO_LARGE`, `SERVER_BUSY`,
+    `INTERNAL_ERROR`, ...; see [Error handling](#error-handling)): what a 422 or a 500
+    was about, without reading the logs.
   - `vectorsnap_request_duration_seconds{method, route}` — histogram, 10 ms to 120 s.
   - `vectorsnap_queue_wait_seconds` — histogram of processing requests' wait for a slot.
   - `vectorsnap_jobs_running`, `vectorsnap_jobs_waiting`, `vectorsnap_jobs_limit` — the
@@ -287,8 +291,9 @@ compressed responses through unchanged.
   uvicorn's own logs go through the same handler; its access log is replaced by one
   `app.access` line per request with `method`, `path`, `status` and `duration_ms`, plus
   `queue_ms` for processing requests — how long they waited for a slot
-  ([Concurrency](#concurrency)) — (crashed requests are logged as `500`; health checks
-  only at `debug` level).
+  ([Concurrency](#concurrency)) — and `error`, the error envelope's code, for an answer
+  that is an error (crashed requests are logged as `500` with `INTERNAL_ERROR`; health
+  checks only at `debug` level).
 - Every response carries a `Server-Timing` header that browser developer tools show
   under *Timing*: `queue` (waiting for a processing slot), the pipeline steps the request
   ran — `decode`, `quantize`, `suggest`, `trace` — and `total`, in milliseconds, e.g.

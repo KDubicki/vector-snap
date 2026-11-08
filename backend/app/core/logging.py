@@ -148,11 +148,13 @@ async def request_id_middleware(
         return response
     finally:
         elapsed = time.perf_counter() - started
+        # Set by error_body() when the answer is an error envelope.
+        error: str | None = getattr(request.state, "error_code", None)
         metrics: Metrics | None = getattr(request.app.state, "metrics", None)
         if metrics is not None:
             metrics_route = route_label(request.scope)
             queue_s = timings["queue"] / 1000 if "queue" in timings else None
-            metrics.observe(request.method, metrics_route, status, elapsed, queue_s)
+            metrics.observe(request.method, metrics_route, status, elapsed, queue_s, error=error)
         # Health checks run every few seconds; keep them out of normal logs.
         level = logging.DEBUG if request.url.path.startswith(HEALTH_PREFIX) else logging.INFO
         access_logger.log(
@@ -167,6 +169,7 @@ async def request_id_middleware(
                 "status": status,
                 "duration_ms": round(elapsed * 1000),
                 **({"queue_ms": round(timings["queue"])} if "queue" in timings else {}),
+                **({"error": error} if error else {}),
             },
         )
         step_timings_var.reset(timings_token)

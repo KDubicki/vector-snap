@@ -77,6 +77,8 @@ class ServerBusy(VectorSnapError):
 def error_body(
     request: Request, code: str, message: str, details: dict[str, Any]
 ) -> dict[str, Any]:
+    """The error envelope; the request keeps its code for the access log and metrics."""
+    request.state.error_code = code
     return {
         "error": {"code": code, "message": message, "details": details},
         "request_id": getattr(request.state, "request_id", None),
