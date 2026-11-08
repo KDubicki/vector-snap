@@ -7,9 +7,19 @@ from app.services.base_plate import MAGNET_ROOF_MM
 from app.services.model_options import StlOptions
 from app.services.model_parts import Part
 
+# The thinnest layer a printer lays (resin printers: 10 µm). Thinner "layers" are no
+# printer's, and counting the colors of millions of them (`color_changes`) would hold a
+# processing slot for minutes, or for ever.
+MIN_PRINT_LAYER_MM = 0.01
+
 
 def check_options(options: StlOptions, base: float) -> None:
     """Reject option combinations that cannot be built, naming the field to change."""
+    if 0 < options.print_layer_mm < MIN_PRINT_LAYER_MM:
+        raise InvalidParameters(
+            f"A printer layer is at least {MIN_PRINT_LAYER_MM} mm thick; 0 keeps exact heights.",
+            {"field": "print_layer_mm"},
+        )
     engrave = options.relief == "engrave"
     if engrave and options.filaments:
         raise InvalidParameters(

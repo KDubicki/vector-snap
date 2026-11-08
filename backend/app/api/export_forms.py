@@ -49,7 +49,8 @@ UploadedSvg = Annotated[VectorDocument, Depends(uploaded_svg)]
 
 
 def stl_options(
-    width_mm: Annotated[float, Form(gt=0, le=10_000, description="Model width")] = 100.0,
+    # 1 mm: the narrowest model a nozzle can draw (smaller ones underflow the geometry).
+    width_mm: Annotated[float, Form(ge=1, le=10_000, description="Model width")] = 100.0,
     base_mm: Annotated[float, Form(ge=0, le=100, description="Base plate thickness")] = 1.0,
     layer_mm: Annotated[float, Form(gt=0, le=100, description="Height per color layer")] = 1.0,
     layered: Annotated[
@@ -74,7 +75,8 @@ def stl_options(
         float, Form(ge=0, le=2, description="Gap between neighbouring colors; 0 = none")
     ] = 0.0,
     print_layer_mm: Annotated[
-        float, Form(ge=0, le=1, description="Printer layer height; heights snap to it")
+        float,
+        Form(ge=0, le=1, description="Printer layer height (0.01-1); heights snap to it; 0 = off"),
     ] = 0.0,
     base_shape: Annotated[
         BaseShape,

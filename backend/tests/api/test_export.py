@@ -58,6 +58,7 @@ def test_stl_defaults(client: TestClient) -> None:
     ("form", "code"),
     [
         ({"width_mm": "0"}, "VALIDATION_ERROR"),
+        ({"width_mm": "0.5"}, "VALIDATION_ERROR"),
         ({"layer_mm": "-1"}, "VALIDATION_ERROR"),
         ({"min_feature_mm": "-0.1"}, "VALIDATION_ERROR"),
         ({"simplify_mm": "3"}, "VALIDATION_ERROR"),
@@ -65,6 +66,7 @@ def test_stl_defaults(client: TestClient) -> None:
         ({"elephant_foot_mm": "0.6"}, "VALIDATION_ERROR"),
         ({"elephant_foot_mm": "0.2", "base_mm": "0"}, "INVALID_PARAMETERS"),
         ({"print_layer_mm": "2"}, "VALIDATION_ERROR"),
+        ({"print_layer_mm": "0.001"}, "INVALID_PARAMETERS"),
         ({"base_shape": "star"}, "VALIDATION_ERROR"),
         ({"outline_mm": "6"}, "VALIDATION_ERROR"),
         ({"outline_mm": "1", "outline_color": "black"}, "VALIDATION_ERROR"),
@@ -511,6 +513,23 @@ def test_color_changes_need_the_printer_layer_height(client: TestClient) -> None
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "INVALID_PARAMETERS"
+
+
+def test_color_changes_refuse_layers_thinner_than_a_printer_lays(client: TestClient) -> None:
+    # 1e-300 mm layers made the count run for ever, holding a processing slot.
+    response = _post(client, "color-changes", {"print_layer_mm": "0.001"})
+
+    assert response.status_code == 422
+    error = response.json()["error"]
+    assert error["code"] == "INVALID_PARAMETERS"
+    assert error["details"] == {"field": "print_layer_mm"}
+
+
+def test_resin_printer_layers_are_accepted(client: TestClient) -> None:
+    response = _post(client, "color-changes", {"base_mm": "0.6", "print_layer_mm": "0.01"})
+
+    assert response.status_code == 200
+    assert response.json()["layers"] == 260  # 0.6 + 2 mm
 
 
 def test_filament_plan_rejects_invalid_svg(client: TestClient) -> None:

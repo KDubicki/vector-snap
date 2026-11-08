@@ -59,7 +59,7 @@ curl -F svg=@logo.svg -F width_mm=120 -F base_mm=1.5 -F layer_mm=0.8 \
 
 | Option | Default | Meaning |
 |--------|---------|---------|
-| `width_mm` | `100` | Model width; height follows the aspect ratio |
+| `width_mm` | `100` | Model width (1–10000); height follows the aspect ratio |
 | `stl_format` | `binary` | `binary` or `ascii` (STL and STL per part only) |
 | `base_mm` | `1.0` | Base plate under all shapes (`0` = no base) |
 | `base_shape` | `outline` | Base plate footprint: `outline` (follows the design), `rectangle`, `rounded` (rectangle with round corners), `circle` (smallest circle around the design), `oval` (ellipse through the corners of the bounding box grown by the margin) or `hexagon` (regular, flat top and bottom) |
@@ -89,7 +89,7 @@ curl -F svg=@logo.svg -F width_mm=120 -F base_mm=1.5 -F layer_mm=0.8 \
 | `copy_gap_mm` | `5` | Space between the copies (0–100) |
 | `mirror` | `false` | Mirror horizontally — for stamps or printing the top face down on the bed |
 | `origin` | `corner` | Where the model sits: `corner` keeps the design's coordinates (x and y from 0), `center` puts the middle of its footprint at x = y = 0 — for CAD, CNC and tools that do not re-center imports. z always starts at 0 |
-| `print_layer_mm` | `0` | Printer layer height (≤ 1 mm): the base and every color are rounded to whole layers, so each color ends exactly on a layer boundary; `0` keeps the exact heights |
+| `print_layer_mm` | `0` | Printer layer height (0.01–1 mm; resin printers lay 0.01 mm): the base and every color are rounded to whole layers, so each color ends exactly on a layer boundary; `0` keeps the exact heights |
 | `min_feature_mm` | `0` | Remove every part narrower than this before extrusion — set it to the nozzle width (e.g. `0.4`); `0` keeps everything |
 | `simplify_mm` | `0` | Simplify outlines (0–2 mm): points closer than this to the simplified outline are dropped — far fewer triangles and smaller files for traced photos; `0` keeps the outlines exact |
 | `color_gap_mm` | `0` | Gap between neighbouring colors (0–2 mm): every color shrinks by half of it — parts printed separately and fitted together (inlays, puzzles, tolerances), or a clean edge between colors; the base plate keeps its outline. `0` = colors touch |
