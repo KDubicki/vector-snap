@@ -2,15 +2,22 @@
 
 `request_id_middleware` (app/core/logging.py) reports every request: its route, status,
 duration and time waiting for a processing slot. The processing load (running, waiting,
-limit) is read from `ProcessingSlots` when scraped. Counters live in the process, as the
+limit) is read from `ProcessingSlots` when scraped, and the process's CPU time, memory,
+open files and threads from the process itself. Counters live in the process, as the
 readiness probe's load does: run one worker per container and scrape each container.
 Written by hand, so the service needs no client library. See
 docs/04-backend.md#observability.
 """
 
 import math
+import os
+import resource
+import sys
+import threading
+import time
 from collections import Counter
 from collections.abc import Iterable
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from starlette.types import Scope
@@ -23,6 +30,14 @@ CONTENT_TYPE = "text/plain; version=0.0.4; charset=utf-8"
 # tens of seconds, up to the proxy timeout of 120 s.
 DURATION_BUCKETS = (0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0)
 QUEUE_BUCKETS = (0.01, 0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0)
+# When this worker process started: it imports this module as it starts.
+PROCESS_START = time.time()
+# Where Linux describes the process; elsewhere (a Mac in development) the metrics it
+# alone gives are left out.
+PROC_SELF = Path("/proc/self")
+# ru_maxrss counts KiB on Linux, bytes on macOS.
+MAXRSS_UNIT = 1 if sys.platform == "darwin" else 1024
+
 # Route label of requests no route answered: unknown paths (404), CORS preflights (the
 # CORS middleware answers them), and processing requests refused before routing (413
 # over the upload limit, 503 busy, 499 client left). Their paths would make a series each.
@@ -39,6 +54,56 @@ def route_label(scope: Scope) -> str:
         return OTHER
     template = str(getattr(route, "path", ""))
     return template if "{" in template else str(scope["path"])
+
+
+def process_lines(proc: Path = PROC_SELF) -> list[str]:
+    """The worker process's resources, under the names Prometheus' own clients give
+    them: CPU time, start, memory (resident now where Linux says, at its peak
+    everywhere: what to size VECTORSNAP_MAX_CONCURRENT_JOBS by), open files and their
+    limit, threads (the event loop's and the thread pool's)."""
+    lines = [
+        "# HELP process_cpu_seconds_total CPU time the process used, user and system.",
+        "# TYPE process_cpu_seconds_total counter",
+        f"process_cpu_seconds_total {_number(round(time.process_time(), 3))}",
+        "# HELP process_start_time_seconds When the process started, in Unix time.",
+        "# TYPE process_start_time_seconds gauge",
+        f"process_start_time_seconds {_number(round(PROCESS_START, 3))}",
+    ]
+    statm = proc / "statm"
+    if statm.exists():
+        resident = int(statm.read_text().split()[1]) * os.sysconf("SC_PAGE_SIZE")
+        lines += [
+            "# HELP process_resident_memory_bytes Memory the process holds in RAM.",
+            "# TYPE process_resident_memory_bytes gauge",
+            f"process_resident_memory_bytes {resident}",
+        ]
+    peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * MAXRSS_UNIT
+    lines += [
+        "# HELP vectorsnap_process_resident_memory_max_bytes The most memory the process "
+        "has held in RAM.",
+        "# TYPE vectorsnap_process_resident_memory_max_bytes gauge",
+        f"vectorsnap_process_resident_memory_max_bytes {peak}",
+    ]
+    descriptors = proc / "fd" if (proc / "fd").exists() else Path("/dev/fd")
+    if descriptors.exists():
+        lines += [
+            "# HELP process_open_fds Open file descriptors: files, sockets, pipes.",
+            "# TYPE process_open_fds gauge",
+            f"process_open_fds {len(os.listdir(descriptors))}",
+        ]
+    soft_limit, _ = resource.getrlimit(resource.RLIMIT_NOFILE)
+    if soft_limit != resource.RLIM_INFINITY:
+        lines += [
+            "# HELP process_max_fds The most file descriptors the process may open.",
+            "# TYPE process_max_fds gauge",
+            f"process_max_fds {soft_limit}",
+        ]
+    lines += [
+        "# HELP vectorsnap_threads Python threads: the event loop's and the thread pool's.",
+        "# TYPE vectorsnap_threads gauge",
+        f"vectorsnap_threads {threading.active_count()}",
+    ]
+    return lines
 
 
 class Histogram:
@@ -133,5 +198,6 @@ class Metrics:
             "# HELP vectorsnap_jobs_limit Processing slots (VECTORSNAP_MAX_CONCURRENT_JOBS).",
             "# TYPE vectorsnap_jobs_limit gauge",
             f"vectorsnap_jobs_limit {slots.limit}",
+            *process_lines(),
         ]
         return "\n".join(lines) + "\n"

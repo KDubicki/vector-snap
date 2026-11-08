@@ -262,6 +262,15 @@ compressed responses through unchanged.
   - `vectorsnap_jobs_running`, `vectorsnap_jobs_waiting`, `vectorsnap_jobs_limit` — the
     processing load, as the readiness probe reports it.
   - `vectorsnap_info{version}` — always 1.
+  - `process_cpu_seconds_total`, `process_start_time_seconds`,
+    `process_resident_memory_bytes` (Linux only), `process_open_fds`,
+    `process_max_fds` — the worker process's resources, under the names Prometheus'
+    own clients use, so standard dashboards show them.
+  - `vectorsnap_process_resident_memory_max_bytes` — the most memory the process has
+    held: what one worker needs at its busiest, to size
+    `VECTORSNAP_MAX_CONCURRENT_JOBS` and the container's memory by
+    ([Concurrency](#concurrency)).
+  - `vectorsnap_threads` — Python threads: the event loop's and the thread pool's.
 
   Counters belong to the worker process that answers the scrape: with
   `UVICORN_WORKERS` above 1 each scrape sees one worker, so scale with containers of
