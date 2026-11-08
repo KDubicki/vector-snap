@@ -16,7 +16,7 @@ import sys
 import threading
 import time
 from collections import Counter
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -153,6 +153,7 @@ class Metrics:
     def __init__(self) -> None:
         self.requests: Counter[tuple[str, str, int]] = Counter()
         self.errors: Counter[tuple[str, str]] = Counter()  # by route and error code
+        self.steps: dict[str, Histogram] = {}  # decode, quantize, trace, parse, ...
         self.durations: dict[tuple[str, str], Histogram] = {}
         self.queue = Histogram(QUEUE_BUCKETS)
 
@@ -165,10 +166,15 @@ class Metrics:
         queue_s: float | None,
         *,
         error: str | None = None,
+        steps: Mapping[str, float] | None = None,
     ) -> None:
         """Count a request; `error` is the code of the error envelope it was answered
-        with."""
+        with, `steps` the seconds its processing steps took (Server-Timing's)."""
         self.requests[(method, route, status)] += 1
+        for step, step_seconds in (steps or {}).items():
+            if step not in self.steps:
+                self.steps[step] = Histogram(DURATION_BUCKETS)
+            self.steps[step].observe(step_seconds)
         if error is not None:
             self.errors[(route, error)] += 1
         key = (method, route)
@@ -206,6 +212,13 @@ class Metrics:
         for (method, route), histogram in sorted(self.durations.items()):
             labels = {"method": method, "route": route}
             lines.extend(histogram.lines("vectorsnap_request_duration_seconds", labels))
+        lines += [
+            "# HELP vectorsnap_step_duration_seconds Time the processing steps took: "
+            "decode, quantize, suggest, trace, parse.",
+            "# TYPE vectorsnap_step_duration_seconds histogram",
+        ]
+        for step, histogram in sorted(self.steps.items()):
+            lines.extend(histogram.lines("vectorsnap_step_duration_seconds", {"step": step}))
         lines += [
             "# HELP vectorsnap_queue_wait_seconds Time processing requests waited for a slot.",
             "# TYPE vectorsnap_queue_wait_seconds histogram",

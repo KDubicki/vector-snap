@@ -52,6 +52,23 @@ def test_counts_requests_by_route_and_status() -> None:
     assert _value(text, 'vectorsnap_info{version="0.1.0"}') == 1
 
 
+def test_times_the_processing_steps() -> None:
+    client = TestClient(create_app())
+    for _ in range(2):
+        client.post(
+            "/api/v1/vectorize",
+            files={"image": ("a.png", encode(stripes()), "image/png")},
+            data={"colors": "3"},
+        )
+
+    text = client.get("/metrics").text
+
+    for step in ("decode", "quantize", "trace"):
+        assert _value(text, f'vectorsnap_step_duration_seconds_count{{step="{step}"}}') == 2
+        assert _value(text, f'vectorsnap_step_duration_seconds_sum{{step="{step}"}}') >= 0
+    assert 'step="queue"' not in text  # vectorsnap_queue_wait_seconds has it
+
+
 def test_counts_errors_by_route_and_code() -> None:
     client = TestClient(create_app(Settings(max_upload_mb=1)))
     for _ in range(2):

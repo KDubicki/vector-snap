@@ -154,7 +154,11 @@ async def request_id_middleware(
         if metrics is not None:
             metrics_route = route_label(request.scope)
             queue_s = timings["queue"] / 1000 if "queue" in timings else None
-            metrics.observe(request.method, metrics_route, status, elapsed, queue_s, error=error)
+            # The queue has a histogram of its own; the rest are processing steps.
+            steps = {step: ms / 1000 for step, ms in timings.items() if step != "queue"}
+            metrics.observe(
+                request.method, metrics_route, status, elapsed, queue_s, error=error, steps=steps
+            )
         # Health checks run every few seconds; keep them out of normal logs.
         level = logging.DEBUG if request.url.path.startswith(HEALTH_PREFIX) else logging.INFO
         access_logger.log(

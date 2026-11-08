@@ -262,6 +262,9 @@ compressed responses through unchanged.
     `INTERNAL_ERROR`, ...; see [Error handling](#error-handling)): what a 422 or a 500
     was about, without reading the logs.
   - `vectorsnap_request_duration_seconds{method, route}` — histogram, 10 ms to 120 s.
+  - `vectorsnap_step_duration_seconds{step}` — histogram of the processing steps
+    `Server-Timing` reports (`decode`, `quantize`, `suggest`, `trace`, `parse`): which
+    part of the work grows when requests get slower.
   - `vectorsnap_queue_wait_seconds` — histogram of processing requests' wait for a slot.
   - `vectorsnap_jobs_running`, `vectorsnap_jobs_waiting`, `vectorsnap_jobs_limit` — the
     processing load, as the readiness probe reports it.
