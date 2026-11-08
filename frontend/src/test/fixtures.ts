@@ -46,3 +46,15 @@ export function fetchResponses(...bodies: unknown[]) {
     return new Response(JSON.stringify(body), { status: 200 });
   });
 }
+
+/** `text` gzip-compressed, as an .svgz holds it. */
+export async function gzip(text: string): Promise<Uint8Array> {
+  const plain = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(text));
+      controller.close();
+    },
+  });
+  const packed = plain.pipeThrough(new CompressionStream('gzip'));
+  return new Uint8Array(await new Response(packed).arrayBuffer());
+}

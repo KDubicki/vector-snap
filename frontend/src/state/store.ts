@@ -19,7 +19,7 @@ import {
 } from '../lib/filamentLibrary';
 import { fitImage, type Resize } from '../lib/fitImage';
 import { DEFAULT_FORMATS, uploadFormats } from '../lib/imageFormats';
-import { importNotice, isOwnSvg, isSvgFile } from '../lib/openSvg';
+import { importNotice, isOwnSvg, isSvgFile, unpackSvg } from '../lib/openSvg';
 import { browserStorage } from '../lib/theme';
 import { DEFAULT_TRACING } from '../lib/tracing';
 import type {
@@ -242,10 +242,10 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
     }
   },
 
-  openSvg: async (file) => {
+  openSvg: async (chosen) => {
     const token = (choosing += 1);
     const { max_upload_mb } = get().limits;
-    if (file.size > max_upload_mb * 1024 * 1024) {
+    if (chosen.size > max_upload_mb * 1024 * 1024) {
       set({ error: `File is larger than ${max_upload_mb} MB.` });
       return;
     }
@@ -254,6 +254,10 @@ export const useAppStore = create<AppState>()((set, get, api) => ({
     set({ preparingImage: true, error: null, notice: null });
     const started = performance.now();
     try {
+      const file = await unpackSvg(chosen);
+      if (file.size > max_upload_mb * 1024 * 1024) {
+        throw new Error(`${chosen.name} unpacks to more than ${max_upload_mb} MB.`);
+      }
       const text = await file.text();
       const imported = isOwnSvg(text) ? null : await importSvg(file);
       if (token !== choosing) return;

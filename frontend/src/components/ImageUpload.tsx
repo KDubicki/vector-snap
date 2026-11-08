@@ -1,6 +1,6 @@
 import { useEffect, useState, type ChangeEvent, type DragEvent } from 'react';
 import { acceptAttribute, formatList, isSupportedImage } from '../lib/imageFormats';
-import { isSvgFile, SVG_TYPE } from '../lib/openSvg';
+import { isSvgFile, pastedSvg, SVG_ACCEPT, SVG_TYPE } from '../lib/openSvg';
 import { loadSampleImage } from '../lib/sample';
 
 interface ImageUploadProps {
@@ -47,8 +47,17 @@ export function ImageUpload({
 
   useEffect(() => {
     const onPaste = (event: ClipboardEvent) => {
-      const item = Array.from(event.clipboardData?.files ?? [])[0];
-      if (item) accept(item);
+      const data = event.clipboardData;
+      const item = Array.from(data?.files ?? [])[0];
+      if (item) {
+        accept(item);
+        return;
+      }
+      // SVG code, unless it is pasted into a text field.
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input, textarea, [contenteditable]')) return;
+      const svg = pastedSvg(data?.getData(SVG_TYPE) || data?.getData('text/plain') || '');
+      if (svg) accept(svg);
     };
     window.addEventListener('paste', onPaste);
     return () => window.removeEventListener('paste', onPaste);
@@ -87,13 +96,13 @@ export function ImageUpload({
     >
       <UploadIcon />
       <strong>{dragging ? 'Release to upload' : 'Drop an image here'}</strong>
-      <span>or paste an image from the clipboard</span>
+      <span>or paste an image or SVG code from the clipboard</span>
       <label className="button primary upload__choose">
         Choose image
         <input
           className="visually-hidden"
           type="file"
-          accept={acceptAttribute([...formats, SVG_TYPE])}
+          accept={[acceptAttribute(formats), ...SVG_ACCEPT].join(',')}
           onChange={(event: ChangeEvent<HTMLInputElement>) => accept(event.target.files?.[0])}
         />
       </label>

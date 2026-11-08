@@ -57,7 +57,11 @@ Status legend: ✅ implemented · 🔜 planned (see [Roadmap](11-roadmap.md)).
   (*JPEG, PNG, WebP, AVIF, GIF or BMP, up to 10 MB — or an SVG to edit*), and the
   header names them too.
 - **Open an SVG** (`openSvg` in the store, `src/lib/openSvg.ts`): an SVG file chosen,
-  dropped or pasted skips colors and tracing and opens in the editor. A VectorSnap
+  dropped or pasted skips colors and tracing and opens in the editor. So does SVG code
+  pasted as text (Figma's *Copy as SVG*, an editor's source view; not into a text
+  field), as `pasted.svg`, and a gzip-compressed SVG (`.svgz`, as Inkscape saves it),
+  unpacked in the browser (`DecompressionStream`) into `<name>.svg`, so *Compare with
+  original* and the saved session hold plain SVG. A VectorSnap
   design (`data-generator="vectorsnap…"` with color layers, e.g. an earlier download)
   opens as it is, keeping its layers and ids, without a request. Any other SVG —
   Inkscape, Illustrator, Figma, an icon — goes through

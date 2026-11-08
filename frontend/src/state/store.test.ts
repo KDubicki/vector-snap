@@ -5,6 +5,7 @@ import { shapesBounds } from '../editor/transform';
 import { DEFAULT_PRINT } from '../lib/printPlan';
 import { presetJson } from '../lib/printPreset';
 import { DEFAULT_TRACING } from '../lib/tracing';
+import { gzip } from '../test/fixtures';
 import type { QuantizeResponse, VectorizeResponse } from '../types/api';
 import { DUPLICATE_OFFSET, hasUnsavedEdits, openDocument } from './editorSlice';
 import {
@@ -62,6 +63,21 @@ describe('app store', () => {
     expect(store().notice).toBeNull();
     // There is no image to reduce to colors.
     expect(reachableSteps(store())).toEqual(['upload', 'result', 'print']);
+  });
+
+  it('unpacks a compressed SVG (.svgz) before opening it', async () => {
+    const fetch = vi.fn();
+    vi.stubGlobal('fetch', fetch);
+    const own = vectorized.svg.replace('<svg ', '<svg data-generator="vectorsnap/0.1.0" ');
+    const svgz = new File([await gzip(own)], 'design.svgz', { type: 'image/svg+xml' });
+
+    await store().chooseImage(svgz);
+
+    expect(fetch).not.toHaveBeenCalled(); // its own design, read once unpacked
+    expect(store().file?.name).toBe('design.svg');
+    expect(await store().file?.text()).toBe(own);
+    expect(store().vectorized?.svg).toBe(own);
+    expect(store().step).toBe('result');
   });
 
   it('brings an SVG from another tool into the editor through the import', async () => {

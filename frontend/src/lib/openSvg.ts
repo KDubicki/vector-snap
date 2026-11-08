@@ -5,10 +5,50 @@
  */
 
 export const SVG_TYPE = 'image/svg+xml';
+/** What a file picker offers for SVGs: the media type and both extensions. */
+export const SVG_ACCEPT = [SVG_TYPE, '.svg', '.svgz'];
 
-/** Whether the file is an SVG: by its media type, or its extension when it has none. */
+/**
+ * Whether the file is an SVG: by its media type, or its extension when it has none. A
+ * gzip-compressed one (`.svgz`, as Inkscape saves it) by its extension: systems give it
+ * the SVG type, a gzip type or none.
+ */
 export function isSvgFile(file: File): boolean {
-  return file.type ? file.type === SVG_TYPE : file.name.toLowerCase().endsWith('.svg');
+  const name = file.name.toLowerCase();
+  if (name.endsWith('.svgz')) return true;
+  return file.type ? file.type === SVG_TYPE : name.endsWith('.svg');
+}
+
+/**
+ * The SVG a file holds: a gzip-compressed one unpacked, as `<name>.svg`, so the editor,
+ * *Compare with original* and the saved session get plain SVG; any other file as it is.
+ */
+export async function unpackSvg(file: File): Promise<File> {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  if (bytes[0] !== 0x1f || bytes[1] !== 0x8b) return file;
+  const packed = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(bytes);
+      controller.close();
+    },
+  });
+  try {
+    const text = await new Response(packed.pipeThrough(new DecompressionStream('gzip'))).text();
+    return new File([text], file.name.replace(/\.svgz$/i, '.svg'), { type: SVG_TYPE });
+  } catch {
+    throw new Error(`${file.name} is compressed (.svgz) but could not be unpacked.`);
+  }
+}
+
+const SVG_SOURCE = /^(<\?xml[^>]*>\s*)?(<!--[\s\S]*?-->\s*)*(<!DOCTYPE[^>]*>\s*)?<svg\b/i;
+
+/**
+ * SVG code pasted as text — Figma's *Copy as SVG*, an editor's source view — as a file
+ * to open; null for any other text.
+ */
+export function pastedSvg(text: string): File | null {
+  const source = text.trim();
+  return SVG_SOURCE.test(source) ? new File([source], 'pasted.svg', { type: SVG_TYPE }) : null;
 }
 
 const ROOT_TAG = /<svg\b[^>]*>/i;
