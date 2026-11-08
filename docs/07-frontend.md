@@ -62,9 +62,9 @@ Status legend: ✅ implemented · 🔜 planned (see [Roadmap](11-roadmap.md)).
   opens as it is, keeping its layers and ids, without a request. Any other SVG —
   Inkscape, Illustrator, Figma, an icon — goes through
   [`POST /svg/import`](05-api-specification.md#post-apiv1svgimport), which turns it
-  into color areas; a notice says what it left out (*logo.svg was opened as color
-  areas: left out 2 outlines (strokes), 1 text; filled 1 gradient with its average
-  color.*). The colors step is not offered (there is no image to reduce), nor is the
+  into color areas, its outlines (strokes) included; a notice says what it left out
+  (*logo.svg was opened as color areas: left out 2 texts; filled 1 gradient with its
+  average color.*). The colors step is not offered (there is no image to reduce), nor is the
   lithophane, which is made from the original image; *Compare with original* shows
   the SVG file. The session keeps it like an image, so it can be continued.
 - **Try a sample**: loads the bundled `public/sample.png` (a flat-color logo with

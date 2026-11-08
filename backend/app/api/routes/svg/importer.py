@@ -23,9 +23,10 @@ async def import_svg_file(
     ],
 ) -> SvgImportResponse:
     """Convert an SVG made by another tool into the VectorSnap contract: one color layer
-    per fill color, holding the visible part of every filled shape (sizes, viewBox,
-    transforms, styles and copies applied), so it can be edited and exported like a traced
-    image. Strokes, text and images are left out and counted in `ignored`."""
+    per color, holding the visible part of every filled shape and stroke (sizes, viewBox,
+    transforms, styles and copies applied; a stroke as the area it paints), so it can be
+    edited and exported like a traced image. Text and images are left out and counted in
+    `ignored`."""
     data = await read_upload(svg, settings)
     imported = await run_in_threadpool(import_svg, data, settings.max_svg_shapes)
     document = imported.document

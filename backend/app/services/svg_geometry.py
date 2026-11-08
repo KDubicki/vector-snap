@@ -234,11 +234,21 @@ def flatten_path(
     path: svgelements.Path, tolerance: float = DEFAULT_TOLERANCE
 ) -> list[NDArray[np.float64]]:
     """`flatten` of a path svgelements has read already."""
-    rings: list[NDArray[np.float64]] = []
+    return closed_rings(flatten_subpaths(path, tolerance))
+
+
+def flatten_subpaths(
+    path: svgelements.Path, tolerance: float = DEFAULT_TOLERANCE
+) -> list[tuple[NDArray[np.float64], bool]]:
+    """Each subpath of a path as the polyline it draws (N x 2, a closed one back to its
+    start), and whether it is closed (`Z`): what a stroke follows."""
+    lines: list[tuple[NDArray[np.float64], bool]] = []
     for subpath in path.as_subpaths():
         chunks: list[NDArray[np.float64]] = []
+        closed = False
         for segment in svgelements.Path(subpath):
             if isinstance(segment, (svgelements.Move, svgelements.Line, svgelements.Close)):
+                closed = closed or isinstance(segment, svgelements.Close)
                 if segment.end is not None:
                     chunks.append(np.array([_xy(segment.end)]))
             elif isinstance(segment, svgelements.QuadraticBezier):
@@ -249,9 +259,17 @@ def flatten_path(
                 chunks.append(_bezier_points(np.array([_xy(p) for p in controls]), tolerance))
             elif isinstance(segment, svgelements.Arc):
                 chunks.append(_arc_points(segment, tolerance))
-        if not chunks:
-            continue
-        ring = np.concatenate(chunks)
+        if chunks:
+            lines.append((np.concatenate(chunks), closed))
+    return lines
+
+
+def closed_rings(lines: list[tuple[NDArray[np.float64], bool]]) -> list[NDArray[np.float64]]:
+    """The rings subpaths fill: every one closed (a fill closes open ones), without the
+    repeated start point; those of fewer than 3 points are left out."""
+    rings: list[NDArray[np.float64]] = []
+    for points, _ in lines:
+        ring = points
         if len(ring) > 1 and np.allclose(ring[0], ring[-1]):
             ring = ring[:-1]
         if len(ring) >= 3:

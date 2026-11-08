@@ -28,7 +28,6 @@ export function isOwnSvg(text: string): boolean {
 }
 
 const LEFT_OUT: Record<string, [string, string]> = {
-  strokes: ['outline (stroke)', 'outlines (strokes)'],
   text: ['text', 'texts'],
   images: ['embedded image', 'embedded images'],
   invisible: ['invisible shape', 'invisible shapes'],

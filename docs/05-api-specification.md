@@ -711,24 +711,31 @@ with `Accept: image/svg+xml`.
   in, the `viewBox`, transforms, `<use>` copies, CSS classes and `style`, `currentColor`;
   rectangles, circles, ellipses, polygons and paths, with their `fill-rule`. Sizes come
   out in px (96 per inch: 100 mm is 377.95 px).
-- Every filled shape is cut to what shows of it (later shapes painted over it are
-  removed), and the visible parts of each fill color become one color layer, in the
+- A stroke becomes the area it paints, over its shape's fill (under it with
+  `paint-order="stroke"`): its width, `stroke-linecap`, `stroke-linejoin`,
+  `stroke-miterlimit`, `stroke-dasharray` and `stroke-dashoffset`, scaled with the
+  element (exactly under moves, rotations, mirrors and even scaling; by the mean scale
+  under a skew; `vector-effect="non-scaling-stroke"` keeps its width on the page). Icon
+  sets drawn with strokes only (Lucide, Feather, Tabler) import as they show.
+- Every painted area is cut to what shows of it (later areas painted over it are
+  removed), and the visible parts of each color become one color layer, in the
   order the colors first appear. Flattened that way the layers never overlap, so their
   order and the 3D print's heights cannot hide one color under another. Curves become
   polygons with points 1/1000 of the document's longer side apart.
-- Left out and counted in `ignored`: `strokes` (outlines are not areas; the fill of a
-  stroked shape is kept), `text`, `images`, `invisible` (opacity 0, hidden), `unfilled`,
-  `no_area`. A gradient fill becomes the average of its stop colors (`gradients`).
-- Entities are never resolved and nothing is fetched. More than `max_svg_shapes` filled
-  shapes, read or resulting (a covered shape can fall apart into pieces), is
-  `413 SVG_TOO_COMPLEX`; a document without a filled area is `422 INVALID_SVG`. A few
+- Left out and counted in `ignored`: `text`, `images`, `invisible` (opacity 0, hidden),
+  `unfilled` (neither fill nor stroke), `no_area` (a filled line without a stroke). A
+  gradient fill or stroke becomes the average of its stop colors (`gradients`).
+- Entities are never resolved and nothing is fetched. More than `max_svg_shapes` painted
+  areas (fills, strokes, dashes), read or resulting (a covered shape can fall apart into
+  pieces), is `413 SVG_TOO_COMPLEX`; a document that paints no area is
+  `422 INVALID_SVG`. A few
   hundred shapes take well under a second, 10,000 abutting ones about 4 s.
 
 ```json
 {
   "svg": "<svg ...>...</svg>", "width": 377.95, "height": 188.98,
   "colors": 4, "shapes": 7,
-  "ignored": { "gradients": 1, "strokes": 2, "text": 1 }
+  "ignored": { "gradients": 1, "text": 1 }
 }
 ```
 

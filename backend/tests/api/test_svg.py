@@ -427,15 +427,16 @@ def test_imports_an_svg_from_another_tool(client: TestClient) -> None:
 
     assert response.status_code == 200
     body = response.json()
-    assert (body["colors"], body["shapes"]) == (2, 2)
-    assert body["ignored"] == {"strokes": 1, "text": 1}
+    # White, the red circle and the black ring its stroke paints around it.
+    assert (body["colors"], body["shapes"]) == (3, 3)
+    assert body["ignored"] == {"text": 1}
     assert body["width"] == pytest.approx(20 * 96 / 25.4)
     assert 'data-palette-index="1" fill="#cc0000"' in body["svg"]
     # What it gives back, every other endpoint takes.
     stats = client.post(
         "/api/v1/svg/stats", files={"svg": ("logo.svg", body["svg"].encode(), "image/svg+xml")}
     )
-    assert stats.json()["colors"] == 2
+    assert stats.json()["colors"] == 3
 
 
 def test_import_answers_with_the_svg_itself_on_request(client: TestClient) -> None:

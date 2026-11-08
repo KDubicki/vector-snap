@@ -112,9 +112,11 @@ def test_a_gradient_becomes_the_average_of_its_stops() -> None:
 
 def test_leaves_out_and_counts_what_the_contract_cannot_hold() -> None:
     body = (
-        '<rect width="50" height="50" fill="#ff0000" stroke="#000000"/>'
-        '<polyline points="0,90 30,90 30,100" fill="none" stroke="black"/>'
-        '<line x1="0" y1="0" x2="10" y2="10" stroke="red"/>'
+        '<rect width="50" height="50" fill="#ff0000"/>'
+        '<rect x="50" width="5" height="5" fill="none"/>'
+        '<line x1="0" y1="0" x2="10" y2="10" fill="blue"/>'
+        '<rect x="90" width="5" height="5" fill="blue" fill-opacity="0" stroke="red" '
+        'stroke-opacity="0"/>'
         '<text x="50" y="80">Hi</text>'
         '<image href="data:image/png;base64,AAAA" width="10" height="10"/>'
         '<rect x="60" width="5" height="5" fill="#00ff00" opacity="0"/>'
@@ -124,8 +126,9 @@ def test_leaves_out_and_counts_what_the_contract_cannot_hold() -> None:
     imported = import_svg(_svg(body), 100)
 
     assert [layer.fill for layer in imported.document.layers] == ["#ff0000"]
-    # The stroke around the red square, the polyline and the line: outlines, not areas.
-    assert imported.ignored == {"images": 1, "invisible": 2, "strokes": 3, "text": 1}
+    # Painting nothing: the unfilled rectangle, the filled line (no area, no stroke).
+    expected = {"images": 1, "invisible": 3, "no_area": 1, "text": 1, "unfilled": 1}
+    assert imported.ignored == expected
 
 
 @pytest.mark.parametrize(
@@ -133,7 +136,7 @@ def test_leaves_out_and_counts_what_the_contract_cannot_hold() -> None:
     [
         (b"<svg", "well-formed"),
         (b'<html xmlns="http://www.w3.org/1999/xhtml"/>', "not an SVG"),
-        (_svg('<path d="M0 0 L10 10" fill="none" stroke="black"/>'), "no filled shapes"),
+        (_svg('<path d="M0 0 L10 10" fill="none" stroke="none"/>'), "paints no area"),
     ],
 )
 def test_rejects_documents_without_filled_shapes(data: bytes, message: str) -> None:

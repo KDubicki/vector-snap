@@ -3,15 +3,17 @@ VectorSnap contract, so it can be edited, recolored and exported like a traced i
 
 svgelements reads the document as a browser would draw it: sizes in mm or in, the
 viewBox, transforms, `<use>` copies, CSS classes and styles, `currentColor`, rectangles,
-circles, ellipses, polygons and paths; `display: none` is left out. Every filled shape is
-then cut to the part of it that shows (what later shapes cover is removed), and the
-visible parts of each color are united into one color layer, in the order the colors
-first appear. Flattened that way, the layers can be stacked in any order without one
-color hiding another, as the contract's layers and the 3D print's heights need.
+circles, ellipses, polygons and paths; `display: none` is left out. A stroke becomes the
+area it paints (app/services/svg_strokes.py), painted over its shape's fill. Every
+painted area is then cut to the part of it that shows (what later ones cover is
+removed), and the visible parts of each color are united into one color layer, in the
+order the colors first appear. Flattened that way, the layers can be stacked in any
+order without one color hiding another, as the contract's layers and the 3D print's
+heights need.
 
-What the contract has no place for is left out and counted: strokes (outlines are not
-filled areas), text, embedded images, invisible shapes. A gradient or pattern fill
-becomes the average of its stop colors. See docs/05-api-specification.md#post-apiv1svgimport.
+What the contract has no place for is left out and counted: text, embedded images,
+invisible shapes. A gradient or pattern becomes the average of its stop colors. See
+docs/05-api-specification.md#post-apiv1svgimport.
 """
 
 import io
@@ -34,11 +36,13 @@ from app.services.svg_geometry import (
     VectorDocument,
     VectorLayer,
     VectorShape,
-    flatten_path,
+    closed_rings,
+    flatten_subpaths,
     path_data,
     polygons,
     to_polygon,
 )
+from app.services.svg_strokes import stroke_area
 
 # Points along curves are this far apart relative to the document's longer side: 1 px
 # in a document of 1000 px, 0.024 in an icon of 24. A circle of radius r then strays
@@ -54,7 +58,7 @@ FALLBACK_COLOR = (128, 128, 128)
 @dataclass
 class ImportedSvg:
     document: VectorDocument
-    shapes_read: int  # filled shapes found in the source
+    shapes_read: int  # painted areas found in the source: fills and strokes
     ignored: Counter[str] = field(default_factory=Counter)  # what was left out, by kind
 
 
@@ -169,16 +173,69 @@ def _visible(painted: list[tuple[str, BaseGeometry]]) -> list[BaseGeometry]:
     return visible
 
 
-def _fill(element: svgelements.Shape, gradients: dict[str, tuple[int, int, int]]) -> str | None:
-    """The `#rrggbb` the element is filled with, None when it is not filled."""
-    raw = str(element.values.get("fill", "") or "")
-    url = _URL_RE.search(raw)
+def _paint(
+    element: svgelements.Shape, name: str, gradients: dict[str, tuple[int, int, int]]
+) -> str | None:
+    """The `#rrggbb` the element's `fill` or `stroke` paints with, None when it paints
+    nothing."""
+    if _transparent(element.values.get(f"{name}-opacity")):
+        return None
+    url = _URL_RE.search(str(element.values.get(name, "") or ""))
     if url:
         return _hex(gradients.get(url[1], FALLBACK_COLOR))
-    fill = element.fill
-    if fill is None or fill.value is None or fill.alpha == 0:
+    color = element.fill if name == "fill" else element.stroke
+    if color is None or color.value is None or color.alpha == 0:
         return None
-    return _hex((fill.red, fill.green, fill.blue))
+    return _hex((color.red, color.green, color.blue))
+
+
+def _gradient(values: dict[str, object], name: str) -> bool:
+    """Whether the fill or stroke is a gradient or pattern."""
+    return _URL_RE.search(str(values.get(name, "") or "")) is not None
+
+
+def _areas(
+    element: svgelements.Shape,
+    gradients: dict[str, tuple[int, int, int]],
+    tolerance: float,
+    max_shapes: int,
+    ignored: Counter[str],
+) -> list[tuple[str, BaseGeometry]]:
+    """What the element paints, in paint order: (color, area) of its fill and its
+    stroke. What it leaves out is counted in `ignored`."""
+    values = element.values
+    # Strokes scale with the element (not those that keep their width on screen).
+    scale = 1.0
+    if values.get("vector-effect") != "non-scaling-stroke":
+        scale = math.sqrt(abs(float(element.transform.determinant)))
+    width = float(element.stroke_width or 0) * scale
+    fill = _paint(element, "fill", gradients)
+    stroke = _paint(element, "stroke", gradients) if width > 0 else None
+    if fill is None and stroke is None:
+        hidden = any(_transparent(values.get(f"{name}-opacity")) for name in ("fill", "stroke"))
+        ignored["invisible" if hidden else "unfilled"] += 1
+        return []
+    # abs(): with its transform applied (svgelements reads without, to keep its scale).
+    lines = flatten_subpaths(abs(svgelements.Path(element)), tolerance)
+    areas: list[tuple[str, BaseGeometry]] = []
+    if fill is not None:
+        rings = closed_rings(lines)
+        outline = to_polygon(rings) if values.get("fill-rule") == "evenodd" else _nonzero(rings)
+        if not outline.is_empty and outline.area > 0:
+            areas.append((fill, outline))
+            if _gradient(values, "fill"):
+                ignored["gradients"] += 1  # kept, as one color
+        elif stroke is None:
+            ignored["no_area"] += 1  # a filled line shows nothing
+    if stroke is not None:
+        pen = stroke_area(lines, values, width, scale, tolerance, max_shapes)
+        if not pen.is_empty:
+            areas.append((stroke, pen))
+            if _gradient(values, "stroke"):
+                ignored["gradients"] += 1  # kept, as one color
+    if str(values.get("paint-order") or "").split()[:1] == ["stroke"]:
+        areas.reverse()  # the stroke under the fill
+    return areas
 
 
 def import_svg(data: bytes, max_shapes: int) -> ImportedSvg:
@@ -187,7 +244,8 @@ def import_svg(data: bytes, max_shapes: int) -> ImportedSvg:
     safe, root = _safe_bytes(data)
     gradients = _stop_colors(root)
     try:
-        svg = svgelements.SVG.parse(io.BytesIO(safe), reify=True, ppi=96)
+        # Not reified: each element keeps its transform, whose scale sizes its stroke.
+        svg = svgelements.SVG.parse(io.BytesIO(safe), reify=False, ppi=96)
     except (etree.XMLSyntaxError, ValueError, SyntaxError) as exc:  # ParseError: SyntaxError
         raise InvalidSvg(f"SVG cannot be read: {exc}.") from exc
     width, height = float(svg.width or 0), float(svg.height or 0)
@@ -207,41 +265,22 @@ def import_svg(data: bytes, max_shapes: int) -> ImportedSvg:
         if not isinstance(element, svgelements.Shape):
             continue
         values = element.values
-        if values.get("visibility") in ("hidden", "collapse") or any(
-            _transparent(values.get(name)) for name in ("opacity", "fill-opacity")
+        if values.get("visibility") in ("hidden", "collapse") or _transparent(
+            values.get("opacity")
         ):
             ignored["invisible"] += 1
             continue
-        color = _fill(element, gradients)
-        stroked = element.stroke is not None and element.stroke.value is not None
-        if color is None:
-            ignored["strokes" if stroked else "unfilled"] += 1
-            continue
-        if len(painted) >= max_shapes:
-            raise SvgTooComplex(
-                f"The SVG has more than {max_shapes} filled shapes; at most {max_shapes} "
-                "are accepted.",
-                {"max_svg_shapes": max_shapes},
-            )
-        # abs(): with what is left of its transform applied: svgelements keeps a rotated
-        # or skewed rectangle, circle or ellipse as one, with its transform beside it.
-        rings = flatten_path(abs(svgelements.Path(element)), tolerance)
-        evenodd = values.get("fill-rule") == "evenodd"
-        outline = to_polygon(rings) if evenodd else _nonzero(rings)
-        if outline.is_empty or outline.area <= 0:
-            # A line: what shows of it is its stroke.
-            ignored["strokes" if stroked else "no_area"] += 1
-            continue
-        if stroked:
-            ignored["strokes"] += 1  # the fill is kept, the outline drawn around it is not
-        if _URL_RE.search(str(values.get("fill", "") or "")):
-            ignored["gradients"] += 1  # kept, as one color
-        painted.append((color, outline))
+        for area in _areas(element, gradients, tolerance, max_shapes, ignored):
+            if len(painted) >= max_shapes:
+                raise SvgTooComplex(
+                    f"The SVG paints more than {max_shapes} shapes; at most {max_shapes} "
+                    "are accepted.",
+                    {"max_svg_shapes": max_shapes},
+                )
+            painted.append(area)
 
     if not painted:
-        raise InvalidSvg(
-            "SVG contains no filled shapes: outlines (strokes), text and images are left out."
-        )
+        raise InvalidSvg("SVG paints no area: text and images are left out.")
     visible = _visible(painted)
     by_color: dict[str, list[BaseGeometry]] = {}
     for (color, _), part in zip(painted, visible, strict=True):

@@ -27,8 +27,8 @@ describe('opening SVG files', () => {
 
   it('says what the import left out or changed', () => {
     expect(importNotice('logo.svg', {})).toBeNull();
-    expect(importNotice('logo.svg', { strokes: 2, text: 1, gradients: 1 })).toBe(
-      'logo.svg was opened as color areas: left out 2 outlines (strokes), 1 text; ' +
+    expect(importNotice('logo.svg', { text: 2, unfilled: 1, gradients: 1 })).toBe(
+      'logo.svg was opened as color areas: left out 2 texts, 1 unfilled shape; ' +
         'filled 1 gradient with its average color.',
     );
     expect(importNotice('icon.svg', { images: 1, gradients: 3 })).toBe(

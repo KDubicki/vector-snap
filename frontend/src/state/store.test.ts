@@ -72,7 +72,7 @@ describe('app store', () => {
       height: 10,
       colors: 1,
       shapes: 2,
-      ignored: { strokes: 1 },
+      ignored: { text: 1 },
     });
     vi.stubGlobal('fetch', fetch);
     const inkscape = new File(['<svg xmlns="http://www.w3.org/2000/svg"/>'], 'logo.svg', {
@@ -85,7 +85,7 @@ describe('app store', () => {
     expect((fetch.mock.calls[0][1].body as FormData).get('svg')).toBeInstanceOf(Blob);
     expect(store().step).toBe('result');
     expect(store().vectorized?.svg).toBe(imported);
-    expect(store().notice).toBe('logo.svg was opened as color areas: left out 1 outline (stroke).');
+    expect(store().notice).toBe('logo.svg was opened as color areas: left out 1 text.');
   });
 
   it('stays on the upload step when an SVG cannot be imported', async () => {
