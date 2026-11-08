@@ -191,6 +191,33 @@ def _bezier_points(controls: NDArray[np.float64], tolerance: float) -> NDArray[n
     )
 
 
+def _arc_points(arc: svgelements.Arc, tolerance: float) -> NDArray[np.float64]:
+    """Sample an elliptical arc without its start point, vectorized.
+
+    The arc is drawn from its center and the two semi-diameters svgelements keeps
+    (to `prx` and `pry`), which stay exact under any transform. svgelements' own curves
+    take them for the ellipse's axes, which they are no longer once skewed: a circle
+    under `skewX` came out a third off.
+    """
+    center = np.array(_xy(arc.center))
+    axes = np.column_stack([np.array(_xy(arc.prx)) - center, np.array(_xy(arc.pry)) - center])
+    end = np.array([_xy(arc.end)])
+    turn = float(np.linalg.det(axes))
+    if turn == 0 or not arc.sweep:  # flattened to a line
+        return end
+    cos_start, sin_start = np.linalg.solve(axes, np.array(_xy(arc.start)) - center)
+    start = math.atan2(sin_start, cos_start)
+    # The sweep turns from the first semi-diameter towards the second; a mirroring
+    # transform swaps their order.
+    sweep = float(arc.sweep) if turn > 0 else -float(arc.sweep)
+    radius = float(np.linalg.norm(axes, axis=0).max())
+    samples = min(MAX_CURVE_SAMPLES, max(2, math.ceil(abs(sweep) * radius / tolerance)))
+    angles = start + sweep * np.linspace(0.0, 1.0, samples + 1)[1:]
+    points = center + np.column_stack([np.cos(angles), np.sin(angles)]) @ axes.T
+    points[-1] = end[0]
+    return np.asarray(points)
+
+
 def _xy(point: svgelements.Point) -> tuple[float, float]:
     x, y = float(point.x), float(point.y)
     if not (abs(x) <= MAX_COORDINATE and abs(y) <= MAX_COORDINATE):  # also NaN
@@ -221,9 +248,7 @@ def flatten_path(
                 controls = [segment.start, segment.control1, segment.control2, segment.end]
                 chunks.append(_bezier_points(np.array([_xy(p) for p in controls]), tolerance))
             elif isinstance(segment, svgelements.Arc):
-                for curve in segment.as_cubic_curves():
-                    controls = [curve.start, curve.control1, curve.control2, curve.end]
-                    chunks.append(_bezier_points(np.array([_xy(p) for p in controls]), tolerance))
+                chunks.append(_arc_points(segment, tolerance))
         if not chunks:
             continue
         ring = np.concatenate(chunks)

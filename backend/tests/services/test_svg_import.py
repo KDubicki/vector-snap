@@ -47,6 +47,24 @@ def test_reads_shapes_sizes_and_transforms_as_a_browser_draws_them() -> None:
     assert imported.shapes_read == 4
 
 
+def test_rotated_and_skewed_shapes_are_where_they_show() -> None:
+    # A rectangle, circle or ellipse under a rotation or skew was read upright and
+    # unscaled: svgelements keeps it as its own kind, with the transform left over.
+    body = (
+        '<rect x="10" y="10" width="40" height="20" fill="red" transform="rotate(90 30 20)"/>'
+        '<g transform="rotate(45 70 70)"><ellipse cx="70" cy="70" rx="25" ry="5" fill="blue"/></g>'
+        '<circle cx="20" cy="80" r="5" fill="lime" transform="matrix(1 0 0.5 1 -40 0)"/>'
+    )
+    document = import_svg(_svg(body), 100).document
+
+    assert _color_at(document, 30, 2) == ["#ff0000"]  # the rectangle stands upright
+    assert _color_at(document, 12, 20) == []
+    assert _color_at(document, 85, 85) == ["#0000ff"]  # the ellipse runs diagonally
+    assert _color_at(document, 92, 70) == []
+    assert _color_at(document, 16.5, 76) == ["#00ff00"]  # the circle leans left at the top
+    assert _color_at(document, 23, 77) == []
+
+
 def test_keeps_only_what_shows_of_shapes_painted_over() -> None:
     body = (
         '<rect width="100" height="100" fill="#ffffff"/>'

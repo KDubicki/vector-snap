@@ -1,12 +1,16 @@
 import math
 
+import numpy as np
 import pytest
+import svgelements
+from shapely import Polygon
 
 from app.core.errors import InvalidSvg
 from app.services.svg_geometry import (
     MAX_CURVE_SAMPLES,
     curve_path,
     flatten,
+    flatten_path,
     parse_svg,
     polygons,
     shape_outline,
@@ -174,6 +178,25 @@ def test_flattens_quadratic_curves_and_arcs() -> None:
     assert quad[0][len(quad[0]) // 2] == pytest.approx([10, 5], abs=0.2)  # apex of the curve
     assert len(arc[0]) > 10
     assert to_polygon(arc).area == pytest.approx(math.pi * 100 / 2, rel=0.01)  # half disc
+
+
+@pytest.mark.parametrize("transform", ["skewX(30)", "matrix(-1 0.4 0.3 1 5 -2)", "rotate(20)"])
+def test_a_transformed_arc_is_the_ellipse_it_shows(transform: str) -> None:
+    # svgelements' curves took a skewed arc's semi-diameters for its axes: a circle
+    # under skewX came out a third off, mirrored ones half the time the wrong way round.
+    matrix = svgelements.Matrix(transform)
+    circle = svgelements.Path("M6 10 A4 4 0 1 0 14 10 A4 4 0 1 0 6 10 Z") * matrix
+
+    (ring,) = flatten_path(abs(circle), 0.01)
+
+    angles = np.linspace(0, 2 * math.pi, 4000, endpoint=False)
+    x, y = 10 + 4 * np.cos(angles), 10 - 4 * np.sin(angles)  # the path's direction
+    exact = Polygon(
+        np.c_[matrix.a * x + matrix.c * y + matrix.e, matrix.b * x + matrix.d * y + matrix.f]
+    )
+    drawn = Polygon(ring)
+    assert drawn.symmetric_difference(exact).area < exact.area * 1e-3
+    assert drawn.exterior.is_ccw == exact.exterior.is_ccw  # the nonzero fill rule needs it
 
 
 def test_relative_commands_and_tiny_subpaths() -> None:

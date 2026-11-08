@@ -223,7 +223,9 @@ def import_svg(data: bytes, max_shapes: int) -> ImportedSvg:
                 "are accepted.",
                 {"max_svg_shapes": max_shapes},
             )
-        rings = flatten_path(svgelements.Path(element), tolerance)
+        # abs(): with what is left of its transform applied: svgelements keeps a rotated
+        # or skewed rectangle, circle or ellipse as one, with its transform beside it.
+        rings = flatten_path(abs(svgelements.Path(element)), tolerance)
         evenodd = values.get("fill-rule") == "evenodd"
         outline = to_polygon(rings) if evenodd else _nonzero(rings)
         if outline.is_empty or outline.area <= 0:
