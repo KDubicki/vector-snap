@@ -6,7 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 from fastapi.concurrency import run_in_threadpool
 
-from app.api.deps import read_upload
+from app.api.deps import read_svg_upload
 from app.api.export_forms import UploadedSvg
 from app.core.config import Settings, get_settings
 from app.schemas.svg import (
@@ -60,7 +60,7 @@ async def validate_svg_file(
 ) -> SvgValidateResponse:
     """Check an SVG made or changed by another tool: what edits and exports would fail on
     (errors) or silently repair and leave out (warnings). Never rejects the SVG itself."""
-    data = await read_upload(svg, settings)
+    data = await read_svg_upload(svg, settings)
     result = await run_in_threadpool(validate_svg, data, settings.max_svg_shapes)
     return SvgValidateResponse(
         valid=result.valid,

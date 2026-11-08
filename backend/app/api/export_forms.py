@@ -12,7 +12,7 @@ from typing import Annotated
 from fastapi import Depends, File, Form, UploadFile
 from fastapi.concurrency import run_in_threadpool
 
-from app.api.deps import read_upload
+from app.api.deps import read_svg_upload
 from app.core.config import Settings, get_settings
 from app.core.errors import SvgTooComplex
 from app.core.logging import record_timing
@@ -33,11 +33,13 @@ from app.services.svg_geometry import VectorDocument, parse_svg
 
 async def uploaded_svg(
     settings: Annotated[Settings, Depends(get_settings)],
-    svg: Annotated[UploadFile, File(description="SVG in the VectorSnap contract")],
+    svg: Annotated[
+        UploadFile, File(description="SVG in the VectorSnap contract, or gzip-compressed (.svgz)")
+    ],
 ) -> VectorDocument:
     """Read and parse the `svg` form field every export and SVG edit takes, refusing more
     shapes than `max_svg_shapes`. How long parsing took is the request's `parse` step."""
-    data = await read_upload(svg, settings)
+    data = await read_svg_upload(svg, settings)
     started = time.perf_counter()
     # In the thread pool: a document of thousands of shapes takes tens to hundreds of
     # milliseconds to read, which would hold up every other request, health checks too.

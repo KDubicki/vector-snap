@@ -311,6 +311,7 @@ Converts an SVG in the [output contract](#svg-output-contract) to another format
 Request: `multipart/form-data` with an `svg` file and format options; response: the file
 as an attachment (`Content-Disposition: attachment; filename="vectorsnap.<ext>"`).
 Formats, options and geometry are described in [13-export-formats.md](13-export-formats.md).
+The `svg` file may also be gzip-compressed (`.svgz`), as for the [SVG](#svg) endpoints.
 
 **True/false form fields** that default to `true` (`layered`, `slicer_config` and
 `thumbnail` of the 3MF, `mirror` of the cookie cutter, `numbers` of the coloring page, `per_color` of the stencil) are read as text — `true`/`false`, `1`/`0`, `yes`/`no`, `on`/`off`;
@@ -369,6 +370,12 @@ contract: one `<g>` per layer bottom to top, ids kept, `fill` on a path only whe
 differs from its layer's. Layers that end up with the same color are **joined**: the
 layer covering less moves on top of the one covering more (every layer would otherwise
 be its own filament in a 3D print).
+
+**Compressed SVG.** The `svg` file may also be gzip-compressed (`.svgz`, as Inkscape and
+Illustrator save it): it is recognized by its content and unpacked in the thread pool,
+within `VECTORSNAP_MAX_UPLOAD_MB` both as sent and as unpacked (more unpacked is
+`413 FILE_TOO_LARGE`: a few kilobytes of gzip can unpack to gigabytes). A file that is
+gzip but cannot be unpacked whole is `422 INVALID_SVG`. Answers are plain SVG.
 
 **Raw SVG.** Every edit (all of `/svg/*` except `/svg/stats` and `/svg/validate`, which
 report on a document) answers with the edited SVG itself, `image/svg+xml`, when the
