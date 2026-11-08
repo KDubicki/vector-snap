@@ -296,9 +296,13 @@ compressed responses through unchanged.
   checks only at `debug` level).
 - Every response carries a `Server-Timing` header that browser developer tools show
   under *Timing*: `queue` (waiting for a processing slot), the pipeline steps the request
-  ran — `decode`, `quantize`, `suggest`, `trace` — and `total`, in milliseconds, e.g.
+  ran — `decode`, `quantize`, `suggest`, `trace`, and `parse` for an uploaded SVG of the
+  `/svg/*` and `/export/*` endpoints — and `total`, in milliseconds, e.g.
   `queue;dur=0.1, decode;dur=12.0, quantize;dur=803.0, total;dur=845.2`. A step reports
   itself with `record_timing()` (`app/core/logging.py`), also from worker threads.
+  Uploaded SVGs are parsed in the thread pool, like the work after them: a document of
+  thousands of shapes takes tens to hundreds of milliseconds to read, which on the event
+  loop would hold up every other request.
 - Processing steps (`app.services.pipeline`) log input dimensions, parameters and step
   durations under the same request id: `quantized image` (`colors`, `algorithm`,
   `decode_ms`, `quantize_ms`, ...), `vectorized image` (tracing options, `path_count`,

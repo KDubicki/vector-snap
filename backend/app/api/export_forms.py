@@ -6,13 +6,16 @@ the same options, so they are declared once here as FastAPI dependencies. See
 docs/05-api-specification.md.
 """
 
+import time
 from typing import Annotated
 
 from fastapi import Depends, File, Form, UploadFile
+from fastapi.concurrency import run_in_threadpool
 
 from app.api.deps import read_upload
 from app.core.config import Settings, get_settings
 from app.core.errors import SvgTooComplex
+from app.core.logging import record_timing
 from app.schemas.export import (
     parse_color_stacks,
     parse_filaments,
@@ -33,8 +36,13 @@ async def uploaded_svg(
     svg: Annotated[UploadFile, File(description="SVG in the VectorSnap contract")],
 ) -> VectorDocument:
     """Read and parse the `svg` form field every export and SVG edit takes, refusing more
-    shapes than `max_svg_shapes`."""
-    document = parse_svg(await read_upload(svg, settings))
+    shapes than `max_svg_shapes`. How long parsing took is the request's `parse` step."""
+    data = await read_upload(svg, settings)
+    started = time.perf_counter()
+    # In the thread pool: a document of thousands of shapes takes tens to hundreds of
+    # milliseconds to read, which would hold up every other request, health checks too.
+    document = await run_in_threadpool(parse_svg, data)
+    record_timing("parse", (time.perf_counter() - started) * 1000)
     shapes = sum(len(layer.shapes) for layer in document.layers)
     if shapes > settings.max_svg_shapes:
         raise SvgTooComplex(

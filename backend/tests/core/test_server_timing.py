@@ -1,11 +1,15 @@
 import logging
+import threading
 
 import httpx
 import pytest
 from fastapi.testclient import TestClient
 
 from app.core.logging import record_timing, server_timing, step_timings_var
+from app.services import svg_geometry
+from app.services.svg_geometry import VectorDocument
 from tests.images import encode, stripes
+from tests.vectors import contract_svg
 
 IMAGE = encode(stripes())
 
@@ -37,6 +41,27 @@ def test_one_shot_vectorizing_reports_quantizing_and_tracing(client: TestClient)
 
     assert response.status_code == 200
     assert list(_timings(response)) == ["queue", "decode", "quantize", "trace", "total"]
+
+
+def test_an_uploaded_svg_is_parsed_off_the_event_loop_as_its_own_step(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    threads = []
+
+    def parse(data: bytes) -> VectorDocument:
+        threads.append(threading.current_thread())
+        return svg_geometry.parse_svg(data)
+
+    monkeypatch.setattr("app.api.export_forms.parse_svg", parse)
+    svg = contract_svg(10, 10, [("#ff0000", ["M0 0H10V10H0Z"])])
+
+    response = client.post("/api/v1/svg/stats", files={"svg": ("a.svg", svg, "image/svg+xml")})
+
+    assert response.status_code == 200
+    assert list(_timings(response)) == ["queue", "parse", "total"]
+    # A worker thread of the pool, not the thread running the event loop.
+    [thread] = threads
+    assert thread.name.startswith("AnyIO worker thread")
 
 
 def test_a_request_without_steps_reports_its_total(client: TestClient) -> None:
